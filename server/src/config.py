@@ -6,6 +6,14 @@
 """
 
 import os
+from pathlib import Path
 
-# UDP配置
-UDP_PORT = 12306  # UDP监听端口
+# 服务端配置
+UDP_HOST = "0.0.0.0"  # 本地回环地址（用于开发测试，避免权限问题）
+UDP_PORT = 12345  # UDP监听端口（用于服务发现）
+TCP_PORT = 12346  # TCP监听端口（用于数据传输）
+
+# 日志配置
+LOG_LEVEL = "INFO"
+# 使用pathlib处理跨平台路径
+LOG_FILE = Path(__file__).parent.parent / "logs" / "net_manager_server.log"

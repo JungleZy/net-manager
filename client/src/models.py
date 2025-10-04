@@ -20,30 +20,6 @@ class DatabaseManager:
         # 确保db_path是Path对象
         self.db_path = DB_PATH if isinstance(DB_PATH, Path) else Path(DB_PATH)
         self.init_db()
-        self.migrate_database()
-
-    def migrate_database(self):
-        """迁移数据库结构"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 检查是否存在processes字段
-            cursor.execute("PRAGMA table_info(system_info)")
-            columns = [column[1] for column in cursor.fetchall()]
-            
-            if 'processes' not in columns:
-                # 添加processes字段
-                cursor.execute("ALTER TABLE system_info ADD COLUMN processes TEXT")
-                conn.commit()
-                logger.info("数据库迁移成功：添加了processes字段")
-            else:
-                logger.info("数据库已包含processes字段，无需迁移")
-            
-            conn.close()
-        except Exception as e:
-            logger.error(f"数据库迁移失败: {e}")
-            raise
     
     def init_db(self):
         """初始化数据库表"""
