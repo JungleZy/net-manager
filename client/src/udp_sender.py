@@ -23,6 +23,7 @@ class UDPSender:
                 "ip_address": system_info.ip_address,
                 "mac_address": system_info.mac_address,
                 "services": system_info.services,  # 这已经是JSON格式的字符串
+                "processes": system_info.processes,  # 这已经是JSON格式的字符串
                 "timestamp": system_info.timestamp
             }
             

@@ -9,6 +9,7 @@ import os
 import sys
 import subprocess
 import venv
+from pathlib import Path
 
 def check_python_version():
     """检查Python版本"""
@@ -21,19 +22,19 @@ def check_python_version():
 
 def create_virtual_environment():
     """创建虚拟环境"""
-    venv_dir = "venv"
-    if os.path.exists(venv_dir):
-        print("虚拟环境已存在")
-        return True
-    
     print("正在创建虚拟环境...")
     try:
-        venv.create(venv_dir, with_pip=True)
+        venv.create("venv", with_pip=True)
         print("虚拟环境创建成功")
         return True
     except Exception as e:
-        print(f"创建虚拟环境失败: {e}")
+        print(f"创建虚拟环境时出错: {e}")
         return False
+    
+    # 获取平台信息
+    import platform
+    system = platform.system().lower()
+    print(f"检测到运行平台: {system}")
 
 def install_dependencies():
     """安装依赖"""
@@ -41,11 +42,11 @@ def install_dependencies():
     try:
         # 在虚拟环境中安装依赖
         if os.name == 'nt':  # Windows
-            pip_path = os.path.join("venv", "Scripts", "pip")
+            pip_path = Path("venv") / "Scripts" / "pip"
         else:  # Unix/Linux/macOS
-            pip_path = os.path.join("venv", "bin", "pip")
+            pip_path = Path("venv") / "bin" / "pip"
         
-        result = subprocess.run([pip_path, "install", "-r", "requirements.txt"], 
+        result = subprocess.run([str(pip_path), "install", "-r", "requirements.txt"], 
                               capture_output=True, text=True)
         if result.returncode == 0:
             print("依赖安装成功")

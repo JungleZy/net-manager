@@ -72,6 +72,26 @@ UDP服务端将监听12306端口，接收来自Net Manager客户端的系统信�
 - 时间戳
 - 服务数量和前5个服务的详细信息
 
+## 跨平台兼容性
+
+Net Manager客户端现已支持Windows和Linux双平台运行：
+
+### Windows平台
+- 可直接运行打包版本 `client\main.exe`
+- 或使用批处理脚本 `client\run_client.bat`
+- 支持Windows 7及以上版本
+
+### Linux平台
+- 需要Python 3.7+环境
+- 安装依赖：`pip install -r requirements.txt`
+- 运行：`python client/main.py`
+
+### 平台兼容性特性
+- 统一的路径处理机制，自动适配不同系统的路径分隔符
+- 跨平台信号处理，支持优雅关闭
+- 自动识别系统编码，确保日志文件正确显示中文
+- 统一的配置文件管理
+
 ## 项目结构
 
 ### 客户端 (client/)
@@ -81,6 +101,7 @@ UDP服务端将监听12306端口，接收来自Net Manager客户端的系统信�
 - `src/udp_sender.py`: UDP发送模块
 - `src/logger.py`: 日志模块
 - `src/config.py`: 配置文件
+- `src/platform_utils.py`: 平台兼容性工具模块
 
 ### 服务端 (server/)
 - `main.py`: 服务端主程序入口
@@ -96,6 +117,6 @@ UDP服务端将监听12306端口，接收来自Net Manager客户端的系统信�
 程序支持以下信号进行优雅关闭：
 
 - `SIGINT` (Ctrl+C)
-- `SIGTERM`
+- `SIGTERM` (Linux/Unix)
 
 接收到这些信号时，程序会确保UDP连接被正确关闭后再退出。

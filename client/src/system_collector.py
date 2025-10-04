@@ -80,15 +80,46 @@ class SystemCollector:
         
         return services
     
+    def get_processes(self):
+        """获取当前运行的所有进程信息"""
+        processes = []
+        try:
+            # 遍历所有进程
+            for proc in psutil.process_iter(['pid', 'name', 'username', 'status', 'cpu_percent', 'memory_percent']):
+                try:
+                    # 获取进程信息
+                    process_info = {
+                        "pid": proc.info['pid'],
+                        "name": proc.info['name'],
+                        "username": proc.info['username'] or "unknown",
+                        "status": proc.info['status'],
+                        "cpu_percent": proc.info['cpu_percent'] or 0.0,
+                        "memory_percent": round(proc.info['memory_percent'] or 0.0, 2)
+                    }
+                    processes.append(process_info)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    # 忽略无法访问的进程
+                    pass
+            
+            logger.info(f"成功获取进程信息，共 {len(processes)} 个进程")
+        except Exception as e:
+            logger.error(f"获取进程信息出错: {e}")
+        
+        return processes
+    
     def collect_system_info(self):
         """收集完整的系统信息"""
         hostname = self.get_hostname()
         ip_address = self.get_ip_address()
         mac_address = self.get_mac_address()
         services = self.get_services()
+        processes = self.get_processes()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 将服务信息转换为JSON字符串存储
         services_json = json.dumps(services, ensure_ascii=False)
         
-        return SystemInfo(hostname, ip_address, mac_address, services_json, timestamp)
+        # 将进程信息转换为JSON字符串存储
+        processes_json = json.dumps(processes, ensure_ascii=False)
+        
+        return SystemInfo(hostname, ip_address, mac_address, services_json, processes_json, timestamp)

@@ -55,17 +55,20 @@ net-manager/
    - `UDPSender`类
    - 通过UDP协议发送系统信息
 
-4. **client/src/logger.py** - 日志模块
+### 4. **client/src/logger.py** - 日志模块
    - 日志配置和记录
    - 文件和控制台输出
 
-5. **client/src/config.py** - 客户端配置文件
+### 5. **client/src/config.py** - 客户端配置文件
    - UDP配置
    - 数据库配置
    - 收集间隔配置
    - 日志配置
 
-### 服务端主要模块
+### 6. **client/src/platform_utils.py** - 平台兼容性工具模块
+   - 跨平台路径处理
+   - 信号处理兼容性
+   - 系统编码识别 服务端主要模块
 
 1. **server/udp_server.py** - UDP服务端
    - 监听12306端口接收数据

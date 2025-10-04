@@ -13,6 +13,7 @@ from src.system_collector import SystemCollector
 from src.models import DatabaseManager
 from src.udp_sender import UDPSender
 from src.logger import logger
+from src.platform_utils import setup_signal_handlers
 
 # 全局变量用于信号处理
 udp_sender = None
@@ -29,9 +30,10 @@ def main():
     """主程序入口"""
     global udp_sender
     
-    # 注册信号处理器
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # 注册跨平台信号处理器
+    if not setup_signal_handlers(signal_handler):
+        logger.error("设置信号处理器失败")
+        return
     
     logger.info("Net Manager 启动...")
     
@@ -44,7 +46,7 @@ def main():
         while True:
             logger.info("开始收集系统信息...")
             
-            # 收集系统信息
+            # 收集系统信息（包括进程信息）
             system_info = collector.collect_system_info()
             
             # 保存到数据库
