@@ -85,20 +85,17 @@ class SystemCollector:
         processes = []
         try:
             # 遍历所有进程
-            for proc in psutil.process_iter(['pid', 'name', 'username', 'status', 'cpu_percent', 'memory_percent']):
+            for proc in psutil.process_iter(['pid', 'name', 'status', 'cpu_percent', 'memory_percent']):
                 try:
-                    # 获取进程信息
                     process_info = {
                         "pid": proc.info['pid'],
                         "name": proc.info['name'],
-                        "username": proc.info['username'] or "unknown",
                         "status": proc.info['status'],
                         "cpu_percent": proc.info['cpu_percent'] or 0.0,
                         "memory_percent": round(proc.info['memory_percent'] or 0.0, 2)
                     }
                     processes.append(process_info)
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    # 忽略无法访问的进程
                     pass
             
             logger.info(f"成功获取进程信息，共 {len(processes)} 个进程")

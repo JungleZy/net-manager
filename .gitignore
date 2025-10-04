@@ -162,3 +162,4 @@ cython_debug/
 # Net Manager specific ignores
 server/*.db
 client/logs/
+server/logs/

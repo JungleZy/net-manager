@@ -8,6 +8,9 @@
 import os
 from pathlib import Path
 
+# 版本信息
+VERSION = "1.0.0"
+
 # 服务端配置
 UDP_HOST = "0.0.0.0"  # 本地回环地址（用于开发测试，避免权限问题）
 UDP_PORT = 12345  # UDP监听端口（用于服务发现）

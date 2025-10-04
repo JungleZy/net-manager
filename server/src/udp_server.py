@@ -29,7 +29,6 @@ def udp_server():
     sock.bind(server_address)
     
     logger.info(f"UDP服务发现启动，监听地址 {UDP_HOST}:{UDP_PORT}...")
-    logger.info("按Ctrl+C停止服务")
     
     try:
         
