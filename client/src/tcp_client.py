@@ -47,7 +47,6 @@ class TCPClient:
                 return False
                 
         except socket.timeout:
-            logger.error("服务发现超时")
             return False
         except Exception as e:
             logger.error(f"服务发现失败: {e}")
@@ -128,6 +127,7 @@ class TCPClient:
             
         try:
             # 将系统信息对象转换为字典
+            # 注意：services和processes已经是JSON格式的字符串，不需要再次序列化
             info_dict = {
                 "hostname": system_info.hostname,
                 "ip_address": system_info.ip_address,

@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 # Net Manager specific ignores
-client/net_manager.db
+server/*.db
 client/logs/
