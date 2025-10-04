@@ -163,3 +163,8 @@ cython_debug/
 server/*.db
 client/logs/
 server/logs/
+__pycache__/
+client/__pycache__/
+client/src/__pycache__/
+server/__pycache__/
+server/src/__pycache__/
