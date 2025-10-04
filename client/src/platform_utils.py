@@ -37,21 +37,24 @@ def get_line_separator():
         return '\n'
 
 def setup_signal_handlers(signal_handler):
-    """设置跨平台信号处理器"""
+    """设置信号处理器"""
     try:
-        # 注册SIGINT信号处理器（Ctrl+C）
+        # 设置SIGINT信号处理器
         signal.signal(signal.SIGINT, signal_handler)
+        logger.info("SIGINT信号处理器设置成功")
         
-        # 在非Windows系统上注册SIGTERM信号处理器
+        # 在非Windows系统上设置SIGTERM信号处理器
         if not is_windows():
             signal.signal(signal.SIGTERM, signal_handler)
-            
-        # 使用自定义logger记录信息
-        logger.info(f"信号处理器设置完成，当前平台: {get_platform()}")
-        return True
+            logger.info("SIGTERM信号处理器设置成功")
+        
+        logger.info("信号处理器设置成功")
+    except ValueError as e:
+        logger.error(f"信号处理器设置失败（可能在非主线程中）: {e}")
+        # 在非主线程中设置信号处理器可能会失败，这是可以接受的
     except Exception as e:
-        logger.error(f"设置信号处理器时出错: {e}")
-        return False
+        logger.error(f"设置信号处理器失败: {e}")
+        raise
 
 def get_appropriate_encoding():
     """获取适合当前平台的文本编码"""

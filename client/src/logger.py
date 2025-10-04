@@ -23,42 +23,37 @@ def get_appropriate_encoding():
         return 'gbk'  # Windows中文系统通常使用gbk编码
     return 'utf-8'  # Unix-like系统通常使用utf-8编码
 
-def setup_logger(name, log_file, level=logging.INFO):
+def setup_logger(name, log_file=None, level=logging.INFO):
     """设置日志记录器"""
-    # 确保log_file是Path对象
-    if isinstance(log_file, str):
-        log_file = Path(log_file)
-    
-    # 创建日志目录（如果不存在）
-    log_dir = log_file.parent
-    if log_dir and not log_dir.exists():
-        log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 获取记录器
     logger = logging.getLogger(name)
-    
-    # 如果记录器已有处理器，先清空它们以避免重复日志
-    if logger.handlers:
-        logger.handlers.clear()
-    
-    # 设置日志级别
     logger.setLevel(level)
     
-    # 创建日志格式化器
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # 避免重复添加处理器
+    if logger.handlers:
+        return logger
     
-    # 根据平台选择适当的编码
-    file_encoding = get_appropriate_encoding()
-    
-    # 文件处理器
-    file_handler = logging.FileHandler(str(log_file), encoding=file_encoding)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     
     # 控制台处理器
-    console_handler = logging.StreamHandler(sys.stdout)  # 明确指定stdout
+    console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
+    
+    # 文件处理器
+    if log_file:
+        try:
+            # 确保日志目录存在
+            log_path = Path(log_file)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            file_handler = logging.FileHandler(log_file, encoding=get_appropriate_encoding())
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except Exception as e:
+            logger.error(f"创建文件日志处理器失败: {e}")
+            # 即使文件日志创建失败，控制台日志仍然可以工作
     
     return logger
 

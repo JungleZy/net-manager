@@ -24,7 +24,7 @@ from src.platform_utils import (
     normalize_path,
     get_executable_path
 )
-from src.config import DB_PATH, LOG_FILE
+from src.config import LOG_FILE
 
 
 class TestCrossPlatformCompatibility(unittest.TestCase):
@@ -72,13 +72,9 @@ class TestCrossPlatformCompatibility(unittest.TestCase):
     
     def test_config_paths(self):
         """测试配置中的路径是否为Path对象"""
-        self.assertIsInstance(DB_PATH, Path)
         self.assertIsInstance(LOG_FILE, Path)
         
         # 验证路径存在性
-        # DB_PATH的父目录应该存在
-        self.assertTrue(DB_PATH.parent.exists())
-        
         # LOG_FILE的父目录应该存在
         self.assertTrue(LOG_FILE.parent.exists())
     
