@@ -1,0 +1,88 @@
+# Net Manager 打包说明
+
+## 概述
+
+本文档说明如何使用Nuitka将Net Manager客户端打包成独立的可执行文件，以便在没有Python环境的Windows系统上运行。
+
+## 打包工具
+
+项目使用[Nuitka](https://nuitka.net/)作为打包工具，它是一个Python编译器，可以将Python代码编译成独立的可执行文件。
+
+## 打包步骤
+
+### 1. 安装Nuitka
+
+在项目的虚拟环境中安装Nuitka：
+
+```bash
+# 激活虚拟环境
+cd venv\Scripts
+.\activate
+
+# 安装Nuitka
+pip install nuitka
+```
+
+### 2. 打包客户端程序
+
+在项目根目录下运行以下命令：
+
+```bash
+# 激活虚拟环境
+cd venv\Scripts
+.\activate
+
+# 切换到项目根目录
+cd ..\..
+
+# 使用Nuitka打包客户端程序
+python -m nuitka --standalone --onefile --enable-plugin=multiprocessing client/main.py
+```
+
+参数说明：
+- `--standalone`: 创建独立的可执行文件，包含所有依赖
+- `--onefile`: 打包成单个可执行文件
+- `--enable-plugin=multiprocessing`: 启用多进程插件支持
+
+### 3. 移动生成的文件
+
+打包完成后，会在项目根目录生成`main.exe`文件，将其移动到client目录：
+
+```bash
+move main.exe client\
+```
+
+## 打包结果
+
+打包完成后，client目录中会包含以下文件：
+- `main.exe`: 打包后的可执行文件
+- `run_client.bat`: 运行脚本
+
+## 运行打包版本
+
+### 方法1：直接运行
+```bash
+cd client
+main.exe
+```
+
+### 方法2：使用批处理脚本
+```bash
+cd client
+run_client.bat
+```
+
+## 打包版本的优势
+
+1. **无需Python环境**: 打包后的程序可以在没有安装Python的Windows系统上运行
+2. **无需安装依赖**: 所有依赖都被打包进可执行文件中
+3. **启动速度快**: 编译后的程序启动速度比源码方式更快
+4. **便于分发**: 单个可执行文件便于分发和部署
+5. **保护源码**: 可执行文件比源码更难被逆向工程
+
+## 注意事项
+
+1. 打包过程可能需要较长时间（几分钟），请耐心等待
+2. 生成的可执行文件体积较大（约7-8MB），这是正常现象
+3. 打包后的程序仍然需要与服务端配合使用
+4. 如果修改了客户端代码，需要重新打包才能生效

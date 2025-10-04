@@ -34,13 +34,35 @@ pip install -r requirements.txt
 
 ### 运行程序
 
+#### 方法1：源码方式运行
 ```bash
 # 运行Net Manager客户端
+cd client
 python main.py
 
 # 运行UDP服务端（在另一个终端中运行）
-python udp_server.py
+cd server
+python main.py
 ```
+
+#### 方法2：打包版本运行（推荐）
+项目已经使用Nuitka打包成独立的可执行文件，可以直接运行：
+```bash
+# 运行Net Manager客户端（打包版本）
+client\main.exe
+
+# 或者使用提供的批处理脚本
+client\run_client.bat
+
+# 运行UDP服务端（在另一个终端中运行）
+server\main.py
+```
+
+打包版本的优势：
+- 不需要安装Python环境
+- 不需要安装依赖包
+- 启动速度更快
+- 更便于分发和部署
 
 UDP服务端将监听12306端口，接收来自Net Manager客户端的系统信息数据，并在控制台显示以下信息：
 - 发送方的IP地址和端口号
@@ -52,13 +74,19 @@ UDP服务端将监听12306端口，接收来自Net Manager客户端的系统信�
 
 ## 项目结构
 
-- `main.py`: 主程序入口
+### 客户端 (client/)
+- `main.py`: 客户端主程序入口
 - `src/system_collector.py`: 系统信息收集模块
 - `src/models.py`: 数据模型和数据库操作
 - `src/udp_sender.py`: UDP发送模块
 - `src/logger.py`: 日志模块
 - `src/config.py`: 配置文件
+
+### 服务端 (server/)
+- `main.py`: 服务端主程序入口
 - `udp_server.py`: UDP服务端（监听12306端口接收数据）
+
+### 其他
 - `requirements.txt`: 项目依赖
 - `logs/`: 日志文件目录
 - `net_manager.db`: SQLite数据库文件（运行后自动生成）
