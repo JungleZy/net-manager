@@ -2,11 +2,33 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+import fs from 'fs'
+import path from 'path'
+
+// 创建一个插件，在构建时将index.html中的bindType从'dev'修改为'prod'
+function transformBindType() {
+  return {
+    name: 'transform-bind-type',
+    enforce: 'pre',
+    apply: 'build', // 只在构建时应用此插件
+    transformIndexHtml(html, ctx) {
+      if (ctx.filename && ctx.filename.endsWith('index.html')) {
+        // 将bindType从'dev'改为'prod'
+        return html.replace(
+          /const\s+bindType\s*=\s*['"]dev['"]/g,
+          `const bindType = 'prod'`
+        )
+      }
+      return html
+    }
+  }
+}
 
 export default defineConfig({
   plugins: [
     vue(),
     tailwindcss(),
+    transformBindType(), // 添加我们的插件
   ],
   resolve: {
     alias: {
