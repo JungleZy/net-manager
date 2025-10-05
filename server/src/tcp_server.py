@@ -210,7 +210,7 @@ class TCPServer:
         server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         
         server_address = ('0.0.0.0', self.tcp_port)
-        logger.info(f"TCP服务端启动，监听端口 {self.tcp_port}...")
+        logger.info(f"TCP服务端启动，监听端口 {self.tcp_port}")
         
         try:
             server_socket.bind(server_address)

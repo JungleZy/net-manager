@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-服务端启动脚本 - 同时启动UDP发现服务和TCP数据服务
+服务端启动脚本 - 同时启动UDP发现服务、TCP数据服务和API服务
 """
 
 import threading
@@ -15,54 +15,13 @@ sys.path.insert(0, parent_dir)
 
 from src.udp_server import udp_server
 from src.tcp_server import TCPServer
+from src.api_server import APIServer
 from src.logger import logger
 from src.config import VERSION
+from src.singleton_manager import get_server_singleton_manager
 
-# 单一实例锁文件路径
-LOCK_FILE_PATH = os.path.join(parent_dir, "server.lock")
-
-def acquire_lock():
-    """获取文件锁，确保只有一个实例运行"""
-    if os.path.exists(LOCK_FILE_PATH):
-        # 检查锁文件是否有效（进程是否仍在运行）
-        try:
-            with open(LOCK_FILE_PATH, "r") as f:
-                pid = int(f.read().strip())
-            # 检查进程是否存在
-            if os.name == 'nt':  # Windows
-                import subprocess
-                result = subprocess.run(["tasklist", "/fi", f"PID eq {pid}"], 
-                                      capture_output=True, text=True)
-                if str(pid) in result.stdout:
-                    logger.error("服务端已在运行中，请勿重复启动")
-                    return False
-            else:  # Unix-like systems
-                import signal as sys_signal
-                try:
-                    os.kill(pid, 0)  # 检查进程是否存在
-                    logger.error("服务端已在运行中，请勿重复启动")
-                    return False
-                except OSError:
-                    pass  # 进程不存在，可以继续
-        except (ValueError, IOError):
-            pass  # 锁文件损坏或无法读取，继续执行
-    
-    # 创建新的锁文件
-    try:
-        with open(LOCK_FILE_PATH, "w") as f:
-            f.write(str(os.getpid()))
-        return True
-    except IOError:
-        logger.error("无法创建锁文件，可能没有写入权限")
-        return False
-
-def release_lock():
-    """释放文件锁"""
-    try:
-        if os.path.exists(LOCK_FILE_PATH):
-            os.remove(LOCK_FILE_PATH)
-    except OSError:
-        pass  # 忽略删除失败
+# 获取单例管理器实例
+singleton_manager = get_server_singleton_manager()
 
 def print_welcome_banner():
     """打印欢迎条幅和版本号"""
@@ -80,14 +39,29 @@ def print_welcome_banner():
 def signal_handler(sig, frame):
     """信号处理函数"""
     logger.info("接收到终止信号，正在关闭服务端...")
-    release_lock()  # 释放锁
+    singleton_manager.release_lock()  # 释放锁
     logger.info("服务端已退出")
     sys.exit(0)
+
+def start_tcp_server(tcp_server_instance):
+    """启动TCP服务器"""
+    try:
+        tcp_server_instance.start()
+    except Exception as e:
+        logger.error(f"TCP服务端运行出错: {e}")
+
+def start_api_server(api_server_instance):
+    """启动API服务器"""
+    try:
+        api_server_instance.start()
+    except Exception as e:
+        logger.error(f"API服务端运行出错: {e}")
 
 def main():
     """启动服务端"""
     # 尝试获取锁
-    if not acquire_lock():
+    if not singleton_manager.acquire_lock():
+        logger.error("服务端已在运行中，请勿重复启动")
         sys.exit(1)
     
     # 注册信号处理器
@@ -101,21 +75,52 @@ def main():
     logger.info("Net Manager 服务端启动...")
     
     try:
-        # 创建并启动UDP服务发现线程
+        # 1. 初始化数据库（在API服务器和TCP服务器的构造函数中完成）
+        logger.info("数据库初始化...")
+        
+        # 2. 创建API服务器实例（会初始化数据库）
+        api_server = APIServer()
+        
+        # 3. 创建TCP服务器实例（会初始化数据库）
+        tcp_server = TCPServer()
+        
+        # 4. 启动API服务器线程
+        api_thread = threading.Thread(target=start_api_server, args=(api_server,))
+        api_thread.daemon = True
+        api_thread.start()
+        
+        # 等待API服务器完全启动
+        import time
+        time.sleep(0.5)
+        
+        # 5. 启动TCP服务线程
+        tcp_thread = threading.Thread(target=start_tcp_server, args=(tcp_server,))
+        tcp_thread.daemon = True
+        tcp_thread.start()
+        
+        # 等待TCP服务器完全启动
+        time.sleep(0.5)
+        
+        # 6. 启动UDP服务发现线程
         udp_thread = threading.Thread(target=udp_server)
         udp_thread.daemon = True
         udp_thread.start()
         
-        # 创建并启动TCP服务
-        tcp_server = TCPServer()
-        tcp_server.start()
+        # 保持主线程运行，同时允许信号处理
+        while True:
+            time.sleep(1)
+            # 检查线程是否还在运行
+            if not api_thread.is_alive() and not tcp_thread.is_alive():
+                logger.warning("服务线程已停止运行")
+                break
+                
     except KeyboardInterrupt:
         logger.info("服务端被用户中断")
     except Exception as e:
         logger.error(f"服务端运行出错: {e}")
     finally:
         # 正常退出时释放锁
-        release_lock()
+        singleton_manager.release_lock()
         logger.info("服务端正常退出")
 
 if __name__ == "__main__":

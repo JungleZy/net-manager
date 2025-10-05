@@ -28,14 +28,13 @@ def udp_server():
     server_address = (UDP_HOST, UDP_PORT)  # 使用配置的主机地址
     sock.bind(server_address)
     
-    logger.info(f"UDP服务发现启动，监听地址 {UDP_HOST}:{UDP_PORT}...")
+    logger.info(f"UDP服务端启动，监听端口 {UDP_PORT}")
     
     try:
         
         while True:
             # 接收数据
             data, address = sock.recvfrom(1024)  # 服务发现数据包应该很小
-            
             try:
                 # 解析发现请求
                 request = json.loads(data.decode('utf-8'))
@@ -50,11 +49,9 @@ def udp_server():
                     }
                     response_data = json.dumps(response).encode('utf-8')
                     sock.sendto(response_data, address)
-                    logger.info(f"向 {address} 发送服务发现响应，TCP端口: {TCP_PORT}")
                     
             except json.JSONDecodeError:
-                # 不是JSON数据，忽略
-                logger.warning("收到非JSON格式的服务发现请求")
+                pass
             except Exception as e:
                 logger.error(f"处理发现请求时出错: {e}")
                 

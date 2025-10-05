@@ -16,25 +16,41 @@ net-manager/
 │   ├── run_client.bat        # 客户端运行脚本
 │   ├── src/                  # 客户端源代码
 │   │   ├── __init__.py       # Python包标识文件
+│   │   ├── autostart.py      # 开机自启动功能
 │   │   ├── config.py         # 客户端配置文件
 │   │   ├── logger.py         # 日志模块
 │   │   ├── models.py         # 数据模型
+│   │   ├── platform_utils.py # 跨平台工具函数
+│   │   ├── singleton_manager.py  # 跨平台单例管理器（命名互斥体实现）
 │   │   ├── system_collector.py   # 系统信息收集器
-│   │   ├── udp_sender.py     # UDP发送器
 │   │   ├── start_net_manager.py  # 启动脚本
+│   │   ├── tcp_client.py     # TCP客户端
 │   │   └── setup_dev_env.py  # 开发环境设置脚本
 │   ├── tests/                # 客户端测试目录
 │   │   ├── __init__.py       # Python包标识文件
+│   │   ├── test_cross_platform.py  # 跨平台测试
 │   │   ├── test_system_collector.py  # 系统信息收集器测试
+│   │   ├── test_tcp_connection.py    # TCP连接测试
 │   │   ├── test_udp_receiver.py      # UDP接收器测试脚本
 │   │   └── udp_receiver.py   # UDP接收器(用于测试)
-│   └── test_udp_config.py    # UDP配置测试
-└── server/                   # 服务端代码
-    ├── main.py               # 服务端主程序入口
-    ├── src/                  # 服务端源代码
-    │   ├── __init__.py       # Python包标识文件
-    │   └── config.py         # 服务端配置文件
-    └── udp_server.py         # UDP服务端（监听12306端口接收数据）
+│   ├── test_autostart.py     # 开机自启动测试脚本
+│   └── test_singleton.py     # 跨平台单例功能测试脚本
+├── server/                   # 服务端代码
+│   ├── main.py               # 服务端主程序入口
+│   ├── server.lock           # 服务端单例锁文件（已废弃，改用命名互斥体）
+│   ├── src/                  # 服务端源代码
+│   │   ├── __init__.py       # Python包标识文件
+│   │   ├── config.py         # 服务端配置文件
+│   │   ├── logger.py         # 日志模块
+│   │   ├── platform_utils.py # 跨平台工具函数
+│   │   ├── singleton_manager.py  # 跨平台单例管理器（命名互斥体实现）
+│   │   ├── tcp_server.py     # TCP服务端
+│   │   └── udp_server.py     # UDP服务端（监听12306端口接收数据）
+│   └── test_singleton.py     # 跨平台单例功能测试脚本
+├── setup_dev_env.py          # 开发环境设置脚本
+├── build.py                  # 打包脚本
+├── PACKAGING.md              # 打包说明
+└── SUMMARY.md                # 项目摘要
 ```
 
 ## 模块说明

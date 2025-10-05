@@ -7,8 +7,21 @@ import hashlib
 import threading
 from typing import Optional
 
+def get_application_path():
+    """获取应用程序路径，兼容开发环境和打包环境"""
+    if getattr(sys, 'frozen', False):
+        # 打包后的可执行文件路径
+        application_path = os.path.dirname(sys.executable)
+    elif '__compiled__' in globals():
+        # Nuitka打包环境
+        application_path = os.path.dirname(os.path.abspath(__file__))
+    else:
+        # 开发环境
+        application_path = os.path.dirname(os.path.abspath(__file__))
+    return application_path
+
 # 添加项目根目录到Python路径
-parent_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = get_application_path()
 sys.path.insert(0, parent_dir)
 
 from src.config import COLLECT_INTERVAL
@@ -16,57 +29,16 @@ from src.system_collector import SystemCollector
 from src.tcp_client import TCPClient
 from src.logger import logger
 from src.platform_utils import setup_signal_handlers
+from src.autostart import enable_autostart, disable_autostart, is_autostart_enabled, create_daemon_script
+from src.singleton_manager import get_client_singleton_manager
 
 # 全局变量用于信号处理
 tcp_client: Optional[TCPClient] = None
 last_system_info_hash: Optional[str] = None  # 用于存储上一次系统信息的哈希值
 shutdown_event = threading.Event()  # 用于优雅关闭程序
 
-# 单一实例锁文件路径
-LOCK_FILE_PATH = os.path.join(parent_dir, "client.lock")
-
-def acquire_lock():
-    """获取文件锁，确保只有一个实例运行"""
-    if os.path.exists(LOCK_FILE_PATH):
-        # 检查锁文件是否有效（进程是否仍在运行）
-        try:
-            with open(LOCK_FILE_PATH, "r") as f:
-                pid = int(f.read().strip())
-            # 检查进程是否存在
-            if os.name == 'nt':  # Windows
-                import subprocess
-                result = subprocess.run(["tasklist", "/fi", f"PID eq {pid}"], 
-                                      capture_output=True, text=True)
-                if str(pid) in result.stdout:
-                    logger.error("客户端已在运行中，请勿重复启动")
-                    return False
-            else:  # Unix-like systems
-                import signal as sys_signal
-                try:
-                    os.kill(pid, 0)  # 检查进程是否存在
-                    logger.error("客户端已在运行中，请勿重复启动")
-                    return False
-                except OSError:
-                    pass  # 进程不存在，可以继续
-        except (ValueError, IOError):
-            pass  # 锁文件损坏或无法读取，继续执行
-    
-    # 创建新的锁文件
-    try:
-        with open(LOCK_FILE_PATH, "w") as f:
-            f.write(str(os.getpid()))
-        return True
-    except IOError:
-        logger.error("无法创建锁文件，可能没有写入权限")
-        return False
-
-def release_lock():
-    """释放文件锁"""
-    try:
-        if os.path.exists(LOCK_FILE_PATH):
-            os.remove(LOCK_FILE_PATH)
-    except OSError:
-        pass  # 忽略删除失败
+# 获取单例管理器实例
+singleton_manager = get_client_singleton_manager()
 
 def signal_handler(sig, frame):
     """信号处理函数"""
@@ -74,7 +46,7 @@ def signal_handler(sig, frame):
     shutdown_event.set()  # 设置关闭事件
     if tcp_client:
         tcp_client.disconnect()
-    release_lock()  # 释放锁
+    singleton_manager.release_lock()  # 释放锁
     logger.info("程序已退出")
     sys.exit(0)
 
@@ -98,8 +70,33 @@ def main():
     global tcp_client, last_system_info_hash
     
     # 尝试获取锁
-    if not acquire_lock():
+    if not singleton_manager.acquire_lock():
+        logger.error("客户端已在运行中，请勿重复启动")
         sys.exit(1)
+    
+    # 只在打包环境下执行开机自启动和守护进程功能
+    # 检查是否处于打包环境（Nuitka或PyInstaller）
+    is_frozen = hasattr(sys, 'frozen') and sys.frozen
+    is_nuitka = '__compiled__' in globals()
+    
+    if is_frozen or is_nuitka:
+        logger.info("检测到打包环境，执行开机自启动和守护进程功能")
+        
+        # 默认启动时自动启用开机自启动和创建守护进程
+        if is_autostart_enabled():
+            logger.info("开机自启动已启用")
+        else:
+            if enable_autostart():
+                logger.info("已自动启用开机自启动")
+            else:
+                logger.warning("自动启用开机自启动失败")
+            
+        if create_daemon_script():
+            logger.info("已自动创建守护进程脚本")
+        else:
+            logger.warning("自动创建守护进程脚本失败")
+    else:
+        logger.info("检测到开发环境，跳过开机自启动和守护进程功能")
     
     # 注册跨平台信号处理器
     setup_signal_handlers(signal_handler)
@@ -166,26 +163,16 @@ def main():
                 # 如果发送失败，尝试重新连接
                 if not send_success:
                     logger.info("尝试重新连接到服务端...")
-                    reconnect_success = False
-                    for i in range(3):  # 最多重试3次
-                        if tcp_client.discover_server() and tcp_client.connect_to_server():
-                            logger.info("TCP连接已恢复")
-                            # 重新发送数据
-                            if tcp_client.send_system_info(system_info):
-                                last_system_info_hash = current_hash
-                                logger.info("系统信息已重新发送到服务端")
-                                reconnect_success = True
-                                break
-                            else:
-                                logger.warning(f"重新发送数据失败，第{i+1}次重试")
+                    if tcp_client.discover_server() and tcp_client.connect_to_server():
+                        logger.info("TCP连接已恢复")
+                        if tcp_client.send_system_info(system_info):
+                            last_system_info_hash = current_hash
+                            logger.info("系统信息已重新发送到服务端")
                         else:
-                            logger.warning(f"重新连接失败，第{i+1}次重试")
-                        # 等待一段时间再重试
-                        if shutdown_event.wait(2):
-                            break
+                            logger.warning("重新发送数据失败")
+                    else:
+                        logger.warning("重新连接失败")
                     
-                    if not reconnect_success:
-                        logger.error("重新连接和发送数据均失败")
             else:
                 logger.debug("系统信息未发生变化，跳过发送")
             
@@ -195,21 +182,14 @@ def main():
                 break
                 
         # 正常退出时释放锁
-        release_lock()
+        singleton_manager.release_lock()
         logger.info("程序正常退出")
                 
     except Exception as e:
         logger.error(f"程序运行出错: {e}")
         if tcp_client:
             tcp_client.disconnect()
-        release_lock()
-        raise
-            
-    except Exception as e:
-        logger.error(f"程序运行出错: {e}")
-        if tcp_client:
-            tcp_client.disconnect()
-        release_lock()
+        singleton_manager.release_lock()
         raise
 
 if __name__ == "__main__":

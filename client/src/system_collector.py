@@ -90,12 +90,44 @@ class SystemCollector:
             return self._get_from_cache(cache_key)
         
         try:
-            # 获取本机MAC地址
-            mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) 
-                           for elements in range(0,2*6,2)][::-1])
-            logger.debug(f"成功获取MAC地址: {mac}")
-            self._set_cache(cache_key, mac)
-            return mac
+            # 使用psutil获取网络接口信息，选择合适的MAC地址
+            import psutil
+            net_if_addrs = psutil.net_if_addrs()
+            
+            # 查找第一个有效的物理网卡MAC地址
+            mac_address = None
+            for interface, addrs in net_if_addrs.items():
+                # 跳过回环接口
+                if interface.startswith('lo') or interface.startswith('Loopback'):
+                    continue
+                    
+                for addr in addrs:
+                    # AF_LINK在Windows上是-1，在Linux上是17，使用psutil.AF_LINK更安全
+                    if addr.family == psutil.AF_LINK:
+                        # 检查MAC地址是否有效（不为空且不是全0或全F）
+                        if addr.address and addr.address != '00:00:00:00:00:00' and addr.address != 'ff:ff:ff:ff:ff:ff':
+                            mac_address = addr.address.lower()
+                            # 优先选择以太网或Wi-Fi接口
+                            if 'eth' in interface.lower() or 'en' in interface.lower() or 'wl' in interface.lower() or '无线' in interface:
+                                break
+            
+            # 如果没找到合适的接口，使用第一个有效的MAC地址
+            if not mac_address:
+                for interface, addrs in net_if_addrs.items():
+                    for addr in addrs:
+                        if addr.family == psutil.AF_LINK and addr.address and addr.address != '00:00:00:00:00:00':
+                            mac_address = addr.address.lower()
+                            break
+                    if mac_address:
+                        break
+            
+            if mac_address:
+                logger.debug(f"成功获取MAC地址: {mac_address}")
+                self._set_cache(cache_key, mac_address)
+                return mac_address
+            else:
+                logger.warning("未找到有效的MAC地址")
+                return "unknown"
         except Exception as e:
             logger.error(f"获取MAC地址失败: {e}")
             return "unknown"

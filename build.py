@@ -201,26 +201,6 @@ def build_server():
         console_mode="force"
     )
 
-def copy_additional_files():
-    """复制额外需要的文件"""
-    print("复制额外文件...")
-    
-    # 创建日志目录
-    client_log_dir = DIST_DIR / "client" / "logs"
-    server_log_dir = DIST_DIR / "server" / "logs"
-    client_log_dir.mkdir(parents=True, exist_ok=True)
-    server_log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 复制README等说明文件
-    readme_files = ["README.md", "PACKAGING.md"]
-    for readme in readme_files:
-        src = PROJECT_ROOT / readme
-        if src.exists():
-            shutil.copy2(src, DIST_DIR / "client" / readme)
-            shutil.copy2(src, DIST_DIR / "server" / readme)
-    
-    print("✓ 额外文件复制完成")
-
 def ensure_virtual_environment():
     """确保虚拟环境存在并已安装必要的依赖"""
     if not VENV_DIR.exists():
@@ -274,7 +254,39 @@ def create_run_scripts():
     with open(client_bat, "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("cd /d %~dp0\n")
-        f.write("main.exe\n")
+        f.write("net-manager-client.exe\n")
+        f.write("pause\n")
+    
+    # 客户端开机自启动脚本
+    client_autostart_bat = DIST_DIR / "client" / "enable_autostart.bat"
+    with open(client_autostart_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        f.write("cd /d %~dp0\n")
+        f.write("net-manager-client.exe --enable-autostart\n")
+        f.write("pause\n")
+    
+    # 客户端禁用开机自启动脚本
+    client_disable_autostart_bat = DIST_DIR / "client" / "disable_autostart.bat"
+    with open(client_disable_autostart_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        f.write("cd /d %~dp0\n")
+        f.write("net-manager-client.exe --disable-autostart\n")
+        f.write("pause\n")
+    
+    # 客户端守护进程脚本
+    client_daemon_bat = DIST_DIR / "client" / "create_daemon.bat"
+    with open(client_daemon_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        f.write("cd /d %~dp0\n")
+        f.write("net-manager-client.exe --create-daemon\n")
+        f.write("pause\n")
+    
+    # 客户端禁用守护进程脚本
+    client_disable_daemon_bat = DIST_DIR / "client" / "disable_daemon.bat"
+    with open(client_disable_daemon_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        f.write("cd /d %~dp0\n")
+        f.write("net-manager-client.exe --disable-daemon\n")
         f.write("pause\n")
     
     # 服务端运行脚本
@@ -282,7 +294,7 @@ def create_run_scripts():
     with open(server_bat, "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("cd /d %~dp0\n")
-        f.write("main.exe\n")
+        f.write("net-manager-server.exe\n")
         f.write("pause\n")
     
     print("✓ 运行脚本创建完成")
@@ -339,12 +351,6 @@ def main():
             success = False
     
     if success:
-        # 复制额外文件
-        copy_additional_files()
-        
-        # 创建运行脚本
-        create_run_scripts()
-        
         print("\n" + "="*50)
         print("打包完成!")
         print("="*50)
