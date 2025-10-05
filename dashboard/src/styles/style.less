@@ -1,0 +1,199 @@
+@import 'tailwindcss';
+html {
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: visible !important;
+  overflow-x: hidden !important;
+  font-size: 13px;
+
+  &.color-weak {
+    filter: invert(80%);
+  }
+
+  &.gray-mode {
+    filter: progid:dximagetransform.microsoft.basicimage(grayscale=1);
+  }
+}
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+// =================================
+// ==============scrollbar==========
+// =================================
+::-webkit-scrollbar {
+  /*滚动条整体样式*/
+  width: 7px; /*高宽分别对应横竖滚动条的尺寸*/
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(144, 147, 153, 0.3);
+  border-radius: 2px;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+}
+
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px white inset !important;
+}
+
+:-webkit-autofill {
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+a:focus,
+a:active,
+button,
+div {
+  outline: none !important;
+  font-size: 12px;
+}
+/*------布局------*/
+.display-flex {
+  display: flex !important;
+  flex-wrap: wrap;
+}
+
+.display-flex-row {
+  .display-flex();
+  flex-direction: row;
+}
+
+.display-flex-col {
+  .display-flex();
+  flex-direction: column;
+}
+
+@flex-start: flex-start;
+@f-center: center;
+@flex-end: flex-end;
+@f-space-between: space-between;
+@f-space-around: space-around;
+
+/*左上起*/
+.layout-left-top {
+  .display-flex-row();
+  justify-content: @flex-start;
+  align-items: @flex-start;
+}
+
+/* 左中起*/
+
+.layout-left-center {
+  .display-flex-row();
+  justify-content: @flex-start;
+  align-items: @f-center;
+}
+
+/* 左下起*/
+
+.layout-left-bottom {
+  .display-flex-row();
+
+  justify-content: @flex-start;
+  align-items: @flex-end;
+}
+
+/* 中上起*/
+
+.layout-center-top {
+  .display-flex-col();
+
+  justify-content: @flex-start;
+  align-items: @f-center;
+}
+
+.layout-center-h {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.layout-center-v {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.layout-center-b {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: end;
+  align-items: end;
+}
+
+/* 居中*/
+
+.layout-center {
+  .display-flex-row();
+
+  justify-content: @f-center;
+  align-items: @f-center;
+}
+
+/* 分散在两边*/
+
+.layout-side {
+  .display-flex-row();
+
+  justify-content: @f-space-between;
+  align-items: @f-center;
+}
+
+/*两端对齐，中间间隔相等*/
+
+.layout-side-n {
+  .display-flex-row();
+  justify-content: @f-space-between;
+}
+
+/*模块间间隔相等*/
+.layout-side-na {
+  .display-flex-row();
+
+  justify-content: @f-space-around;
+}
+
+/* 右上起*/
+
+.layout-right-top {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @flex-start;
+}
+
+/* 右中起*/
+
+.layout-right-center {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @f-center;
+}
+
+/* 右下起*/
+
+.layout-right-bottom {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @flex-end;
+}

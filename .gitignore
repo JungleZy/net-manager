@@ -168,3 +168,5 @@ client/__pycache__/
 client/src/__pycache__/
 server/__pycache__/
 server/src/__pycache__/
+dashboard/node_modules/
+dashboard/package-lock.json
