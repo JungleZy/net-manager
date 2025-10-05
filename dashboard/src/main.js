@@ -1,3 +1,4 @@
+import './styles/tailwind.css'
 import './styles/style.less'
 
 import { createApp } from 'vue'

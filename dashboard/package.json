@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.14",
     "@logicflow/core": "^2.0.13",
     "@logicflow/extension": "^2.0.17",
     "@vueuse/components": "^13.1.0",
@@ -19,15 +18,19 @@
     "dayjs": "^1.11.13",
     "localforage": "^1.10.0",
     "lodash-es": "^4.17.21",
-    "tailwindcss": "^4.1.14",
     "vue": "^3.5.22",
     "vue-demi": "^0.14.10",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-vue": "^6.0.1",
+    "autoprefixer": "^10.4.21",
     "less": "^4.4.1",
     "less-loader": "^12.3.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.14",
     "vite": "npm:rolldown-vite@7.1.14"
   },
   "overrides": {

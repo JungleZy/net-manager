@@ -26,14 +26,12 @@ export default defineConfig({
   plugins: [
     vue(),
     tailwindcss(),
-    transformBindType(), // 添加我们的插件
+    transformBindType(), 
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
-    // 优化模块解析
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
+    }
   },
   server: {
     open: false,
@@ -42,6 +40,7 @@ export default defineConfig({
     port: 8001,
   },
   css: {
+    postcss: './postcss.config.js',
     preprocessorOptions: {
       less: {
         javascriptEnabled: true,
