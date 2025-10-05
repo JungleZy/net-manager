@@ -86,6 +86,21 @@ class TCPClient:
                 self.running = True
                 logger.info(f"已连接到服务端 {self.server_address[0]}:{self.server_address[1]}")
                 
+                # 发送握手消息，包含client_id作为请求头信息
+                # 获取client_id
+                from src.state_manager import get_state_manager
+                state_manager = get_state_manager()
+                client_id = state_manager.get_client_id()
+                
+                handshake_data = {
+                    "type": "handshake",
+                    "client_id": client_id,
+                    "timestamp": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                handshake_message = json.dumps(handshake_data, ensure_ascii=False)
+                self.socket.sendall(handshake_message.encode('utf-8'))
+                logger.info(f"握手消息已发送，client_id: {client_id}")
+                
                 # 启动接收线程
                 receive_thread = threading.Thread(target=self._receive_data)
                 receive_thread.daemon = True
@@ -170,7 +185,8 @@ class TCPClient:
                     "netmask": system_info.netmask,
                     "services": system_info.services,  # 这已经是JSON格式的字符串
                     "processes": system_info.processes,  # 这已经是JSON格式的字符串
-                    "timestamp": system_info.timestamp
+                    "timestamp": system_info.timestamp,
+                    "client_id": system_info.client_id  # 客户端唯一标识符
                 }
                 
                 # 将字典转换为JSON字符串

@@ -24,7 +24,7 @@ from src.logger import logger
 
 class SystemInfo:
     """系统信息模型"""
-    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp):
+    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp, client_id=""):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
@@ -33,6 +33,7 @@ class SystemInfo:
         self.services = services  # 存储为JSON字符串
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
+        self.client_id = client_id  # 客户端唯一标识符
 
 class DatabaseManager:
     """数据库管理器"""
@@ -58,6 +59,7 @@ class DatabaseManager:
                     netmask TEXT,
                     services TEXT NOT NULL,
                     processes TEXT NOT NULL,
+                    client_id TEXT,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -79,10 +81,10 @@ class DatabaseManager:
                 
                 # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
                 cursor.execute('''
-                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (system_info.mac_address, system_info.hostname, system_info.ip_address, 
-                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.timestamp))
+                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.client_id, system_info.timestamp))
                 
                 conn.commit()
                 conn.close()
@@ -97,6 +99,7 @@ class TCPServer:
     def __init__(self, max_workers=100):
         self.tcp_port = TCP_PORT
         self.clients = set()  # 使用set存储连接的客户端，提高查找效率
+        self.client_id_map = {}  # 存储client_id到地址的映射关系
         self.clients_lock = threading.Lock()  # 保护clients集合的锁
         self.running = False
         self.db_manager = DatabaseManager()  # 初始化数据库管理器
@@ -111,7 +114,24 @@ class TCPServer:
         with self.clients_lock:
             self.clients.add((client_socket, address))
         
+        client_id = None
         try:
+            # 首先接收握手消息
+            handshake_data = client_socket.recv(1024)  # 握手消息应该很小
+            if handshake_data:
+                try:
+                    handshake_info = json.loads(handshake_data.decode('utf-8'))
+                    if handshake_info.get('type') == 'handshake':
+                        client_id = handshake_info.get('client_id', 'unknown')
+                        logger.info(f"客户端 {address} 握手成功，client_id: {client_id}")
+                        # 存储client_id与客户端地址的映射关系
+                        with self.clients_lock:
+                            self.client_id_map[client_id] = address
+                    else:
+                        logger.warning(f"客户端 {address} 发送的不是握手消息")
+                except json.JSONDecodeError:
+                    logger.warning(f"客户端 {address} 发送的握手消息无法解析")
+            
             while self.running:
                 # 接收数据
                 data = client_socket.recv(65536)  # 64KB缓冲区
@@ -121,7 +141,7 @@ class TCPServer:
                 # 异步处理客户端数据，避免阻塞
                 # 在提交任务前检查executor是否已关闭
                 try:
-                    self.executor.submit(self._process_client_data, data, address)
+                    self.executor.submit(self._process_client_data, data, address, client_id)
                 except RuntimeError as e:
                     if "cannot schedule new futures after shutdown" in str(e):
                         logger.debug(f"服务器正在关闭，不再处理来自 {address} 的新数据")
@@ -134,9 +154,9 @@ class TCPServer:
         except Exception as e:
             logger.error(f"处理客户端 {address} 数据时出错: {e}")
         finally:
-            self._cleanup_client_connection(client_socket, address)
+            self._cleanup_client_connection(client_socket, address, client_id)
     
-    def _process_client_data(self, data, address):
+    def _process_client_data(self, data, address, client_id=None):
         """处理来自客户端的数据"""
         logger.debug(f"收到来自 {address} 的数据:")
         
@@ -175,7 +195,8 @@ class TCPServer:
             netmask=info.get('netmask', 'N/A'),
             services=info.get('services', '[]'),
             processes=info.get('processes', '[]'),
-            timestamp=info.get('timestamp', 'N/A')
+            timestamp=info.get('timestamp', 'N/A'),
+            client_id=info.get('client_id', '')  # 客户端唯一标识符
         )
     
     def _process_services_info(self, info):
@@ -206,11 +227,19 @@ class TCPServer:
         except json.JSONDecodeError:
             logger.warning(f"  进程信息无法解析: {processes_data}")
     
-    def _cleanup_client_connection(self, client_socket, address):
+    def get_client_address(self, client_id):
+        """根据client_id获取客户端地址"""
+        with self.clients_lock:
+            return self.client_id_map.get(client_id)
+    
+    def _cleanup_client_connection(self, client_socket, address, client_id=None):
         """清理客户端连接"""
         # 移除客户端
         with self.clients_lock:
             self.clients.discard((client_socket, address))
+            # 如果有client_id，也从映射中移除
+            if client_id and client_id in self.client_id_map:
+                del self.client_id_map[client_id]
         client_socket.close()
         logger.info(f"客户端 {address} 连接已关闭")
     
@@ -273,6 +302,8 @@ class TCPServer:
                     except Exception as e:
                         logger.warning(f"关闭客户端连接时出错: {e}")
                 self.clients.clear()
+                # 清空client_id映射
+                self.client_id_map.clear()
             server_socket.close()
             # 关闭线程池
             self.executor.shutdown(wait=True)

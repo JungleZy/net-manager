@@ -11,7 +11,8 @@ from src.logger import logger
 class SystemInfo:
     """系统信息模型"""
     def __init__(self, hostname: str, ip_address: str, mac_address: str, 
-                 gateway: str, netmask: str, services: str, processes: str, timestamp: str):
+                 gateway: str, netmask: str, services: str, processes: str, timestamp: str,
+                 client_id: str = ""):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
@@ -20,6 +21,7 @@ class SystemInfo:
         self.services = services  # 存储为JSON字符串
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
+        self.client_id = client_id  # 客户端唯一标识符
 
 class SystemCollector:
     """系统信息收集器"""
@@ -400,7 +402,17 @@ class SystemCollector:
             # 将进程信息转换为JSON字符串存储
             processes_json = json.dumps(processes, ensure_ascii=False)
             
-            return SystemInfo(hostname, ip_address, mac_address, gateway, netmask, services_json, processes_json, timestamp)
+            # 获取全局的客户端唯一标识符
+            # 使用状态管理器获取client_id
+            try:
+                from .state_manager import get_state_manager
+                state_manager = get_state_manager()
+                client_id = state_manager.get_client_id()
+            except Exception as e:
+                logger.error(f"从状态管理器获取client_id失败: {e}")
+                client_id = ''
+            
+            return SystemInfo(hostname, ip_address, mac_address, gateway, netmask, services_json, processes_json, timestamp, client_id or "")
         except Exception as e:
             logger.error(f"收集系统信息时发生错误: {e}")
             raise

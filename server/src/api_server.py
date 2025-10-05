@@ -31,7 +31,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp
                 FROM system_info
                 ORDER BY timestamp DESC
             ''')
@@ -50,7 +50,8 @@ class DatabaseManager:
                     'netmask': row[4],
                     'services': json.loads(row[5]) if row[5] else [],
                     'processes': json.loads(row[6]) if row[6] else [],
-                    'timestamp': row[7]
+                    'client_id': row[7],
+                    'timestamp': row[8]
                 })
             
             return result
@@ -65,7 +66,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp
                 FROM system_info
                 WHERE mac_address = ?
             ''', (mac_address,))
@@ -82,7 +83,8 @@ class DatabaseManager:
                     'netmask': row[4],
                     'services': json.loads(row[5]) if row[5] else [],
                     'processes': json.loads(row[6]) if row[6] else [],
-                    'timestamp': row[7]
+                    'client_id': row[7],
+                    'timestamp': row[8]
                 }
             return None
         except Exception as e:
@@ -121,7 +123,25 @@ class SystemsHandler(BaseHandler):
         self.get_tcp_server_func = get_tcp_server_func
     
     def get_online_status(self, mac_address):
-        """根据MAC地址判断客户端是否在线"""
+        """根据client_id判断客户端是否在线"""
+        # 首先通过MAC地址获取client_id
+        try:
+            conn = sqlite3.connect(self.db_manager.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT client_id FROM system_info WHERE mac_address = ? ORDER BY timestamp DESC LIMIT 1
+            ''', (mac_address,))
+            row = cursor.fetchone()
+            conn.close()
+            
+            if not row or not row[0]:
+                return False
+                
+            client_id = row[0]
+        except Exception:
+            return False
+        
+        # 然后通过TCP服务器检查client_id是否在线
         if not self.get_tcp_server_func:
             return False
             
@@ -129,25 +149,9 @@ class SystemsHandler(BaseHandler):
         if not tcp_server:
             return False
         
-        # 遍历所有连接的客户端，检查是否有匹配的MAC地址
+        # 检查client_id是否在在线客户端映射中
         with tcp_server.clients_lock:
-            for client_socket, address in tcp_server.clients:
-                # 这里需要从数据库或客户端信息中获取MAC地址
-                # 简化实现：假设address包含IP信息，需要从数据库查找对应MAC
-                try:
-                    conn = sqlite3.connect(self.db_manager.db_path)
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        SELECT mac_address FROM system_info WHERE ip_address = ?
-                    ''', (address[0],))
-                    row = cursor.fetchone()
-                    conn.close()
-                    
-                    if row and row[0] == mac_address:
-                        return True
-                except Exception:
-                    pass
-        return False
+            return client_id in tcp_server.client_id_map
     
     def get(self):
         try:
@@ -189,7 +193,25 @@ class SystemHandler(BaseHandler):
         self.get_tcp_server_func = get_tcp_server_func
     
     def get_online_status(self, mac_address):
-        """根据MAC地址判断客户端是否在线"""
+        """根据client_id判断客户端是否在线"""
+        # 首先通过MAC地址获取client_id
+        try:
+            conn = sqlite3.connect(self.db_manager.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT client_id FROM system_info WHERE mac_address = ? ORDER BY timestamp DESC LIMIT 1
+            ''', (mac_address,))
+            row = cursor.fetchone()
+            conn.close()
+            
+            if not row or not row[0]:
+                return False
+                
+            client_id = row[0]
+        except Exception:
+            return False
+        
+        # 然后通过TCP服务器检查client_id是否在线
         if not self.get_tcp_server_func:
             return False
             
@@ -197,25 +219,9 @@ class SystemHandler(BaseHandler):
         if not tcp_server:
             return False
         
-        # 遍历所有连接的客户端，检查是否有匹配的MAC地址
+        # 检查client_id是否在在线客户端映射中
         with tcp_server.clients_lock:
-            for client_socket, address in tcp_server.clients:
-                # 这里需要从数据库或客户端信息中获取MAC地址
-                # 简化实现：假设address包含IP信息，需要从数据库查找对应MAC
-                try:
-                    conn = sqlite3.connect(self.db_manager.db_path)
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        SELECT mac_address FROM system_info WHERE ip_address = ?
-                    ''', (address[0],))
-                    row = cursor.fetchone()
-                    conn.close()
-                    
-                    if row and row[0] == mac_address:
-                        return True
-                except Exception:
-                    pass
-        return False
+            return client_id in tcp_server.client_id_map
     
     def get(self, mac_address):
         try:

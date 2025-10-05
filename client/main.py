@@ -31,6 +31,7 @@ from src.logger import logger
 from src.platform_utils import setup_signal_handlers
 from src.autostart import enable_autostart, disable_autostart, is_autostart_enabled, create_daemon_script
 from src.singleton_manager import get_client_singleton_manager
+from src.state_manager import get_state_manager
 
 # 全局变量用于信号处理
 tcp_client: Optional[TCPClient] = None
@@ -73,6 +74,11 @@ def main():
     if not singleton_manager.acquire_lock():
         logger.error("客户端已在运行中，请勿重复启动")
         sys.exit(1)
+    
+    # 获取状态管理器实例
+    state_manager = get_state_manager()
+    client_id = state_manager.get_client_id()
+    logger.info(f"客户端唯一标识符: {client_id}")
     
     # 只在打包环境下执行开机自启动和守护进程功能
     # 检查是否处于打包环境（Nuitka或PyInstaller）

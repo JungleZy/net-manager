@@ -170,3 +170,4 @@ server/__pycache__/
 server/src/__pycache__/
 dashboard/node_modules/
 dashboard/package-lock.json
+client/client_state.json
