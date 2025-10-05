@@ -9,7 +9,7 @@ UDP_PORT = 12345  # UDP端口（用于服务发现）
 TCP_PORT = 12346  # TCP端口（用于数据传输）
 
 # 数据收集间隔（秒）
-COLLECT_INTERVAL = 10
+COLLECT_INTERVAL = 30
 
 # 日志配置
 LOG_LEVEL = "INFO"

@@ -102,16 +102,61 @@ class MainHandler(RequestHandler):
 
 class SystemsHandler(RequestHandler):
     """系统信息处理器 - 获取所有系统信息"""
-    def initialize(self, db_manager):
+    def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
+    
+    def get_online_status(self, mac_address):
+        """根据MAC地址判断客户端是否在线"""
+        if not self.get_tcp_server_func:
+            return False
+            
+        tcp_server = self.get_tcp_server_func()
+        if not tcp_server:
+            return False
+        
+        # 遍历所有连接的客户端，检查是否有匹配的MAC地址
+        with tcp_server.clients_lock:
+            for client_socket, address in tcp_server.clients:
+                # 这里需要从数据库或客户端信息中获取MAC地址
+                # 简化实现：假设address包含IP信息，需要从数据库查找对应MAC
+                try:
+                    conn = sqlite3.connect(self.db_manager.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT mac_address FROM system_info WHERE ip_address = ?
+                    ''', (address[0],))
+                    row = cursor.fetchone()
+                    conn.close()
+                    
+                    if row and row[0] == mac_address:
+                        return True
+                except Exception:
+                    pass
+        return False
     
     def get(self):
         try:
             systems = self.db_manager.get_all_system_info()
+            
+            # 处理返回数据：只返回services和processes的数量，并添加在线状态
+            processed_systems = []
+            for system in systems:
+                processed_system = {
+                    'mac_address': system['mac_address'],
+                    'hostname': system['hostname'],
+                    'ip_address': system['ip_address'],
+                    'services_count': len(system['services']),
+                    'processes_count': len(system['processes']),
+                    'online': self.get_online_status(system['mac_address']),
+                    'timestamp': system['timestamp']
+                }
+                processed_systems.append(processed_system)
+            
             self.write({
                 "status": "success",
-                "data": systems,
-                "count": len(systems)
+                "data": processed_systems,
+                "count": len(processed_systems)
             })
         except Exception as e:
             self.set_status(500)
@@ -123,13 +168,45 @@ class SystemsHandler(RequestHandler):
 
 class SystemHandler(RequestHandler):
     """单个系统信息处理器 - 根据MAC地址获取系统信息"""
-    def initialize(self, db_manager):
+    def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
+    
+    def get_online_status(self, mac_address):
+        """根据MAC地址判断客户端是否在线"""
+        if not self.get_tcp_server_func:
+            return False
+            
+        tcp_server = self.get_tcp_server_func()
+        if not tcp_server:
+            return False
+        
+        # 遍历所有连接的客户端，检查是否有匹配的MAC地址
+        with tcp_server.clients_lock:
+            for client_socket, address in tcp_server.clients:
+                # 这里需要从数据库或客户端信息中获取MAC地址
+                # 简化实现：假设address包含IP信息，需要从数据库查找对应MAC
+                try:
+                    conn = sqlite3.connect(self.db_manager.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT mac_address FROM system_info WHERE ip_address = ?
+                    ''', (address[0],))
+                    row = cursor.fetchone()
+                    conn.close()
+                    
+                    if row and row[0] == mac_address:
+                        return True
+                except Exception:
+                    pass
+        return False
     
     def get(self, mac_address):
         try:
             system = self.db_manager.get_system_info_by_mac(mac_address)
             if system:
+                # 添加在线状态字段
+                system['online'] = self.get_online_status(mac_address)
                 self.write({
                     "status": "success",
                     "data": system
@@ -162,24 +239,41 @@ class APIServer:
     def __init__(self, port=None, db_path="net_manager_server.db"):
         self.port = port if port is not None else API_PORT
         self.db_manager = DatabaseManager(db_path)
+        self.tcp_server = None
         self.app = self.make_app()
+        self.server = None
+    
+    def set_tcp_server(self, tcp_server):
+        """设置TCP服务器引用，用于获取在线状态"""
+        self.tcp_server = tcp_server
+        
+    def get_tcp_server(self):
+        """获取TCP服务器引用"""
+        return self.tcp_server
         
     def make_app(self):
         """创建Tornado应用"""
         return tornado.web.Application([
             (r"/", MainHandler),
-            (r"/api/systems", SystemsHandler, dict(db_manager=self.db_manager)),
-            (r"/api/systems/([^/]+)", SystemHandler, dict(db_manager=self.db_manager)),
+            (r"/api/systems", SystemsHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/systems/([^/]+)", SystemHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ], debug=False)
     
     def start(self):
         """启动API服务器"""
-        server = tornado.httpserver.HTTPServer(self.app)
-        server.listen(self.port)
+        self.server = tornado.httpserver.HTTPServer(self.app)
+        self.server.listen(self.port)
         logger.info(f"API服务端启动，监听端口 {self.port}")
         tornado.ioloop.IOLoop.current().start()
+        
+    def stop(self):
+        """停止API服务器"""
+        if self.server:
+            self.server.stop()
+        tornado.ioloop.IOLoop.current().stop()
+        logger.info("API服务端已停止")
 
 
 if __name__ == "__main__":

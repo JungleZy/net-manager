@@ -115,7 +115,15 @@ class TCPServer:
                     break
                     
                 # 异步处理客户端数据，避免阻塞
-                self.executor.submit(self._process_client_data, data, address)
+                # 在提交任务前检查executor是否已关闭
+                try:
+                    self.executor.submit(self._process_client_data, data, address)
+                except RuntimeError as e:
+                    if "cannot schedule new futures after shutdown" in str(e):
+                        logger.debug(f"服务器正在关闭，不再处理来自 {address} 的新数据")
+                        break
+                    else:
+                        raise
                     
         except ConnectionResetError:
             logger.info(f"客户端 {address} 断开连接")
@@ -226,7 +234,17 @@ class TCPServer:
                     client_socket.settimeout(None)  # 重置客户端套接字超时
                     
                     # 为每个客户端提交到线程池处理
-                    self.executor.submit(self.handle_client, client_socket, address)
+                    # 在提交前检查服务器是否仍在运行
+                    if self.running:
+                        try:
+                            self.executor.submit(self.handle_client, client_socket, address)
+                        except RuntimeError as e:
+                            if "cannot schedule new futures after shutdown" in str(e):
+                                logger.debug("服务器正在关闭，不再接受新连接")
+                                client_socket.close()
+                                break
+                            else:
+                                raise
                     
                 except socket.timeout:
                     # accept超时，继续循环

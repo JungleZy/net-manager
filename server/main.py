@@ -8,6 +8,7 @@
 import threading
 import sys
 import os
+import time
 
 # 添加项目根目录到Python路径
 parent_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,12 +36,28 @@ def print_welcome_banner():
  \/  \/  \___/ \____/ |___/   \___/ \_|  |_/(_)\_| \_/ \___/ \_|    
     """)
     print("=" * 50)
+    print(f"版本: {VERSION}")
+    print("=" * 50)
 
 def signal_handler(sig, frame):
     """信号处理函数"""
     logger.info("接收到终止信号，正在关闭服务端...")
-    singleton_manager.release_lock()  # 释放锁
+    # 通知所有服务停止运行
+    if 'tcp_server' in globals():
+        tcp_server.running = False
+    if 'api_server' in globals():
+        try:
+            api_server.stop()
+        except Exception as e:
+            logger.error(f"停止API服务器时出错: {e}")
+    # 停止UDP服务器
+    try:
+        from src.udp_server import stop_udp_server
+        stop_udp_server()
+    except Exception as e:
+        logger.error(f"停止UDP服务器时出错: {e}")
     logger.info("服务端已退出")
+    singleton_manager.release_lock()  # 释放锁
     sys.exit(0)
 
 def start_tcp_server(tcp_server_instance):
@@ -59,6 +76,8 @@ def start_api_server(api_server_instance):
 
 def main():
     """启动服务端"""
+    global tcp_server, api_server
+    
     # 尝试获取锁
     if not singleton_manager.acquire_lock():
         logger.error("服务端已在运行中，请勿重复启动")
@@ -78,22 +97,24 @@ def main():
         # 1. 初始化数据库（在API服务器和TCP服务器的构造函数中完成）
         logger.info("数据库初始化...")
         
-        # 2. 创建API服务器实例（会初始化数据库）
-        api_server = APIServer()
-        
-        # 3. 创建TCP服务器实例（会初始化数据库）
+        # 2. 创建TCP服务器实例（会初始化数据库）
         tcp_server = TCPServer()
         
-        # 4. 启动API服务器线程
+        # 3. 创建API服务器实例（会初始化数据库）
+        api_server = APIServer()
+        
+        # 4. 设置API服务器的TCP服务器引用
+        api_server.set_tcp_server(tcp_server)
+        
+        # 5. 启动API服务器线程
         api_thread = threading.Thread(target=start_api_server, args=(api_server,))
         api_thread.daemon = True
         api_thread.start()
         
         # 等待API服务器完全启动
-        import time
         time.sleep(0.5)
         
-        # 5. 启动TCP服务线程
+        # 6. 启动TCP服务线程
         tcp_thread = threading.Thread(target=start_tcp_server, args=(tcp_server,))
         tcp_thread.daemon = True
         tcp_thread.start()
@@ -101,16 +122,21 @@ def main():
         # 等待TCP服务器完全启动
         time.sleep(0.5)
         
-        # 6. 启动UDP服务发现线程
+        # 7. 启动UDP服务发现线程
         udp_thread = threading.Thread(target=udp_server)
         udp_thread.daemon = True
         udp_thread.start()
+        
+        # 等待UDP服务器完全启动
+        time.sleep(0.5)
+        
+        logger.info("所有服务已启动完成")
         
         # 保持主线程运行，同时允许信号处理
         while True:
             time.sleep(1)
             # 检查线程是否还在运行
-            if not api_thread.is_alive() and not tcp_thread.is_alive():
+            if not api_thread.is_alive() and not tcp_thread.is_alive() and not udp_thread.is_alive():
                 logger.warning("服务线程已停止运行")
                 break
                 

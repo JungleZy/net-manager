@@ -49,7 +49,7 @@ http://localhost:12344
 
 **请求URL**: `GET /api/systems`
 
-**描述**: 获取所有已连接客户端的系统信息
+**描述**: 获取所有已连接客户端的系统信息，只返回services和processes的数量，并包含在线状态
 
 **响应示例**:
 ```json
@@ -60,8 +60,9 @@ http://localhost:12344
       "mac_address": "f0-2f-74-db-87-1f",
       "hostname": "DESKTOP-ABC123",
       "ip_address": "192.168.1.100",
-      "services": [...],
-      "processes": [...],
+      "services_count": 15,
+      "processes_count": 87,
+      "online": true,
       "timestamp": "2025-10-05 14:54:59"
     }
   ],
@@ -73,7 +74,7 @@ http://localhost:12344
 
 **请求URL**: `GET /api/systems/{mac_address}`
 
-**描述**: 根据MAC地址获取特定客户端的系统信息
+**描述**: 根据MAC地址获取特定客户端的完整系统信息，包含在线状态
 
 **响应示例**:
 ```json
@@ -85,6 +86,7 @@ http://localhost:12344
     "ip_address": "192.168.1.100",
     "services": [...],
     "processes": [...],
+    "online": true,
     "timestamp": "2025-10-05 14:54:59"
   }
 }
@@ -100,7 +102,19 @@ http://localhost:12344
 
 ## 数据结构说明
 
-### 系统信息(System Info)
+### 系统信息(System Info) - 概要信息
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| mac_address | string | 客户端MAC地址 |
+| hostname | string | 客户端主机名 |
+| ip_address | string | 客户端IP地址 |
+| services_count | integer | 客户端运行的服务数量 |
+| processes_count | integer | 客户端运行的进程数量 |
+| online | boolean | 客户端在线状态 |
+| timestamp | string | 信息收集时间 |
+
+### 系统信息(System Info) - 详细信息
 
 | 字段名 | 类型 | 描述 |
 |--------|------|------|
@@ -109,6 +123,7 @@ http://localhost:12344
 | ip_address | string | 客户端IP地址 |
 | services | array | 客户端运行的服务列表 |
 | processes | array | 客户端运行的进程列表 |
+| online | boolean | 客户端在线状态 |
 | timestamp | string | 信息收集时间 |
 
 ### 服务信息(Service)
