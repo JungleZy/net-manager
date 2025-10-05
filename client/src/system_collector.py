@@ -11,10 +11,12 @@ from src.logger import logger
 class SystemInfo:
     """系统信息模型"""
     def __init__(self, hostname: str, ip_address: str, mac_address: str, 
-                 services: str, processes: str, timestamp: str):
+                 gateway: str, netmask: str, services: str, processes: str, timestamp: str):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
+        self.gateway = gateway
+        self.netmask = netmask
         self.services = services  # 存储为JSON字符串
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
@@ -132,6 +134,197 @@ class SystemCollector:
             logger.error(f"获取MAC地址失败: {e}")
             return "unknown"
     
+    def get_gateway_and_netmask(self):
+        """获取网关和子网掩码"""
+        try:
+            # 获取网络接口统计信息
+            net_if_stats = psutil.net_if_stats()
+            net_if_addrs = psutil.net_if_addrs()
+            
+            # 获取当前使用的IP地址
+            current_ip = self.get_ip_address()
+            
+            # 查找对应的网络接口
+            gateway = "unknown"
+            netmask = "unknown"
+            
+            for interface, addrs in net_if_addrs.items():
+                for addr in addrs:
+                    # 找到与当前IP匹配的地址
+                    if addr.family == socket.AF_INET and addr.address == current_ip:
+                        netmask = addr.netmask if addr.netmask else "unknown"
+                        
+                        # 在Windows上尝试获取网关
+                        if platform.system() == "Windows":
+                            # 尝试多种方法获取网关
+                            gateway = self._get_windows_gateway(current_ip)
+                        # 在Linux上尝试其他方法
+                        else:
+                            # 尝试多种方法获取网关
+                            gateway = self._get_linux_gateway()
+                        
+                        # 如果获取到网关，则返回
+                        if gateway != "unknown":
+                            return gateway, netmask
+                        
+                        return gateway, netmask
+            
+            logger.warning(f"未找到IP地址 {current_ip} 对应的网关和子网掩码")
+            return "unknown", "unknown"
+        except Exception as e:
+            logger.error(f"获取网关和子网掩码失败: {e}")
+            return "unknown", "unknown"
+    
+    def _get_windows_gateway(self, current_ip):
+        """获取Windows系统下的网关"""
+        gateway = "unknown"
+        try:
+            # 方法1: 使用netstat命令获取路由表
+            import subprocess
+            result = subprocess.run(["netstat", "-rn"], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    # 查找默认路由
+                    if line.strip().startswith('0.0.0.0') or 'default' in line.lower():
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            # 检查网关是否有效
+                            gateway_candidate = parts[2]
+                            if self._is_valid_ip(gateway_candidate):
+                                gateway = gateway_candidate
+                                logger.debug(f"通过netstat命令获取到网关: {gateway}")
+                                break
+            
+            # 如果方法1失败，尝试使用route print命令
+            if gateway == "unknown":
+                result = subprocess.run(["route", "print"], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    lines = result.stdout.split('\n')
+                    for line in lines:
+                        # 查找默认路由
+                        if line.strip().startswith('0.0.0.0') and '0.0.0.0' in line:
+                            parts = line.split()
+                            if len(parts) >= 3:
+                                # 检查网关是否有效
+                                gateway_candidate = parts[3]  # Windows route print中网关在第4列
+                                if self._is_valid_ip(gateway_candidate):
+                                    gateway = gateway_candidate
+                                    logger.debug(f"通过route print命令获取到网关: {gateway}")
+                                    break
+            
+            # 如果方法2失败，尝试使用Get-NetRoute PowerShell命令
+            if gateway == "unknown":
+                try:
+                    result = subprocess.run([
+                        "powershell", 
+                        "-Command", 
+                        "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -ExpandProperty NextHop"
+                    ], capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout.strip():
+                        gateway_candidate = result.stdout.strip().split('\n')[0]
+                        if self._is_valid_ip(gateway_candidate):
+                            gateway = gateway_candidate
+                            logger.debug(f"通过PowerShell Get-NetRoute获取到网关: {gateway}")
+                except Exception as e:
+                    logger.warning(f"通过PowerShell获取网关失败: {e}")
+            
+            return gateway
+        except subprocess.TimeoutExpired:
+            logger.warning("获取Windows网关超时")
+            return "unknown"
+        except Exception as e:
+            logger.warning(f"获取Windows网关时出错: {e}")
+            return "unknown"
+    
+    def _get_linux_gateway(self):
+        """获取Linux系统下的网关"""
+        gateway = "unknown"
+        try:
+            # 方法1: 使用ip route命令获取默认网关
+            import subprocess
+            result = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if line.startswith('default'):
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            gateway_candidate = parts[2]
+                            if self._is_valid_ip(gateway_candidate):
+                                gateway = gateway_candidate
+                                logger.debug(f"通过ip route命令获取到网关: {gateway}")
+                                break
+            
+            # 如果方法1失败，尝试使用route命令
+            if gateway == "unknown":
+                result = subprocess.run(["route", "-n"], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    lines = result.stdout.split('\n')
+                    for line in lines:
+                        # 查找默认路由
+                        if line.startswith('0.0.0.0') or 'default' in line.lower():
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                gateway_candidate = parts[1]
+                                if self._is_valid_ip(gateway_candidate):
+                                    gateway = gateway_candidate
+                                    logger.debug(f"通过route -n命令获取到网关: {gateway}")
+                                    break
+            
+            # 如果方法2失败，尝试读取/proc/net/route文件
+            if gateway == "unknown":
+                try:
+                    with open('/proc/net/route', 'r') as f:
+                        lines = f.readlines()
+                        for line in lines[1:]:  # 跳过标题行
+                            fields = line.strip().split()
+                            if len(fields) >= 3 and fields[1] == '00000000':  # 默认路由
+                                # 网关地址是十六进制格式，需要转换
+                                gateway_hex = fields[2]
+                                gateway_ip = self._hex_to_ip(gateway_hex)
+                                if gateway_ip and self._is_valid_ip(gateway_ip):
+                                    gateway = gateway_ip
+                                    logger.debug(f"通过/proc/net/route文件获取到网关: {gateway}")
+                                    break
+                except Exception as e:
+                    logger.warning(f"通过/proc/net/route获取网关失败: {e}")
+            
+            return gateway
+        except subprocess.TimeoutExpired:
+            logger.warning("获取Linux网关超时")
+            return "unknown"
+        except Exception as e:
+            logger.warning(f"获取Linux网关时出错: {e}")
+            return "unknown"
+    
+    def _is_valid_ip(self, ip):
+        """检查IP地址是否有效"""
+        if not ip or ip == "unknown":
+            return False
+        try:
+            import ipaddress
+            ipaddress.ip_address(ip)
+            return True
+        except Exception:
+            return False
+    
+    def _hex_to_ip(self, hex_ip):
+        """将十六进制IP地址转换为点分十进制格式"""
+        try:
+            # 十六进制转换为整数，然后转换为IP地址
+            import struct
+            import socket
+            # 确保是8个字符的十六进制字符串
+            if len(hex_ip) == 8:
+                # 转换为字节并解包为IP地址
+                ip_bytes = bytes.fromhex(hex_ip)
+                ip_address = socket.inet_ntoa(ip_bytes)
+                return ip_address
+        except Exception as e:
+            logger.warning(f"十六进制IP转换失败: {e}")
+        return None
+    
     def get_services(self):
         """获取运行的服务和端口信息"""
         services = []
@@ -196,6 +389,7 @@ class SystemCollector:
             hostname = self.get_hostname()
             ip_address = self.get_ip_address()
             mac_address = self.get_mac_address()
+            gateway, netmask = self.get_gateway_and_netmask()
             services = self.get_services()
             processes = self.get_processes()
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -206,7 +400,7 @@ class SystemCollector:
             # 将进程信息转换为JSON字符串存储
             processes_json = json.dumps(processes, ensure_ascii=False)
             
-            return SystemInfo(hostname, ip_address, mac_address, services_json, processes_json, timestamp)
+            return SystemInfo(hostname, ip_address, mac_address, gateway, netmask, services_json, processes_json, timestamp)
         except Exception as e:
             logger.error(f"收集系统信息时发生错误: {e}")
             raise

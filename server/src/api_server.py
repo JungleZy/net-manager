@@ -31,7 +31,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, services, processes, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp
                 FROM system_info
                 ORDER BY timestamp DESC
             ''')
@@ -46,9 +46,11 @@ class DatabaseManager:
                     'mac_address': row[0],
                     'hostname': row[1],
                     'ip_address': row[2],
-                    'services': json.loads(row[3]) if row[3] else [],
-                    'processes': json.loads(row[4]) if row[4] else [],
-                    'timestamp': row[5]
+                    'gateway': row[3],
+                    'netmask': row[4],
+                    'services': json.loads(row[5]) if row[5] else [],
+                    'processes': json.loads(row[6]) if row[6] else [],
+                    'timestamp': row[7]
                 })
             
             return result
@@ -63,7 +65,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, services, processes, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp
                 FROM system_info
                 WHERE mac_address = ?
             ''', (mac_address,))
@@ -76,9 +78,11 @@ class DatabaseManager:
                     'mac_address': row[0],
                     'hostname': row[1],
                     'ip_address': row[2],
-                    'services': json.loads(row[3]) if row[3] else [],
-                    'processes': json.loads(row[4]) if row[4] else [],
-                    'timestamp': row[5]
+                    'gateway': row[3],
+                    'netmask': row[4],
+                    'services': json.loads(row[5]) if row[5] else [],
+                    'processes': json.loads(row[6]) if row[6] else [],
+                    'timestamp': row[7]
                 }
             return None
         except Exception as e:
@@ -86,21 +90,31 @@ class DatabaseManager:
             raise
 
 
-class MainHandler(RequestHandler):
-    """主页处理器"""
+class BaseHandler(RequestHandler):
+    """基础处理器类，提供通用功能如CORS支持"""
+    def set_default_headers(self):
+        """设置默认响应头，支持CORS"""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "x-requested-with, Content-Type")
+        self.set_header("Access-Control-Max-Age", "86400")  # 24小时
+    
+    def options(self):
+        """处理OPTIONS预检请求"""
+        self.set_status(204)
+        self.finish()
+
+class MainHandler(BaseHandler):
+    """主页处理器 - 返回简单的欢迎信息"""
     def get(self):
         self.write({
-            "message": "Net Manager API Server",
+            "message": "欢迎使用Net Manager API服务",
             "version": "1.0.0",
-            "endpoints": {
-                "GET /api/systems": "获取所有系统信息",
-                "GET /api/systems/{mac_address}": "根据MAC地址获取特定系统信息",
-                "GET /health": "健康检查"
-            }
+            "documentation": "/api/docs"
         })
 
 
-class SystemsHandler(RequestHandler):
+class SystemsHandler(BaseHandler):
     """系统信息处理器 - 获取所有系统信息"""
     def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
@@ -146,6 +160,8 @@ class SystemsHandler(RequestHandler):
                     'mac_address': system['mac_address'],
                     'hostname': system['hostname'],
                     'ip_address': system['ip_address'],
+                    'gateway': system['gateway'],
+                    'netmask': system['netmask'],
                     'services_count': len(system['services']),
                     'processes_count': len(system['processes']),
                     'online': self.get_online_status(system['mac_address']),
@@ -166,7 +182,7 @@ class SystemsHandler(RequestHandler):
             })
 
 
-class SystemHandler(RequestHandler):
+class SystemHandler(BaseHandler):
     """单个系统信息处理器 - 根据MAC地址获取系统信息"""
     def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
@@ -225,8 +241,9 @@ class SystemHandler(RequestHandler):
             })
 
 
-class HealthHandler(RequestHandler):
+class HealthHandler(BaseHandler):
     """健康检查处理器"""
+    
     def get(self):
         self.write({
             "status": "healthy",
@@ -263,7 +280,11 @@ class APIServer:
     
     def start(self):
         """启动API服务器"""
-        self.server = tornado.httpserver.HTTPServer(self.app)
+        self.server = tornado.httpserver.HTTPServer(
+            self.app,
+            xheaders= True,
+            max_buffer_size=10485760,  # 10MB buffer size
+        )
         self.server.listen(self.port)
         logger.info(f"API服务端启动，监听端口 {self.port}")
         tornado.ioloop.IOLoop.current().start()

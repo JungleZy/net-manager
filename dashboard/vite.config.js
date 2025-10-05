@@ -2,8 +2,6 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
-import fs from 'fs'
-import path from 'path'
 
 // 创建一个插件，在构建时将index.html中的bindType从'dev'修改为'prod'
 function transformBindType() {
@@ -34,6 +32,8 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
+    // 优化模块解析
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
   },
   server: {
     open: false,
@@ -45,6 +45,17 @@ export default defineConfig({
     preprocessorOptions: {
       less: {
         javascriptEnabled: true,
+      }
+    }
+  },
+  // 优化构建配置
+  build: {
+    rollupOptions: {
+      output: {
+        // 优化文件名
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
     }
   }

@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { message, Modal } from 'ant-design-vue'
 //创建axios的一个实例
 const instance = axios.create({
   baseURL: window.httpUrl, //接口统一域名
@@ -66,7 +65,7 @@ instance.interceptors.response.use(
         default:
           msg = '请求失败'
       }
-      message.error(msg)
+      console.log(msg);
       return Promise.reject(error)
     }
     return Promise.reject(error)

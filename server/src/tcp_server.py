@@ -24,10 +24,12 @@ from src.logger import logger
 
 class SystemInfo:
     """系统信息模型"""
-    def __init__(self, hostname, ip_address, mac_address, services, processes, timestamp):
+    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
+        self.gateway = gateway
+        self.netmask = netmask
         self.services = services  # 存储为JSON字符串
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
@@ -52,6 +54,8 @@ class DatabaseManager:
                     mac_address TEXT PRIMARY KEY,
                     hostname TEXT NOT NULL,
                     ip_address TEXT NOT NULL,
+                    gateway TEXT,
+                    netmask TEXT,
                     services TEXT NOT NULL,
                     processes TEXT NOT NULL,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -75,10 +79,10 @@ class DatabaseManager:
                 
                 # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
                 cursor.execute('''
-                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, services, processes, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (system_info.mac_address, system_info.hostname, system_info.ip_address, 
-                      system_info.services, system_info.processes, system_info.timestamp))
+                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.timestamp))
                 
                 conn.commit()
                 conn.close()
@@ -167,6 +171,8 @@ class TCPServer:
             hostname=info.get('hostname', 'N/A'),
             ip_address=info.get('ip_address', 'N/A'),
             mac_address=info.get('mac_address', 'N/A'),
+            gateway=info.get('gateway', 'N/A'),
+            netmask=info.get('netmask', 'N/A'),
             services=info.get('services', '[]'),
             processes=info.get('processes', '[]'),
             timestamp=info.get('timestamp', 'N/A')
