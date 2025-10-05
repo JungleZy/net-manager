@@ -22,12 +22,59 @@ tcp_client: Optional[TCPClient] = None
 last_system_info_hash: Optional[str] = None  # 用于存储上一次系统信息的哈希值
 shutdown_event = threading.Event()  # 用于优雅关闭程序
 
+# 单一实例锁文件路径
+LOCK_FILE_PATH = os.path.join(parent_dir, "client.lock")
+
+def acquire_lock():
+    """获取文件锁，确保只有一个实例运行"""
+    if os.path.exists(LOCK_FILE_PATH):
+        # 检查锁文件是否有效（进程是否仍在运行）
+        try:
+            with open(LOCK_FILE_PATH, "r") as f:
+                pid = int(f.read().strip())
+            # 检查进程是否存在
+            if os.name == 'nt':  # Windows
+                import subprocess
+                result = subprocess.run(["tasklist", "/fi", f"PID eq {pid}"], 
+                                      capture_output=True, text=True)
+                if str(pid) in result.stdout:
+                    logger.error("客户端已在运行中，请勿重复启动")
+                    return False
+            else:  # Unix-like systems
+                import signal as sys_signal
+                try:
+                    os.kill(pid, 0)  # 检查进程是否存在
+                    logger.error("客户端已在运行中，请勿重复启动")
+                    return False
+                except OSError:
+                    pass  # 进程不存在，可以继续
+        except (ValueError, IOError):
+            pass  # 锁文件损坏或无法读取，继续执行
+    
+    # 创建新的锁文件
+    try:
+        with open(LOCK_FILE_PATH, "w") as f:
+            f.write(str(os.getpid()))
+        return True
+    except IOError:
+        logger.error("无法创建锁文件，可能没有写入权限")
+        return False
+
+def release_lock():
+    """释放文件锁"""
+    try:
+        if os.path.exists(LOCK_FILE_PATH):
+            os.remove(LOCK_FILE_PATH)
+    except OSError:
+        pass  # 忽略删除失败
+
 def signal_handler(sig, frame):
     """信号处理函数"""
     logger.info("接收到终止信号，正在关闭程序...")
     shutdown_event.set()  # 设置关闭事件
     if tcp_client:
         tcp_client.disconnect()
+    release_lock()  # 释放锁
     logger.info("程序已退出")
     sys.exit(0)
 
@@ -50,6 +97,10 @@ def main():
     """主程序入口"""
     global tcp_client, last_system_info_hash
     
+    # 尝试获取锁
+    if not acquire_lock():
+        sys.exit(1)
+    
     # 注册跨平台信号处理器
     setup_signal_handlers(signal_handler)
     
@@ -61,7 +112,6 @@ def main():
     
     # 尝试通过UDP发现并连接到服务端
     connection_retry_count = 0
-    max_connection_retries = 5  # 最大连接重试次数
     
     while not shutdown_event.is_set():
         if tcp_client.discover_server():
@@ -71,25 +121,13 @@ def main():
                 break
             else:
                 connection_retry_count += 1
-                logger.warning(f"TCP连接失败，{min(connection_retry_count, max_connection_retries)}次重试后重试...")
-                if connection_retry_count >= max_connection_retries:
-                    logger.error("达到最大连接重试次数，程序退出")
-                    return
-                # 指数退避策略，最大等待60秒
-                wait_time = min(3 * (2 ** (connection_retry_count - 1)), 60)
-                if shutdown_event.wait(wait_time):
-                    return
+                logger.warning(f"TCP连接失败，{connection_retry_count}次重试后重试...")
+
         else:
             connection_retry_count += 1
-            logger.warning(f"无法通过UDP发现服务端，{min(connection_retry_count, max_connection_retries)}次重试后重试...")
-            if connection_retry_count >= max_connection_retries:
-                logger.error("达到最大连接重试次数，程序退出")
-                return
-            # 指数退避策略，最大等待60秒
-            wait_time = min(3 * (2 ** (connection_retry_count - 1)), 60)
-            if shutdown_event.wait(wait_time):
-                return
+            logger.warning(f"无法通过UDP发现服务端，{connection_retry_count}次重试后重试...")
     
+    # 如果成功连接到服务端，进入主循环
     try:
         # 主循环
         while not shutdown_event.is_set():
@@ -156,16 +194,22 @@ def main():
             if shutdown_event.wait(COLLECT_INTERVAL):
                 break
                 
+        # 正常退出时释放锁
+        release_lock()
+        logger.info("程序正常退出")
+                
     except Exception as e:
         logger.error(f"程序运行出错: {e}")
         if tcp_client:
             tcp_client.disconnect()
+        release_lock()
         raise
             
     except Exception as e:
         logger.error(f"程序运行出错: {e}")
         if tcp_client:
             tcp_client.disconnect()
+        release_lock()
         raise
 
 if __name__ == "__main__":

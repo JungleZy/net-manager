@@ -2,13 +2,17 @@
 
 ## 概述
 
-本文档说明如何使用Nuitka将Net Manager客户端打包成独立的可执行文件，以便在没有Python环境的Windows系统上运行。
+本文档说明如何使用Nuitka将Net Manager客户端和服务端打包成独立的可执行文件，以便在没有Python环境的系统上运行。
+
+项目提供了两种打包方式：
+1. 手动命令行打包
+2. 自动化打包脚本（推荐）
 
 ## 打包工具
 
 项目使用[Nuitka](https://nuitka.net/)作为打包工具，它是一个Python编译器，可以将Python代码编译成独立的可执行文件。
 
-## 打包步骤
+## 方法一：手动命令行打包
 
 ### 1. 安装Nuitka
 
@@ -51,6 +55,38 @@ python -m nuitka --standalone --onefile --enable-plugin=multiprocessing client/m
 ```bash
 move main.exe client\
 ```
+
+## 方法二：使用自动化打包脚本（推荐）
+
+项目提供了 `build.py` 自动化打包脚本，可以简化打包过程并支持分别打包客户端和服务端。
+
+### 1. 使用方法
+
+```bash
+# 打包客户端和服务端
+python build.py
+
+# 仅打包客户端
+python build.py --client
+
+# 仅打包服务端
+python build.py --server
+
+# 清理之前的构建并重新打包
+python build.py --clean
+```
+
+### 2. 输出目录
+
+打包完成后，生成的文件将位于 `dist` 目录中：
+- 客户端: `dist/client/`
+- 服务端: `dist/server/`
+
+每个目录都包含：
+- `main.exe`: 打包后的可执行文件
+- `run_client.bat` / `run_server.bat`: 运行脚本
+- `logs/`: 日志目录
+- 相关说明文档
 
 ## 打包结果
 
