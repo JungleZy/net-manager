@@ -1,6 +1,6 @@
 <template>
-  <div class="p-[8px] size-full">
-    <div class="size-full bg-white rounded-lg shadow p-[8px]">
+  <div class="p-[12px] size-full">
+    <div class="size-full bg-white rounded-lg shadow p-[12px]">
       <!-- 统计卡片 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-blue-100 rounded-lg p-4 shadow">
@@ -186,38 +186,7 @@ const fetchDeviceStatistics = async () => {
   } catch (error) {
     console.error('获取设备统计信息失败:', error)
     // 出错时使用模拟数据
-    devices.value = [
-      {
-        hostname: '服务器01',
-        ip_address: '192.168.1.10',
-        mac_address: '00:1A:2B:3C:4D:5E',
-        os_name: 'Windows',
-        os_version: '10.0.19042',
-        os_architecture: 'AMD64',
-        online: true,
-        timestamp: '2023-05-15 14:30:22'
-      },
-      {
-        hostname: '工作站02',
-        ip_address: '192.168.1.15',
-        mac_address: '00:1A:2B:3C:4D:5F',
-        os_name: 'Ubuntu',
-        os_version: '20.04',
-        os_architecture: 'x86_64',
-        online: true,
-        timestamp: '2023-05-15 14:25:10'
-      },
-      {
-        hostname: '打印机03',
-        ip_address: '192.168.1.20',
-        mac_address: '00:1A:2B:3C:4D:60',
-        os_name: 'Linux',
-        os_version: '4.19.0',
-        os_architecture: 'ARM',
-        online: false,
-        timestamp: '2023-05-14 09:15:45'
-      }
-    ]
+    devices.value = []
 
     statistics.value.totalDevices = devices.value.length
     statistics.value.onlineDevices = devices.value.filter(

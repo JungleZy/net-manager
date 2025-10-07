@@ -1,6 +1,6 @@
 <template>
-  <div class="p-[8px] size-full">
-    <div class="size-full bg-white rounded-lg shadow p-[8px]">
+  <div class="p-[12px] size-full">
+    <div class="size-full bg-white rounded-lg shadow p-[12px]">
       <div class="mb-4 layout-side">
         <div>
           <span class="mr-2 font-medium">设备类型:</span>

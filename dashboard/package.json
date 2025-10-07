@@ -9,8 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@logicflow/core": "^2.0.13",
-    "@logicflow/extension": "^2.0.17",
+    "@logicflow/core": "^2.1.2",
+    "@logicflow/extension": "^2.1.4",
+    "@logicflow/vue-node-registry": "^1.1.3",
     "@vueuse/components": "^13.1.0",
     "@vueuse/core": "^13.1.0",
     "ant-design-vue": "^4.2.6",
