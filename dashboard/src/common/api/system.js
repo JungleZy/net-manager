@@ -11,5 +11,12 @@ export default {
       method: 'get',
       url: `/api/systems/${macAddress}`
     })
+  },
+  updateSystemType: (macAddress, data) => {
+    return axios({
+      method: 'put',
+      url: `/api/systems/${macAddress}/type`,
+      data: data
+    })
   }
 }

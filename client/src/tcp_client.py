@@ -185,6 +185,10 @@ class TCPClient:
                     "netmask": system_info.netmask,
                     "services": system_info.services,  # 这已经是JSON格式的字符串
                     "processes": system_info.processes,  # 这已经是JSON格式的字符串
+                    "os_name": system_info.os_name,  # 操作系统名称
+                    "os_version": system_info.os_version,  # 操作系统版本
+                    "os_architecture": system_info.os_architecture,  # 操作系统架构
+                    "machine_type": system_info.machine_type,  # 机器类型
                     "timestamp": system_info.timestamp,
                     "client_id": system_info.client_id  # 客户端唯一标识符
                 }
@@ -192,9 +196,22 @@ class TCPClient:
                 # 将字典转换为JSON字符串
                 message = json.dumps(info_dict, ensure_ascii=False)
                 
-                # 通过TCP发送数据
-                self.socket.sendall(message.encode('utf-8'))
-                logger.info("数据已通过TCP发送到服务端")
+                # 验证数据不为空
+                if not message:
+                    logger.error("要发送的数据为空")
+                    return False
+                
+                # 验证数据长度
+                message_bytes = message.encode('utf-8')
+                if len(message_bytes) == 0:
+                    logger.error("要发送的字节数据为空")
+                    return False
+                
+                # 先发送数据长度（4字节），再发送数据内容
+                import struct
+                length_prefix = struct.pack('!I', len(message_bytes))  # 网络字节序
+                self.socket.sendall(length_prefix + message_bytes)
+                logger.info(f"数据已通过TCP发送到服务端，长度: {len(message_bytes)} 字节")
                 return True
             except Exception as e:
                 logger.error(f"发送数据失败: {e}")

@@ -311,25 +311,21 @@ def main():
     parser = argparse.ArgumentParser(description="Net Manager 打包脚本")
     parser.add_argument("--client", action="store_true", help="仅打包客户端")
     parser.add_argument("--server", action="store_true", help="仅打包服务端")
-    parser.add_argument("--clean", action="store_true", help="清理之前的构建")
-    parser.add_argument("--no-venv", action="store_true", help="不使用虚拟环境")
     
     args = parser.parse_args()
     
     # 如果不是指定不使用虚拟环境，则确保虚拟环境存在
-    if not args.no_venv:
-        print("检查虚拟环境...")
-        if not ensure_virtual_environment():
-            print("✗ 虚拟环境准备失败")
-            sys.exit(1)
+    print("检查虚拟环境...")
+    if not ensure_virtual_environment():
+        print("✗ 虚拟环境准备失败")
+        sys.exit(1)
     
     # 检查Nuitka
     if not check_nuitka():
         sys.exit(1)
     
     # 清理之前的构建
-    if args.clean:
-        clean_build()
+    clean_build()
     
     # 创建输出目录
     DIST_DIR.mkdir(exist_ok=True)

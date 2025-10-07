@@ -13,6 +13,7 @@
     "@logicflow/extension": "^2.0.17",
     "@vueuse/components": "^13.1.0",
     "@vueuse/core": "^13.1.0",
+    "ant-design-vue": "^4.2.6",
     "axios": "1.12.2",
     "core-js": "^3.41.0",
     "dayjs": "^1.11.13",

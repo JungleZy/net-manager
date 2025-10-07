@@ -2,50 +2,10 @@
 <nuitka-compilation-report nuitka_version="2.7.16" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="Failed unexpectedly in Scons C backend compilation.">
   <scons_error_reports>
     <scons_error_report>
-      <command>gcc -o "module.src.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 16781311 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.tornado.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.tornado.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 4194296 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.src.udp_server.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.udp_server.c"</command>
+      <command>gcc -o "module.src.tcp_server.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.tcp_server.c"</command>
       <stderr>
 
 cc1.exe: out of memory allocating 8392703 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.src.logger.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.logger.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 4194296 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.src.platform_utils.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.platform_utils.c"</command>
-      <stderr>
-In file included from C:/Users/JungleBook/AppData/Local/Nuitka/Nuitka/Cache/downloads/gcc/x86_64/14.2.0posix-19.1.1-12.0.0-msvcrt-r2/mingw64/x86_64-w64-mingw32/include/windows.h:86,
-                 from E:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include/nuitka/prelude.h:15,
-                 from module.src.platform_utils.c:19:
-C:/Users/JungleBook/AppData/Local/Nuitka/Nuitka/Cache/downloads/gcc/x86_64/14.2.0posix-19.1.1-12.0.0-msvcrt-r2/mingw64/x86_64-w64-mingw32/include/mmsystem.h:35:10: fatal error: C:/Users/JungleBook/AppData/Local/Nuitka/Nuitka/Cache/downloads/gcc/x86_64/14.2.0posix-19.1.1-12.0.0-msvcrt-r2/mingw64/include/joystickapi.h: Invalid argument
-   35 | #include &lt;joystickapi.h&gt;
-      |          ^~~~~~~~~~~~~~~
-compilation terminated.
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.src.config.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -D_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.config.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 16781311 bytes
 </stderr>
     </scons_error_report>
   </scons_error_reports>
@@ -61,7 +21,7 @@ cc1.exe: out of memory allocating 16781311 bytes
   </module>
   <module name="__main__" kind="PythonMainModule" usage="root_module" reason="Root module" source_path="${cwd}\main.py">
     <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="64" merged_total="983" />
-    <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="64" merged_total="187" />
+    <optimization-time pass="2" time="0.05" micro_passes="1" max_branch_merge="64" merged_total="187" />
     <module_usages>
       <module_usage name="threading" finding="absolute" line="8" />
       <module_usage name="sys" finding="absolute" line="9" />
@@ -5705,8 +5665,8 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="src.api_server" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\api_server.py">
-    <optimization-time pass="1" time="0.27" micro_passes="5" max_branch_merge="30" merged_total="2819" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="30" merged_total="493" />
+    <optimization-time pass="1" time="0.30" micro_passes="5" max_branch_merge="44" merged_total="5569" />
+    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="44" merged_total="1015" />
     <distribution-usages>
       <distribution-usage name="tornado" />
     </distribution-usages>
@@ -5756,7 +5716,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="src.singleton_manager" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\singleton_manager.py">
-    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="49" merged_total="1060" />
+    <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="49" merged_total="1060" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="27" merged_total="172" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="10" />
@@ -5770,8 +5730,8 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="src.tcp_server" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\tcp_server.py">
-    <optimization-time pass="1" time="0.11" micro_passes="5" max_branch_merge="39" merged_total="3049" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="39" merged_total="562" />
+    <optimization-time pass="1" time="0.10" micro_passes="5" max_branch_merge="39" merged_total="3912" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="39" merged_total="716" />
     <module_usages>
       <module_usage name="socket" finding="absolute" line="8" />
       <module_usage name="json" finding="absolute" line="9" />
@@ -5785,10 +5745,11 @@ cc1.exe: out of memory allocating 16781311 bytes
       <module_usage name="concurrent.futures.ThreadPoolExecutor" finding="not-found" line="16" />
       <module_usage name="src.config" finding="absolute" line="22" />
       <module_usage name="src.logger" finding="absolute" line="23" />
+      <module_usage name="struct" finding="absolute" line="153" />
     </module_usages>
   </module>
   <module name="src.udp_server" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\udp_server.py">
-    <optimization-time pass="1" time="0.14" micro_passes="5" max_branch_merge="25" merged_total="616" />
+    <optimization-time pass="1" time="0.12" micro_passes="5" max_branch_merge="25" merged_total="616" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="25" merged_total="120" />
     <module_usages>
       <module_usage name="socket" finding="absolute" line="8" />
@@ -6040,7 +6001,7 @@ cc1.exe: out of memory allocating 16781311 bytes
   </module>
   <module name="test.support" kind="UncompiledPythonPackage" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.real_prefix}\Lib\test\support\__init__.py">
     <optimization-time pass="1" time="1.16" micro_passes="6" max_branch_merge="90" merged_total="17256" />
-    <optimization-time pass="2" time="0.01" />
+    <optimization-time pass="2" time="0.00" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
       <module_usage name="contextlib" finding="absolute" line="6" />
@@ -6393,7 +6354,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.escape" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\escape.py" distribution="tornado">
-    <optimization-time pass="1" time="0.07" micro_passes="7" max_branch_merge="86" merged_total="1960" />
+    <optimization-time pass="1" time="0.08" micro_passes="7" max_branch_merge="86" merged_total="1960" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="68" merged_total="244" />
     <module_usages>
       <module_usage name="html" finding="absolute" line="28" />
@@ -6406,7 +6367,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.gen" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\gen.py" distribution="tornado">
-    <optimization-time pass="1" time="0.13" micro_passes="6" max_branch_merge="32" merged_total="5026" />
+    <optimization-time pass="1" time="0.12" micro_passes="6" max_branch_merge="32" merged_total="5026" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="24" merged_total="743" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="64" />
@@ -6430,7 +6391,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.http1connection" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\http1connection.py" distribution="tornado">
-    <optimization-time pass="1" time="0.26" micro_passes="7" max_branch_merge="135" merged_total="12209" />
+    <optimization-time pass="1" time="0.19" micro_passes="7" max_branch_merge="135" merged_total="12209" />
     <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="126" merged_total="1651" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="21" />
@@ -6451,7 +6412,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.httpserver" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\httpserver.py" distribution="tornado">
-    <optimization-time pass="1" time="0.23" micro_passes="5" max_branch_merge="126" merged_total="3239" />
+    <optimization-time pass="1" time="0.21" micro_passes="5" max_branch_merge="126" merged_total="3239" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="120" merged_total="572" />
     <module_usages>
       <module_usage name="socket" finding="absolute" line="28" />
@@ -6471,7 +6432,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.httputil" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\httputil.py" distribution="tornado">
-    <optimization-time pass="1" time="0.47" micro_passes="7" max_branch_merge="138" merged_total="12717" />
+    <optimization-time pass="1" time="0.29" micro_passes="7" max_branch_merge="138" merged_total="12717" />
     <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="97" merged_total="1718" />
     <module_usages>
       <module_usage name="calendar" finding="absolute" line="22" />
@@ -6494,7 +6455,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.ioloop" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\ioloop.py" distribution="tornado">
-    <optimization-time pass="1" time="0.19" micro_passes="6" max_branch_merge="302" merged_total="6095" />
+    <optimization-time pass="1" time="0.16" micro_passes="6" max_branch_merge="302" merged_total="6095" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="282" merged_total="894" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="26" />
@@ -6525,7 +6486,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.iostream" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\iostream.py" distribution="tornado">
-    <optimization-time pass="1" time="0.22" micro_passes="6" max_branch_merge="222" merged_total="12756" />
+    <optimization-time pass="1" time="0.28" micro_passes="6" max_branch_merge="222" merged_total="12756" />
     <optimization-time pass="2" time="0.13" micro_passes="1" max_branch_merge="77" merged_total="1902" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="26" />
@@ -6550,7 +6511,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.locale" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\locale.py" distribution="tornado">
-    <optimization-time pass="1" time="0.11" micro_passes="5" max_branch_merge="129" merged_total="4593" />
+    <optimization-time pass="1" time="0.12" micro_passes="5" max_branch_merge="129" merged_total="4593" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="121" merged_total="828" />
     <module_usages>
       <module_usage name="codecs" finding="absolute" line="40" />
@@ -6571,7 +6532,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.log" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\log.py" distribution="tornado">
-    <optimization-time pass="1" time="0.11" micro_passes="5" max_branch_merge="66" merged_total="2130" />
+    <optimization-time pass="1" time="0.10" micro_passes="5" max_branch_merge="66" merged_total="2130" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="59" merged_total="409" />
     <module_usages>
       <module_usage name="logging" finding="absolute" line="30" />
@@ -6605,8 +6566,8 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.options" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\options.py" distribution="tornado">
-    <optimization-time pass="1" time="0.15" micro_passes="9" max_branch_merge="144" merged_total="8099" />
-    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="44" merged_total="798" />
+    <optimization-time pass="1" time="0.14" micro_passes="9" max_branch_merge="144" merged_total="8099" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="44" merged_total="798" />
     <module_usages>
       <module_usage name="datetime" finding="absolute" line="102" />
       <module_usage name="numbers" finding="absolute" line="103" />
@@ -6628,7 +6589,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.platform.asyncio" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\platform\asyncio.py" distribution="tornado">
-    <optimization-time pass="1" time="0.13" micro_passes="5" max_branch_merge="100" merged_total="6253" />
+    <optimization-time pass="1" time="0.11" micro_passes="5" max_branch_merge="100" merged_total="6253" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="89" merged_total="1123" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="25" />
@@ -6654,7 +6615,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.process" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\process.py" distribution="tornado">
-    <optimization-time pass="1" time="0.09" micro_passes="5" max_branch_merge="65" merged_total="1486" />
+    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="65" merged_total="1486" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="41" merged_total="236" />
     <module_usages>
       <module_usage name="asyncio" finding="absolute" line="20" />
@@ -6676,8 +6637,8 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.routing" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\routing.py" distribution="tornado">
-    <optimization-time pass="1" time="0.16" micro_passes="5" max_branch_merge="50" merged_total="6285" />
-    <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="45" merged_total="1162" />
+    <optimization-time pass="1" time="0.18" micro_passes="5" max_branch_merge="50" merged_total="6285" />
+    <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="45" merged_total="1162" />
     <module_usages>
       <module_usage name="re" finding="absolute" line="178" />
       <module_usage name="functools" finding="absolute" line="179" />
@@ -6696,7 +6657,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     <module_usages />
   </module>
   <module name="tornado.tcpserver" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\tcpserver.py" distribution="tornado">
-    <optimization-time pass="1" time="0.07" micro_passes="5" max_branch_merge="121" merged_total="1372" />
+    <optimization-time pass="1" time="0.11" micro_passes="5" max_branch_merge="121" merged_total="1372" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="46" merged_total="214" />
     <module_usages>
       <module_usage name="errno" finding="absolute" line="18" />
@@ -6717,7 +6678,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.template" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\template.py" distribution="tornado">
-    <optimization-time pass="1" time="0.46" micro_passes="6" max_branch_merge="303" merged_total="12977" />
+    <optimization-time pass="1" time="0.48" micro_passes="6" max_branch_merge="303" merged_total="12977" />
     <optimization-time pass="2" time="0.06" micro_passes="1" max_branch_merge="298" merged_total="1979" />
     <module_usages>
       <module_usage name="datetime" finding="absolute" line="199" />
@@ -6736,7 +6697,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.util" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\util.py" distribution="tornado">
-    <optimization-time pass="1" time="0.05" micro_passes="5" max_branch_merge="66" merged_total="2078" />
+    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="66" merged_total="2078" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="29" merged_total="330" />
     <module_usages>
       <module_usage name="array" finding="absolute" line="13" />
@@ -6751,8 +6712,8 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="tornado.web" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\tornado\web.py" distribution="tornado">
-    <optimization-time pass="1" time="1.52" micro_passes="6" max_branch_merge="843" merged_total="33553" />
-    <optimization-time pass="2" time="0.17" micro_passes="1" max_branch_merge="247" merged_total="5015" />
+    <optimization-time pass="1" time="1.36" micro_passes="6" max_branch_merge="843" merged_total="33553" />
+    <optimization-time pass="2" time="0.16" micro_passes="1" max_branch_merge="247" merged_total="5015" />
     <module_usages>
       <module_usage name="base64" finding="absolute" line="59" />
       <module_usage name="binascii" finding="absolute" line="60" />
@@ -7203,7 +7164,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     <module_usages />
   </module>
   <module name="win32con" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\win32con.py">
-    <optimization-time pass="1" time="0.37" micro_passes="4" max_branch_merge="4" merged_total="56" />
+    <optimization-time pass="1" time="0.32" micro_passes="4" max_branch_merge="4" merged_total="56" />
     <optimization-time pass="2" time="0.07" micro_passes="1" />
     <module_usages />
   </module>
@@ -7213,7 +7174,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     <module_usages />
   </module>
   <module name="win32evtlogutil" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\win32evtlogutil.py">
-    <optimization-time pass="1" time="2.97" micro_passes="5" max_branch_merge="45" merged_total="1044" />
+    <optimization-time pass="1" time="2.81" micro_passes="5" max_branch_merge="45" merged_total="1044" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="43" merged_total="205" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -7226,7 +7187,7 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <module name="winerror" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\winerror.py">
-    <optimization-time pass="1" time="0.28" micro_passes="5" max_branch_merge="15" merged_total="246" />
+    <optimization-time pass="1" time="0.26" micro_passes="5" max_branch_merge="15" merged_total="246" />
     <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="10" merged_total="18" />
     <module_usages>
       <module_usage name="warnings" finding="absolute" line="5" />
@@ -7373,9 +7334,9 @@ cc1.exe: out of memory allocating 16781311 bytes
     </module_usages>
   </module>
   <performance>
-    <memory_usage name="after_launch" value="49717248" />
-    <memory_usage name="before_c_code_generation" value="127188992" />
-    <memory_usage name="before_running_scons" value="134373376" />
+    <memory_usage name="after_launch" value="49389568" />
+    <memory_usage name="before_c_code_generation" value="128069632" />
+    <memory_usage name="before_running_scons" value="134316032" />
   </performance>
   <included_extension name="_asyncio.pyd" dest_path="_asyncio.pyd" source_path="${sys.real_prefix}\DLLs\_asyncio.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="_bz2.pyd" dest_path="_bz2.pyd" source_path="${sys.real_prefix}\DLLs\_bz2.pyd" package="" ignored="no" reason="used extension module" />
@@ -7399,20 +7360,20 @@ cc1.exe: out of memory allocating 16781311 bytes
   <included_extension name="unicodedata.pyd" dest_path="unicodedata.pyd" source_path="${sys.real_prefix}\DLLs\unicodedata.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32api.pyd" dest_path="win32api.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32api.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32evtlog.pyd" dest_path="win32evtlog.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32evtlog.pyd" package="" ignored="no" reason="used extension module" />
-  <data_composer blob_size="10082432" total="28272">
+  <data_composer blob_size="10086701" total="28400">
     <module_data filename="__bytecode.const" blob_name=".bytecode" blob_size="9416445" input_size="9452653" />
     <module_data filename="__constants.const" blob_name="" blob_size="872" input_size="2226" />
     <module_data filename="module.__main__.const" blob_name="__main__" blob_size="2291" input_size="3521" />
     <module_data filename="module.__parents_main__.const" blob_name="__parents_main__" blob_size="2358" input_size="3701" />
     <module_data filename="module.multiprocessing-postLoad.const" blob_name="multiprocessing-postLoad" blob_size="364" input_size="692" />
     <module_data filename="module.multiprocessing-preLoad.const" blob_name="multiprocessing-preLoad" blob_size="226" input_size="471" />
-    <module_data filename="module.src.api_server.const" blob_name="src.api_server" blob_size="4056" input_size="6258" />
+    <module_data filename="module.src.api_server.const" blob_name="src.api_server" blob_size="6957" input_size="10233" />
     <module_data filename="module.src.config.const" blob_name="src.config" blob_size="297" input_size="668" />
     <module_data filename="module.src.const" blob_name="src" blob_size="317" input_size="551" />
     <module_data filename="module.src.logger.const" blob_name="src.logger" blob_size="859" input_size="1625" />
     <module_data filename="module.src.platform_utils.const" blob_name="src.platform_utils" blob_size="1028" input_size="1804" />
     <module_data filename="module.src.singleton_manager.const" blob_name="src.singleton_manager" blob_size="2305" input_size="3513" />
-    <module_data filename="module.src.tcp_server.const" blob_name="src.tcp_server" blob_size="4318" input_size="6524" />
+    <module_data filename="module.src.tcp_server.const" blob_name="src.tcp_server" blob_size="5686" input_size="8250" />
     <module_data filename="module.src.udp_server.const" blob_name="src.udp_server" blob_size="971" input_size="1827" />
     <module_data filename="module.tornado._locale_data.const" blob_name="tornado._locale_data" blob_size="3176" input_size="3765" />
     <module_data filename="module.tornado.autoreload.const" blob_name="tornado.autoreload" blob_size="4897" input_size="6691" />

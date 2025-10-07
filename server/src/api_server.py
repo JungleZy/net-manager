@@ -31,7 +31,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
                 FROM system_info
                 ORDER BY timestamp DESC
             ''')
@@ -51,7 +51,12 @@ class DatabaseManager:
                     'services': json.loads(row[5]) if row[5] else [],
                     'processes': json.loads(row[6]) if row[6] else [],
                     'client_id': row[7],
-                    'timestamp': row[8]
+                    'os_name': row[8],
+                    'os_version': row[9],
+                    'os_architecture': row[10],
+                    'machine_type': row[11],
+                    'type': row[12],
+                    'timestamp': row[13]
                 })
             
             return result
@@ -66,7 +71,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp
+                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
                 FROM system_info
                 WHERE mac_address = ?
             ''', (mac_address,))
@@ -84,12 +89,162 @@ class DatabaseManager:
                     'services': json.loads(row[5]) if row[5] else [],
                     'processes': json.loads(row[6]) if row[6] else [],
                     'client_id': row[7],
-                    'timestamp': row[8]
+                    'os_name': row[8],
+                    'os_version': row[9],
+                    'os_architecture': row[10],
+                    'machine_type': row[11],
+                    'type': row[12],
+                    'timestamp': row[13]
                 }
             return None
         except Exception as e:
             logger.error(f"根据MAC地址查询系统信息失败: {e}")
             raise
+    
+    def update_system_type(self, mac_address, device_type):
+        """更新系统设备类型"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 检查系统是否存在
+            cursor.execute('''
+                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+            ''', (mac_address,))
+            
+            count = cursor.fetchone()[0]
+            if count == 0:
+                conn.close()
+                return False
+            
+            # 更新设备类型
+            cursor.execute('''
+                UPDATE system_info SET type = ? WHERE mac_address = ?
+            ''', (device_type, mac_address))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"更新系统设备类型失败: {e}")
+            raise
+    
+    def create_device(self, device_data):
+        """创建新设备"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 检查设备是否已存在
+            cursor.execute('''
+                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+            ''', (device_data['mac_address'],))
+            
+            count = cursor.fetchone()[0]
+            if count > 0:
+                conn.close()
+                return False, "设备MAC地址已存在"
+            
+            # 插入新设备信息
+            cursor.execute('''
+                INSERT INTO system_info (
+                    mac_address, hostname, ip_address, gateway, netmask, 
+                    services, processes, client_id, os_name, os_version, 
+                    os_architecture, machine_type, type, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ''', (
+                device_data['mac_address'],
+                device_data['hostname'],
+                device_data['ip_address'],
+                device_data.get('gateway', ''),
+                device_data.get('netmask', ''),
+                json.dumps([]),  # services
+                json.dumps([]),  # processes
+                '',  # client_id
+                device_data.get('os_name', ''),
+                device_data.get('os_version', ''),
+                device_data.get('os_architecture', ''),
+                device_data.get('machine_type', ''),
+                device_data.get('type', '')
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True, "设备创建成功"
+        except Exception as e:
+            logger.error(f"创建设备失败: {e}")
+            return False, f"创建设备失败: {str(e)}"
+    
+    def update_device(self, device_data):
+        """更新设备信息"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 检查设备是否存在
+            cursor.execute('''
+                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+            ''', (device_data['mac_address'],))
+            
+            count = cursor.fetchone()[0]
+            if count == 0:
+                conn.close()
+                return False, "设备不存在"
+            
+            # 更新设备信息
+            cursor.execute('''
+                UPDATE system_info SET 
+                    hostname = ?, ip_address = ?, gateway = ?, netmask = ?,
+                    os_name = ?, os_version = ?, os_architecture = ?, 
+                    machine_type = ?, type = ?
+                WHERE mac_address = ?
+            ''', (
+                device_data['hostname'],
+                device_data['ip_address'],
+                device_data.get('gateway', ''),
+                device_data.get('netmask', ''),
+                device_data.get('os_name', ''),
+                device_data.get('os_version', ''),
+                device_data.get('os_architecture', ''),
+                device_data.get('machine_type', ''),
+                device_data.get('type', ''),
+                device_data['mac_address']
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True, "设备更新成功"
+        except Exception as e:
+            logger.error(f"更新设备失败: {e}")
+            return False, f"更新设备失败: {str(e)}"
+    
+    def delete_device(self, mac_address):
+        """删除设备"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 检查设备是否存在
+            cursor.execute('''
+                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+            ''', (mac_address,))
+            
+            count = cursor.fetchone()[0]
+            if count == 0:
+                conn.close()
+                return False, "设备不存在"
+            
+            # 删除设备
+            cursor.execute('''
+                DELETE FROM system_info WHERE mac_address = ?
+            ''', (mac_address,))
+            
+            conn.commit()
+            conn.close()
+            return True, "设备删除成功"
+        except Exception as e:
+            logger.error(f"删除设备失败: {e}")
+            return False, f"删除设备失败: {str(e)}"
 
 
 class BaseHandler(RequestHandler):
@@ -101,7 +256,7 @@ class BaseHandler(RequestHandler):
         self.set_header("Access-Control-Allow-Headers", "x-requested-with, Content-Type")
         self.set_header("Access-Control-Max-Age", "86400")  # 24小时
     
-    def options(self):
+    def options(self, *args):
         """处理OPTIONS预检请求"""
         self.set_status(204)
         self.finish()
@@ -157,7 +312,7 @@ class SystemsHandler(BaseHandler):
         try:
             systems = self.db_manager.get_all_system_info()
             
-            # 处理返回数据：只返回services和processes的数量，并添加在线状态
+            # 处理返回数据：只返回services和processes的数量，并添加在线状态和操作系统信息
             processed_systems = []
             for system in systems:
                 processed_system = {
@@ -169,6 +324,11 @@ class SystemsHandler(BaseHandler):
                     'services_count': len(system['services']),
                     'processes_count': len(system['processes']),
                     'online': self.get_online_status(system['mac_address']),
+                    'os_name': system['os_name'],
+                    'os_version': system['os_version'],
+                    'os_architecture': system['os_architecture'],
+                    'machine_type': system['machine_type'],
+                    'type': system['type'],
                     'timestamp': system['timestamp']
                 }
                 processed_systems.append(processed_system)
@@ -247,6 +407,200 @@ class SystemHandler(BaseHandler):
             })
 
 
+class SystemTypeHandler(BaseHandler):
+    """系统类型处理器 - 设置设备类型"""
+    def initialize(self, db_manager):
+        self.db_manager = db_manager
+    
+    def put(self, mac_address):
+        try:
+            # 解析请求体中的JSON数据
+            data = tornado.escape.json_decode(self.request.body)
+            device_type = data.get('type')
+            
+            # 检查type字段是否存在
+            if device_type is None:
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": "缺少必需的字段: type"
+                })
+                return
+            
+            # 更新数据库中的设备类型
+            success = self.db_manager.update_system_type(mac_address, device_type)
+            
+            if success:
+                self.write({
+                    "status": "success",
+                    "message": "设备类型更新成功"
+                })
+            else:
+                self.set_status(404)
+                self.write({
+                    "status": "error",
+                    "message": f"未找到MAC地址为 {mac_address} 的系统信息"
+                })
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({
+                "status": "error",
+                "message": "无效的JSON格式"
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "status": "error",
+                "message": f"内部服务器错误: {str(e)}"
+            })
+
+
+class DeviceCreateHandler(BaseHandler):
+    """设备创建处理器 - 新增设备"""
+    def initialize(self, db_manager):
+        self.db_manager = db_manager
+    
+    def post(self):
+        try:
+            # 解析请求体中的JSON数据
+            data = tornado.escape.json_decode(self.request.body)
+            
+            # 检查必需字段
+            required_fields = ['mac_address', 'hostname', 'ip_address']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    self.set_status(400)
+                    self.write({
+                        "status": "error",
+                        "message": f"缺少必需的字段: {field}"
+                    })
+                    return
+            
+            # 创建设备
+            success, message = self.db_manager.create_device(data)
+            
+            if success:
+                self.write({
+                    "status": "success",
+                    "message": message
+                })
+            else:
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": message
+                })
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({
+                "status": "error",
+                "message": "无效的JSON格式"
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "status": "error",
+                "message": f"内部服务器错误: {str(e)}"
+            })
+
+
+class DeviceUpdateHandler(BaseHandler):
+    """设备更新处理器 - 修改设备"""
+    def initialize(self, db_manager):
+        self.db_manager = db_manager
+    
+    def post(self):
+        try:
+            # 解析请求体中的JSON数据
+            data = tornado.escape.json_decode(self.request.body)
+            
+            # 检查必需字段
+            required_fields = ['mac_address', 'hostname', 'ip_address']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    self.set_status(400)
+                    self.write({
+                        "status": "error",
+                        "message": f"缺少必需的字段: {field}"
+                    })
+                    return
+            
+            # 更新设备
+            success, message = self.db_manager.update_device(data)
+            
+            if success:
+                self.write({
+                    "status": "success",
+                    "message": message
+                })
+            else:
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": message
+                })
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({
+                "status": "error",
+                "message": "无效的JSON格式"
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "status": "error",
+                "message": f"内部服务器错误: {str(e)}"
+            })
+
+
+class DeviceDeleteHandler(BaseHandler):
+    """设备删除处理器 - 删除设备"""
+    def initialize(self, db_manager):
+        self.db_manager = db_manager
+    
+    def post(self):
+        try:
+            # 解析请求体中的JSON数据
+            data = tornado.escape.json_decode(self.request.body)
+            
+            # 检查必需字段
+            mac_address = data.get('mac_address')
+            if not mac_address:
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": "缺少必需的字段: mac_address"
+                })
+                return
+            
+            # 删除设备
+            success, message = self.db_manager.delete_device(mac_address)
+            
+            if success:
+                self.write({
+                    "status": "success",
+                    "message": message
+                })
+            else:
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": message
+                })
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({
+                "status": "error",
+                "message": "无效的JSON格式"
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "status": "error",
+                "message": f"内部服务器错误: {str(e)}"
+            })
+
+
 class HealthHandler(BaseHandler):
     """健康检查处理器"""
     
@@ -259,9 +613,9 @@ class HealthHandler(BaseHandler):
 
 class APIServer:
     """API服务器类"""
-    def __init__(self, port=None, db_path="net_manager_server.db"):
-        self.port = port if port is not None else API_PORT
-        self.db_manager = DatabaseManager(db_path)
+    def __init__(self, port=12344):
+        self.port = port
+        self.db_manager = DatabaseManager()
         self.tcp_server = None
         self.app = self.make_app()
         self.server = None
@@ -279,7 +633,11 @@ class APIServer:
         return tornado.web.Application([
             (r"/", MainHandler),
             (r"/api/systems", SystemsHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/systems/([^/]+)/type", SystemTypeHandler, dict(db_manager=self.db_manager)),
             (r"/api/systems/([^/]+)", SystemHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/devices/create", DeviceCreateHandler, dict(db_manager=self.db_manager)),
+            (r"/api/devices/update", DeviceUpdateHandler, dict(db_manager=self.db_manager)),
+            (r"/api/devices/delete", DeviceDeleteHandler, dict(db_manager=self.db_manager)),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ], debug=False)

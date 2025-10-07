@@ -12,7 +12,8 @@ class SystemInfo:
     """系统信息模型"""
     def __init__(self, hostname: str, ip_address: str, mac_address: str, 
                  gateway: str, netmask: str, services: str, processes: str, timestamp: str,
-                 client_id: str = ""):
+                 client_id: str = "", os_name: str = "", os_version: str = "", 
+                 os_architecture: str = "", machine_type: str = ""):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
@@ -22,6 +23,10 @@ class SystemInfo:
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
         self.client_id = client_id  # 客户端唯一标识符
+        self.os_name = os_name  # 操作系统名称
+        self.os_version = os_version  # 操作系统版本
+        self.os_architecture = os_architecture  # 操作系统架构
+        self.machine_type = machine_type  # 机器类型
 
 class SystemCollector:
     """系统信息收集器"""
@@ -140,7 +145,6 @@ class SystemCollector:
         """获取网关和子网掩码"""
         try:
             # 获取网络接口统计信息
-            net_if_stats = psutil.net_if_stats()
             net_if_addrs = psutil.net_if_addrs()
             
             # 获取当前使用的IP地址
@@ -328,7 +332,7 @@ class SystemCollector:
         return None
     
     def get_services(self):
-        """获取运行的服务和端口信息"""
+        """获取运行的服务和端口信息，包括使用该端口的进程信息"""
         services = []
         try:
             # 获取网络连接信息
@@ -338,8 +342,19 @@ class SystemCollector:
                     service_info = {
                         "protocol": "TCP",
                         "local_address": f"{conn.laddr.ip}:{conn.laddr.port}",
-                        "status": conn.status
+                        "status": conn.status,
+                        "pid": conn.pid if conn.pid else None,
+                        "process_name": None
                     }
+                    
+                    # 如果有PID信息，获取进程名称
+                    if conn.pid:
+                        try:
+                            process = psutil.Process(conn.pid)
+                            service_info["process_name"] = process.name()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    
                     services.append(service_info)
             
             # 获取UDP连接信息
@@ -349,8 +364,19 @@ class SystemCollector:
                     service_info = {
                         "protocol": "UDP",
                         "local_address": f"{conn.laddr.ip}:{conn.laddr.port}",
-                        "status": "LISTENING"
+                        "status": "LISTENING",
+                        "pid": conn.pid if conn.pid else None,
+                        "process_name": None
                     }
+                    
+                    # 如果有PID信息，获取进程名称
+                    if conn.pid:
+                        try:
+                            process = psutil.Process(conn.pid)
+                            service_info["process_name"] = process.name()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    
                     services.append(service_info)
             
             logger.debug(f"成功获取服务信息，共 {len(services)} 个服务")
@@ -360,20 +386,37 @@ class SystemCollector:
         return services
     
     def get_processes(self):
-        """获取当前运行的所有进程信息"""
+        """获取当前运行的所有进程信息，包括进程占用的端口信息"""
         processes = []
         try:
             # 遍历所有进程
             for proc in psutil.process_iter(['pid', 'name', 'status', 'cpu_percent', 'memory_percent']):
-                    
                 try:
                     process_info = {
                         "pid": proc.info['pid'],
                         "name": proc.info['name'],
                         "status": proc.info['status'],
                         "cpu_percent": proc.info['cpu_percent'] or 0.0,
-                        "memory_percent": round(proc.info['memory_percent'] or 0.0, 2)
+                        "memory_percent": round(proc.info['memory_percent'] or 0.0, 2),
+                        "ports": []  # 添加端口信息
                     }
+                    
+                    # 获取进程占用的端口信息
+                    try:
+                        process = psutil.Process(proc.info['pid'])
+                        connections = process.connections()
+                        for conn in connections:
+                            # 只收集监听状态的连接
+                            if conn.status == psutil.CONN_LISTEN:
+                                port_info = {
+                                    "protocol": "TCP" if conn.type == socket.SOCK_STREAM else "UDP",
+                                    "local_address": f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else None
+                                }
+                                process_info["ports"].append(port_info)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        # 如果无法获取连接信息，跳过
+                        pass
+                    
                     processes.append(process_info)
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     # 忽略无法访问的进程
@@ -394,6 +437,7 @@ class SystemCollector:
             gateway, netmask = self.get_gateway_and_netmask()
             services = self.get_services()
             processes = self.get_processes()
+            os_name, os_version, os_architecture, machine_type = self.get_os_info()
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # 将服务信息转换为JSON字符串存储
@@ -412,7 +456,21 @@ class SystemCollector:
                 logger.error(f"从状态管理器获取client_id失败: {e}")
                 client_id = ''
             
-            return SystemInfo(hostname, ip_address, mac_address, gateway, netmask, services_json, processes_json, timestamp, client_id or "")
+            return SystemInfo(hostname, ip_address, mac_address, gateway, netmask, services_json, processes_json, timestamp, client_id or "", os_name, os_version, os_architecture, machine_type)
         except Exception as e:
             logger.error(f"收集系统信息时发生错误: {e}")
             raise
+
+    def get_os_info(self):
+        """获取操作系统信息"""
+        try:
+            os_name = platform.system()
+            os_version = platform.version()
+            os_architecture = platform.architecture()[0]
+            machine_type = platform.machine()
+            
+            logger.debug(f"成功获取操作系统信息: {os_name} {os_version} {os_architecture} {machine_type}")
+            return os_name, os_version, os_architecture, machine_type
+        except Exception as e:
+            logger.error(f"获取操作系统信息失败: {e}")
+            return "unknown", "unknown", "unknown", "unknown"

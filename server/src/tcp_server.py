@@ -24,7 +24,8 @@ from src.logger import logger
 
 class SystemInfo:
     """系统信息模型"""
-    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp, client_id=""):
+    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp, client_id="", 
+                 os_name="", os_version="", os_architecture="", machine_type="", type=""):
         self.hostname = hostname
         self.ip_address = ip_address
         self.mac_address = mac_address
@@ -34,6 +35,11 @@ class SystemInfo:
         self.processes = processes  # 存储为JSON字符串
         self.timestamp = timestamp
         self.client_id = client_id  # 客户端唯一标识符
+        self.os_name = os_name  # 操作系统名称
+        self.os_version = os_version  # 操作系统版本
+        self.os_architecture = os_architecture  # 操作系统架构
+        self.machine_type = machine_type  # 机器类型
+        self.type = type  # 设备类型（计算机、交换机、服务器等）
 
 class DatabaseManager:
     """数据库管理器"""
@@ -60,6 +66,11 @@ class DatabaseManager:
                     services TEXT NOT NULL,
                     processes TEXT NOT NULL,
                     client_id TEXT,
+                    os_name TEXT,
+                    os_version TEXT,
+                    os_architecture TEXT,
+                    machine_type TEXT,
+                    type TEXT,  -- 设备类型字段（计算机、交换机、服务器等）
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -80,11 +91,16 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 
                 # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
+                # 注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置
                 cursor.execute('''
-                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+                        COALESCE((SELECT type FROM system_info WHERE mac_address = ?), ''), 
+                        ?)
                 ''', (system_info.mac_address, system_info.hostname, system_info.ip_address, 
-                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.client_id, system_info.timestamp))
+                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.client_id,
+                      system_info.os_name, system_info.os_version, system_info.os_architecture, system_info.machine_type, 
+                      system_info.mac_address, system_info.timestamp))
                 
                 conn.commit()
                 conn.close()
@@ -133,8 +149,17 @@ class TCPServer:
                     logger.warning(f"客户端 {address} 发送的握手消息无法解析")
             
             while self.running:
-                # 接收数据
-                data = client_socket.recv(65536)  # 64KB缓冲区
+                # 接收数据长度（4字节）
+                import struct
+                raw_length = self._recv_all(client_socket, 4)
+                if not raw_length:
+                    break
+                    
+                # 解析数据长度
+                message_length = struct.unpack('!I', raw_length)[0]
+                
+                # 接收指定长度的数据
+                data = self._recv_all(client_socket, message_length)
                 if not data:
                     break
                     
@@ -158,11 +183,22 @@ class TCPServer:
     
     def _process_client_data(self, data, address, client_id=None):
         """处理来自客户端的数据"""
-        logger.debug(f"收到来自 {address} 的数据:")
+        # 检查数据是否为空
+        if not data:
+            logger.debug(f"收到来自 {address} 的空数据包，忽略")
+            return
+            
+        logger.debug(f"收到来自 {address} 的数据，长度: {len(data)} 字节")
         
         try:
             # 解析JSON数据
-            json_str = data.decode('utf-8')
+            json_str = data.decode('utf-8').strip()  # 去除首尾空白字符，包括换行符
+            
+            # 检查解码后的字符串是否为空
+            if not json_str:
+                logger.warning(f"收到来自 {address} 的空JSON字符串，忽略")
+                return
+                
             info = json.loads(json_str)
             
             # 创建SystemInfo对象用于保存到数据库
@@ -196,7 +232,12 @@ class TCPServer:
             services=info.get('services', '[]'),
             processes=info.get('processes', '[]'),
             timestamp=info.get('timestamp', 'N/A'),
-            client_id=info.get('client_id', '')  # 客户端唯一标识符
+            client_id=info.get('client_id', ''),  # 客户端唯一标识符
+            os_name=info.get('os_name', ''),  # 操作系统名称
+            os_version=info.get('os_version', ''),  # 操作系统版本
+            os_architecture=info.get('os_architecture', ''),  # 操作系统架构
+            machine_type=info.get('machine_type', ''),  # 机器类型
+            type=''  # 设备类型（计算机、交换机、服务器等）- 默认为空，通过API手动设置
         )
     
     def _process_services_info(self, info):
@@ -242,6 +283,16 @@ class TCPServer:
                 del self.client_id_map[client_id]
         client_socket.close()
         logger.info(f"客户端 {address} 连接已关闭")
+    
+    def _recv_all(self, sock, length):
+        """确保接收指定长度的数据"""
+        data = b''
+        while len(data) < length:
+            packet = sock.recv(length - len(data))
+            if not packet:
+                return None
+            data += packet
+        return data
     
     def start(self):
         """启动TCP服务端"""
@@ -313,3 +364,14 @@ if __name__ == "__main__":
     # 为支持500个客户端连接，增加线程池大小
     tcp_server = TCPServer(max_workers=200)
     tcp_server.start()
+
+
+    def _recv_all(self, sock, length):
+        """确保接收指定长度的数据"""
+        data = b''
+        while len(data) < length:
+            packet = sock.recv(length - len(data))
+            if not packet:
+                return None
+            data += packet
+        return data

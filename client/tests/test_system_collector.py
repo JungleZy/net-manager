@@ -53,6 +53,23 @@ class TestSystemCollector(unittest.TestCase):
             self.assertIn('status', service)
         print(f"服务数量: {len(services)}")
     
+    def test_get_os_info(self):
+        """测试获取操作系统信息"""
+        os_name, os_version, os_architecture, machine_type = self.collector.get_os_info()
+        
+        self.assertIsInstance(os_name, str)
+        self.assertGreater(len(os_name), 0)
+        
+        self.assertIsInstance(os_version, str)
+        self.assertIsInstance(os_architecture, str)
+        self.assertIsInstance(machine_type, str)
+        
+        print(f"操作系统信息:")
+        print(f"  系统名称: {os_name}")
+        print(f"  系统版本: {os_version}")
+        print(f"  系统架构: {os_architecture}")
+        print(f"  机器类型: {machine_type}")
+    
     def test_collect_system_info(self):
         """测试收集完整系统信息"""
         info = self.collector.collect_system_info()
@@ -78,12 +95,23 @@ class TestSystemCollector(unittest.TestCase):
         # 检查时间戳
         self.assertIsNotNone(info.timestamp)
         
+        # 检查新添加的操作系统信息
+        self.assertIsInstance(info.os_name, str)
+        self.assertGreater(len(info.os_name), 0)
+        self.assertIsInstance(info.os_version, str)
+        self.assertIsInstance(info.os_architecture, str)
+        self.assertIsInstance(info.machine_type, str)
+        
         print(f"完整系统信息对象创建成功")
         print(f"  主机名: {info.hostname}")
         print(f"  IP地址: {info.ip_address}")
         print(f"  MAC地址: {info.mac_address}")
         print(f"  服务数量: {len(services)}")
         print(f"  时间戳: {info.timestamp}")
+        print(f"  操作系统名称: {info.os_name}")
+        print(f"  操作系统版本: {info.os_version}")
+        print(f"  操作系统架构: {info.os_architecture}")
+        print(f"  机器类型: {info.machine_type}")
 
 if __name__ == '__main__':
     unittest.main()

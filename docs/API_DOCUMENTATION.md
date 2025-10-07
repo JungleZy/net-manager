@@ -26,6 +26,7 @@ http://localhost:12344
   "endpoints": {
     "GET /api/systems": "获取所有系统信息",
     "GET /api/systems/{mac_address}": "根据MAC地址获取特定系统信息",
+    "PUT /api/systems/{mac_address}/type": "设置设备类型",
     "GET /health": "健康检查"
   }
 }
@@ -89,6 +90,35 @@ http://localhost:12344
     "online": true,
     "timestamp": "2025-10-05 14:54:59"
   }
+}
+```
+
+**错误响应**:
+```json
+{
+  "status": "error",
+  "message": "未找到MAC地址为 f0-2f-74-db-87-1f 的系统信息"
+}
+```
+
+### 5. 设置设备类型
+
+**请求URL**: `PUT /api/systems/{mac_address}/type`
+
+**描述**: 根据MAC地址设置设备类型
+
+**请求参数**:
+```json
+{
+  "type": "计算机"  // 可选值：计算机、服务器、交换机、路由器、打印机等
+}
+```
+
+**响应示例**:
+```json
+{
+  "status": "success",
+  "message": "设备类型更新成功"
 }
 ```
 
