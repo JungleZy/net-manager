@@ -10,7 +10,6 @@ import json
 import threading
 import sys
 import os
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -21,104 +20,19 @@ sys.path.insert(0, parent_dir)
 
 from src.config import TCP_PORT
 from src.logger import logger
-
-class SystemInfo:
-    """系统信息模型"""
-    def __init__(self, hostname, ip_address, mac_address, gateway, netmask, services, processes, timestamp, client_id="", 
-                 os_name="", os_version="", os_architecture="", machine_type="", type=""):
-        self.hostname = hostname
-        self.ip_address = ip_address
-        self.mac_address = mac_address
-        self.gateway = gateway
-        self.netmask = netmask
-        self.services = services  # 存储为JSON字符串
-        self.processes = processes  # 存储为JSON字符串
-        self.timestamp = timestamp
-        self.client_id = client_id  # 客户端唯一标识符
-        self.os_name = os_name  # 操作系统名称
-        self.os_version = os_version  # 操作系统版本
-        self.os_architecture = os_architecture  # 操作系统架构
-        self.machine_type = machine_type  # 机器类型
-        self.type = type  # 设备类型（计算机、交换机、服务器等）
-
-class DatabaseManager:
-    """数据库管理器"""
-    def __init__(self, db_path="net_manager_server.db"):
-        self.db_path = Path(db_path)
-        self.init_db()
-        # 使用连接池来优化数据库访问
-        self.db_lock = threading.Lock()
-    
-    def init_db(self):
-        """初始化数据库表"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 创建系统信息表，使用mac_address作为主键
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS system_info (
-                    mac_address TEXT PRIMARY KEY,
-                    hostname TEXT NOT NULL,
-                    ip_address TEXT NOT NULL,
-                    gateway TEXT,
-                    netmask TEXT,
-                    services TEXT NOT NULL,
-                    processes TEXT NOT NULL,
-                    client_id TEXT,
-                    os_name TEXT,
-                    os_version TEXT,
-                    os_architecture TEXT,
-                    machine_type TEXT,
-                    type TEXT,  -- 设备类型字段（计算机、交换机、服务器等）
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            conn.commit()
-            conn.close()
-            logger.info("数据库初始化成功")
-        except Exception as e:
-            logger.error(f"数据库初始化失败: {e}")
-            raise
-
-    def save_system_info(self, system_info):
-        """保存系统信息到数据库，使用mac_address作为主键进行更新或插入"""
-        try:
-            # 使用锁保护数据库访问
-            with self.db_lock:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                
-                # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
-                # 注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置
-                cursor.execute('''
-                    INSERT OR REPLACE INTO system_info (mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                        COALESCE((SELECT type FROM system_info WHERE mac_address = ?), ''), 
-                        ?)
-                ''', (system_info.mac_address, system_info.hostname, system_info.ip_address, 
-                      system_info.gateway, system_info.netmask, system_info.services, system_info.processes, system_info.client_id,
-                      system_info.os_name, system_info.os_version, system_info.os_architecture, system_info.machine_type, 
-                      system_info.mac_address, system_info.timestamp))
-                
-                conn.commit()
-                conn.close()
-            logger.info(f"系统信息保存成功，MAC地址: {system_info.mac_address}")
-        except Exception as e:
-            logger.error(f"保存系统信息失败: {e}")
-            raise
+from src.database_manager import DatabaseManager, SystemInfo
 
 class TCPServer:
     """TCP服务端，用于与客户端建立长连接"""
     
-    def __init__(self, max_workers=100):
+    def __init__(self, db_manager=None, max_workers=100):
         self.tcp_port = TCP_PORT
         self.clients = set()  # 使用set存储连接的客户端，提高查找效率
         self.client_id_map = {}  # 存储client_id到地址的映射关系
         self.clients_lock = threading.Lock()  # 保护clients集合的锁
         self.running = False
-        self.db_manager = DatabaseManager()  # 初始化数据库管理器
+        # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
+        self.db_manager = db_manager if db_manager else DatabaseManager()
         # 使用线程池来处理客户端连接，避免为每个客户端创建新线程
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         

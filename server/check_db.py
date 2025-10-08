@@ -1,44 +1,34 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import sqlite3
-import json
 import os
 
 # 获取数据库路径
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "net_manager_server.db")
+db_path = os.path.join(os.path.dirname(__file__), 'net_manager_server.db')
+print(f"数据库路径: {db_path}")
 
-def check_database():
-    """检查数据库中的system_info表内容"""
-    try:
-        # 连接到数据库
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # 查询所有系统信息
-        cursor.execute('SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp FROM system_info')
-        rows = cursor.fetchall()
-        
-        print(f"数据库中有 {len(rows)} 条记录:")
-        print("-" * 50)
-        
-        for row in rows:
-            mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, timestamp = row
-            print(f"MAC地址: {mac_address}")
-            print(f"主机名: {hostname}")
-            print(f"IP地址: {ip_address}")
-            print(f"网关: {gateway}")
-            print(f"子网掩码: {netmask}")
-            print(f"服务数量: {len(json.loads(services))}")
-            print(f"进程数量: {len(json.loads(processes))}")
-            print(f"客户端ID: {client_id}")
-            print(f"时间戳: {timestamp}")
-            print("-" * 50)
-        
-        conn.close()
-        
-    except Exception as e:
-        print(f"检查数据库时出错: {e}")
+# 连接数据库
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
 
-if __name__ == "__main__":
-    check_database()
+# 查询所有表
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+tables = cursor.fetchall()
+print('数据库中的表:')
+for table in tables:
+    print(f"  - {table[0]}")
+
+# 查询switches表结构
+print('\nswitches表结构:')
+cursor.execute('PRAGMA table_info(switches)')
+columns = cursor.fetchall()
+for col in columns:
+    print(f"  - {col}")
+
+# 查询system_info表结构
+print('\nsystem_info表结构:')
+cursor.execute('PRAGMA table_info(system_info)')
+columns = cursor.fetchall()
+for col in columns:
+    print(f"  - {col}")
+
+conn.close()
+print('\n检查完成')

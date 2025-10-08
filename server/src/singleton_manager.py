@@ -105,7 +105,10 @@ class SingletonManager:
         try:
             # 使用文件锁机制
             # 获取应用程序路径
-            if getattr(sys, 'frozen', False):
+            is_frozen = hasattr(sys, 'frozen') and sys.frozen
+            is_nuitka = '__compiled__' in globals()
+            
+            if is_frozen or is_nuitka:
                 # 打包后的可执行文件路径
                 application_path = os.path.dirname(sys.executable)
             elif '__compiled__' in globals():

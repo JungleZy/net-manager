@@ -105,7 +105,10 @@ class SingletonManager:
         try:
             # 使用文件锁机制
             # 获取应用程序路径
-            if getattr(sys, 'frozen', False):
+            is_frozen = hasattr(sys, 'frozen') and sys.frozen
+            is_nuitka = '__compiled__' in globals()
+            
+            if is_frozen or is_nuitka:
                 # 打包后的可执行文件路径
                 application_path = os.path.dirname(sys.executable)
             elif '__compiled__' in globals():
@@ -188,10 +191,3 @@ def get_client_singleton_manager() -> SingletonManager:
     if _client_singleton_manager is None:
         _client_singleton_manager = SingletonManager("NetManagerClient")
     return _client_singleton_manager
-
-def get_server_singleton_manager() -> SingletonManager:
-    """获取服务端单例管理器实例"""
-    global _server_singleton_manager
-    if _server_singleton_manager is None:
-        _server_singleton_manager = SingletonManager("NetManagerServer")
-    return _server_singleton_manager

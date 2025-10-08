@@ -3,7 +3,18 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
-from src.config import LOG_LEVEL, LOG_FILE
+
+# 修复导入路径问题
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+try:
+    from config import LOG_LEVEL, LOG_FILE
+except ImportError:
+    # 如果直接运行此文件，使用相对导入
+    from .config import LOG_LEVEL, LOG_FILE
 
 def get_log_level(level_str):
     """根据字符串返回日志级别"""

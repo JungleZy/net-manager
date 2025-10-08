@@ -106,6 +106,20 @@
         :destroyOnClose="true"
       >
         <a-form :model="currentDevice" layout="vertical">
+          <a-form-item label="设备类型">
+            <a-select
+              v-model:value="currentDevice.type"
+              placeholder="请选择设备类型"
+            >
+              <a-select-option value="">请选择设备类型</a-select-option>
+              <a-select-option value="__unset__">未设置</a-select-option>
+              <a-select-option value="计算机">计算机</a-select-option>
+              <a-select-option value="服务器">服务器</a-select-option>
+              <a-select-option value="交换机">交换机</a-select-option>
+              <a-select-option value="路由器">路由器</a-select-option>
+              <a-select-option value="其他">其他</a-select-option>
+            </a-select>
+          </a-form-item>
           <a-form-item label="设备名称">
             <a-input
               v-model:value="currentDevice.hostname"
@@ -124,20 +138,6 @@
               placeholder="请输入MAC地址"
               :disabled="isEditing"
             />
-          </a-form-item>
-          <a-form-item label="设备类型">
-            <a-select
-              v-model:value="currentDevice.type"
-              placeholder="请选择设备类型"
-            >
-              <a-select-option value="">请选择设备类型</a-select-option>
-              <a-select-option value="__unset__">未设置</a-select-option>
-              <a-select-option value="计算机">计算机</a-select-option>
-              <a-select-option value="服务器">服务器</a-select-option>
-              <a-select-option value="交换机">交换机</a-select-option>
-              <a-select-option value="路由器">路由器</a-select-option>
-              <a-select-option value="其他">其他</a-select-option>
-            </a-select>
           </a-form-item>
           <a-form-item label="操作系统">
             <a-input
@@ -287,7 +287,7 @@ const showProcessesModal = ref(false)
 const servicesList = ref([])
 const processesList = ref([])
 const currentDeviceName = ref('')
-const { width, height } = useWindowSize()
+const { height } = useWindowSize()
 
 // 分页相关数据
 const servicesPagination = ref({

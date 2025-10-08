@@ -17,234 +17,7 @@ from tornado.escape import json_decode, json_encode
 
 from src.config import TCP_PORT, API_PORT
 from src.logger import logger
-
-
-class DatabaseManager:
-    """数据库管理器 - 用于API查询"""
-    def __init__(self, db_path="net_manager_server.db"):
-        self.db_path = Path(db_path)
-    
-    def get_all_system_info(self):
-        """获取所有系统信息"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                FROM system_info
-                ORDER BY timestamp DESC
-            ''')
-            
-            rows = cursor.fetchall()
-            conn.close()
-            
-            # 转换为字典列表
-            result = []
-            for row in rows:
-                result.append({
-                    'mac_address': row[0],
-                    'hostname': row[1],
-                    'ip_address': row[2],
-                    'gateway': row[3],
-                    'netmask': row[4],
-                    'services': json.loads(row[5]) if row[5] else [],
-                    'processes': json.loads(row[6]) if row[6] else [],
-                    'client_id': row[7],
-                    'os_name': row[8],
-                    'os_version': row[9],
-                    'os_architecture': row[10],
-                    'machine_type': row[11],
-                    'type': row[12],
-                    'timestamp': row[13]
-                })
-            
-            return result
-        except Exception as e:
-            logger.error(f"查询所有系统信息失败: {e}")
-            raise
-    
-    def get_system_info_by_mac(self, mac_address):
-        """根据MAC地址获取系统信息"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                FROM system_info
-                WHERE mac_address = ?
-            ''', (mac_address,))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
-            if row:
-                return {
-                    'mac_address': row[0],
-                    'hostname': row[1],
-                    'ip_address': row[2],
-                    'gateway': row[3],
-                    'netmask': row[4],
-                    'services': json.loads(row[5]) if row[5] else [],
-                    'processes': json.loads(row[6]) if row[6] else [],
-                    'client_id': row[7],
-                    'os_name': row[8],
-                    'os_version': row[9],
-                    'os_architecture': row[10],
-                    'machine_type': row[11],
-                    'type': row[12],
-                    'timestamp': row[13]
-                }
-            return None
-        except Exception as e:
-            logger.error(f"根据MAC地址查询系统信息失败: {e}")
-            raise
-    
-    def update_system_type(self, mac_address, device_type):
-        """更新系统设备类型"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 检查系统是否存在
-            cursor.execute('''
-                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
-            ''', (mac_address,))
-            
-            count = cursor.fetchone()[0]
-            if count == 0:
-                conn.close()
-                return False
-            
-            # 更新设备类型
-            cursor.execute('''
-                UPDATE system_info SET type = ? WHERE mac_address = ?
-            ''', (device_type, mac_address))
-            
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            logger.error(f"更新系统设备类型失败: {e}")
-            raise
-    
-    def create_device(self, device_data):
-        """创建新设备"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 检查设备是否已存在
-            cursor.execute('''
-                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
-            ''', (device_data['mac_address'],))
-            
-            count = cursor.fetchone()[0]
-            if count > 0:
-                conn.close()
-                return False, "设备MAC地址已存在"
-            
-            # 插入新设备信息
-            cursor.execute('''
-                INSERT INTO system_info (
-                    mac_address, hostname, ip_address, gateway, netmask, 
-                    services, processes, client_id, os_name, os_version, 
-                    os_architecture, machine_type, type, timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            ''', (
-                device_data['mac_address'],
-                device_data['hostname'],
-                device_data['ip_address'],
-                device_data.get('gateway', ''),
-                device_data.get('netmask', ''),
-                json.dumps([]),  # services
-                json.dumps([]),  # processes
-                '',  # client_id
-                device_data.get('os_name', ''),
-                device_data.get('os_version', ''),
-                device_data.get('os_architecture', ''),
-                device_data.get('machine_type', ''),
-                device_data.get('type', '')
-            ))
-            
-            conn.commit()
-            conn.close()
-            return True, "设备创建成功"
-        except Exception as e:
-            logger.error(f"创建设备失败: {e}")
-            return False, f"创建设备失败: {str(e)}"
-    
-    def update_device(self, device_data):
-        """更新设备信息"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 检查设备是否存在
-            cursor.execute('''
-                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
-            ''', (device_data['mac_address'],))
-            
-            count = cursor.fetchone()[0]
-            if count == 0:
-                conn.close()
-                return False, "设备不存在"
-            
-            # 更新设备信息
-            cursor.execute('''
-                UPDATE system_info SET 
-                    hostname = ?, ip_address = ?, gateway = ?, netmask = ?,
-                    os_name = ?, os_version = ?, os_architecture = ?, 
-                    machine_type = ?, type = ?
-                WHERE mac_address = ?
-            ''', (
-                device_data['hostname'],
-                device_data['ip_address'],
-                device_data.get('gateway', ''),
-                device_data.get('netmask', ''),
-                device_data.get('os_name', ''),
-                device_data.get('os_version', ''),
-                device_data.get('os_architecture', ''),
-                device_data.get('machine_type', ''),
-                device_data.get('type', ''),
-                device_data['mac_address']
-            ))
-            
-            conn.commit()
-            conn.close()
-            return True, "设备更新成功"
-        except Exception as e:
-            logger.error(f"更新设备失败: {e}")
-            return False, f"更新设备失败: {str(e)}"
-    
-    def delete_device(self, mac_address):
-        """删除设备"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # 检查设备是否存在
-            cursor.execute('''
-                SELECT COUNT(*) FROM system_info WHERE mac_address = ?
-            ''', (mac_address,))
-            
-            count = cursor.fetchone()[0]
-            if count == 0:
-                conn.close()
-                return False, "设备不存在"
-            
-            # 删除设备
-            cursor.execute('''
-                DELETE FROM system_info WHERE mac_address = ?
-            ''', (mac_address,))
-            
-            conn.commit()
-            conn.close()
-            return True, "设备删除成功"
-        except Exception as e:
-            logger.error(f"删除设备失败: {e}")
-            return False, f"删除设备失败: {str(e)}"
+from src.database_manager import DatabaseManager
 
 
 class BaseHandler(RequestHandler):
@@ -269,7 +42,6 @@ class MainHandler(BaseHandler):
             "version": "1.0.0",
             "documentation": "/api/docs"
         })
-
 
 class SystemsHandler(BaseHandler):
     """系统信息处理器 - 获取所有系统信息"""
@@ -345,7 +117,6 @@ class SystemsHandler(BaseHandler):
                 "message": f"内部服务器错误: {str(e)}"
             })
 
-
 class SystemHandler(BaseHandler):
     """单个系统信息处理器 - 根据MAC地址获取系统信息"""
     def initialize(self, db_manager, get_tcp_server_func=None):
@@ -406,7 +177,6 @@ class SystemHandler(BaseHandler):
                 "message": f"内部服务器错误: {str(e)}"
             })
 
-
 class SystemTypeHandler(BaseHandler):
     """系统类型处理器 - 设置设备类型"""
     def initialize(self, db_manager):
@@ -453,7 +223,6 @@ class SystemTypeHandler(BaseHandler):
                 "status": "error",
                 "message": f"内部服务器错误: {str(e)}"
             })
-
 
 class DeviceCreateHandler(BaseHandler):
     """设备创建处理器 - 新增设备"""
@@ -503,7 +272,6 @@ class DeviceCreateHandler(BaseHandler):
                 "message": f"内部服务器错误: {str(e)}"
             })
 
-
 class DeviceUpdateHandler(BaseHandler):
     """设备更新处理器 - 修改设备"""
     def initialize(self, db_manager):
@@ -552,7 +320,6 @@ class DeviceUpdateHandler(BaseHandler):
                 "message": f"内部服务器错误: {str(e)}"
             })
 
-
 class DeviceDeleteHandler(BaseHandler):
     """设备删除处理器 - 删除设备"""
     def initialize(self, db_manager):
@@ -600,7 +367,6 @@ class DeviceDeleteHandler(BaseHandler):
                 "message": f"内部服务器错误: {str(e)}"
             })
 
-
 class HealthHandler(BaseHandler):
     """健康检查处理器"""
     
@@ -610,12 +376,12 @@ class HealthHandler(BaseHandler):
             "service": "Net Manager API Server"
         })
 
-
 class APIServer:
     """API服务器类"""
-    def __init__(self, port=12344):
+    def __init__(self, db_manager=None, port=12344):
         self.port = port
-        self.db_manager = DatabaseManager()
+        # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
+        self.db_manager = db_manager if db_manager else DatabaseManager()
         self.tcp_server = None
         self.app = self.make_app()
         self.server = None
@@ -659,7 +425,6 @@ class APIServer:
             self.server.stop()
         tornado.ioloop.IOLoop.current().stop()
         logger.info("API服务端已停止")
-
 
 if __name__ == "__main__":
     # 使用配置文件中的端口启动API服务器

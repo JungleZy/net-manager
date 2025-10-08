@@ -38,7 +38,10 @@ def get_executable_path():
 def get_client_executable_path():
     """获取客户端可执行文件路径"""
     # 如果是打包后的exe文件，返回exe文件路径
-    if getattr(sys, 'frozen', False):
+    is_frozen = hasattr(sys, 'frozen') and sys.frozen
+    is_nuitka = '__compiled__' in globals()
+    
+    if is_frozen or is_nuitka:
         # 打包后的可执行文件路径
         return sys.executable
     else:
@@ -116,7 +119,7 @@ def _enable_autostart_windows():
             # 创建快捷方式
             try:
                 import win32com.client
-                shortcut_path = startup_folder / "NetManager.lnk"
+                shortcut_path = startup_folder / "NetManagerClient.lnk"
                 shell = win32com.client.Dispatch("WScript.Shell")
                 shortcut = shell.CreateShortCut(str(shortcut_path))
                 shortcut.Targetpath = client_exe_path
@@ -157,7 +160,7 @@ def _disable_autostart_windows():
         startup_folder = Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
         
         # 删除快捷方式文件
-        shortcut_path = startup_folder / "NetManager.lnk"
+        shortcut_path = startup_folder / "NetManagerClient.lnk"
         if shortcut_path.exists():
             shortcut_path.unlink()
             logger.info(f"已删除开机启动快捷方式: {shortcut_path}")
@@ -181,7 +184,7 @@ def _is_autostart_enabled_windows():
         startup_folder = Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
         
         # 检查快捷方式是否存在
-        shortcut_path = startup_folder / "NetManager.lnk"
+        shortcut_path = startup_folder / "NetManagerClient.lnk"
         if shortcut_path.exists():
             return True
         

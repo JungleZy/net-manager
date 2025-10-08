@@ -17,6 +17,7 @@ sys.path.insert(0, parent_dir)
 from src.udp_server import udp_server
 from src.tcp_server import TCPServer
 from src.api_server import APIServer
+from src.database_manager import DatabaseManager
 from src.logger import logger
 from src.config import VERSION
 from src.singleton_manager import get_server_singleton_manager
@@ -94,14 +95,15 @@ def main():
     logger.info("Net Manager 服务端启动...")
     
     try:
-        # 1. 初始化数据库（在API服务器和TCP服务器的构造函数中完成）
+        # 1. 初始化数据库
         logger.info("数据库初始化...")
+        db_manager = DatabaseManager()
         
-        # 2. 创建TCP服务器实例（会初始化数据库）
-        tcp_server = TCPServer()
+        # 2. 创建TCP服务器实例
+        tcp_server = TCPServer(db_manager)
         
-        # 3. 创建API服务器实例（会初始化数据库）
-        api_server = APIServer()
+        # 3. 创建API服务器实例
+        api_server = APIServer(db_manager)
         
         # 4. 设置API服务器的TCP服务器引用
         api_server.set_tcp_server(tcp_server)

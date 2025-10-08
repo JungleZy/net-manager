@@ -3,7 +3,13 @@ psutil>=5.9.0
 pywin32>=311; sys_platform == "win32"
 
 python-daemon>=2.3.0; sys_platform == "linux"
-# Web services and API
+
 tornado>=6.3.0,<7.0.0
 
 nuitka>=2.7.0,<3.0.0
+
+pysnmp>=7.1.21
+
+pysmi>=1.6.2
+
+asyncio-mqtt>=0.11.0

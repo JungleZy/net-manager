@@ -2,52 +2,38 @@
 <nuitka-compilation-report nuitka_version="2.7.16" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="Failed unexpectedly in Scons C backend compilation.">
   <scons_error_reports>
     <scons_error_report>
-      <command>gcc -o "module.psutil._pswindows.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._pswindows.c"</command>
+      <command>gcc -o "module.__main__.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.__main__.c"</command>
       <stderr>
 
 cc1.exe: out of memory allocating 33558527 bytes
 </stderr>
     </scons_error_report>
     <scons_error_report>
-      <command>gcc -o "module.pywin.dialogs.list.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.pywin.dialogs.list.c"</command>
+      <command>gcc -o "module.psutil.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil.c"</command>
+      <stderr>
+
+cc1.exe: out of memory allocating 4198399 bytes
+</stderr>
+    </scons_error_report>
+    <scons_error_report>
+      <command>gcc -o "__helpers.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "__helpers.c"</command>
       <stderr>
 
 cc1.exe: out of memory allocating 33558527 bytes
 </stderr>
     </scons_error_report>
     <scons_error_report>
-      <command>gcc -o "module.commctrl.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.commctrl.c"</command>
+      <command>gcc -o "module.pythoncom.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.pythoncom.c"</command>
       <stderr>
 
-cc1.exe: out of memory allocating 16777144 bytes
+cc1.exe: out of memory allocating 16781311 bytes
 </stderr>
     </scons_error_report>
     <scons_error_report>
-      <command>gcc -o "__constants.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "__constants.c"</command>
+      <command>gcc -o "module.pywin.dialogs.status.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.pywin.dialogs.status.c"</command>
       <stderr>
 
-cc1.exe: out of memory allocating 33558527 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.psutil._psosx.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._psosx.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 4194296 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.pywin.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.pywin.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 33558527 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.pywin.mfc.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.pywin.mfc.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 4194296 bytes
+cc1.exe: out of memory allocating 4198399 bytes
 </stderr>
     </scons_error_report>
   </scons_error_reports>
@@ -781,7 +767,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     <module_usages />
   </module>
   <module name="commctrl" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\commctrl.py">
-    <optimization-time pass="1" time="0.03" micro_passes="4" max_branch_merge="2" merged_total="12" />
+    <optimization-time pass="1" time="0.04" micro_passes="4" max_branch_merge="2" merged_total="12" />
     <optimization-time pass="2" time="0.01" micro_passes="1" />
     <module_usages />
   </module>
@@ -3212,8 +3198,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\__init__.py" distribution="psutil">
-    <optimization-time pass="1" time="0.69" micro_passes="7" max_branch_merge="137" merged_total="16232" />
-    <optimization-time pass="2" time="0.05" micro_passes="1" max_branch_merge="51" merged_total="2074" />
+    <optimization-time pass="1" time="0.77" micro_passes="7" max_branch_merge="137" merged_total="16232" />
+    <optimization-time pass="2" time="0.06" micro_passes="1" max_branch_merge="51" merged_total="2074" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
       <module_usage name="collections" finding="absolute" line="21" />
@@ -3305,8 +3291,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._common" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_common.py" distribution="psutil">
-    <optimization-time pass="1" time="0.32" micro_passes="7" max_branch_merge="36" merged_total="7722" />
-    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="32" merged_total="1025" />
+    <optimization-time pass="1" time="0.30" micro_passes="7" max_branch_merge="36" merged_total="7722" />
+    <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="32" merged_total="1025" />
     <module_usages>
       <module_usage name="collections" finding="absolute" line="11" />
       <module_usage name="enum" finding="absolute" line="12" />
@@ -3330,7 +3316,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._psaix" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psaix.py" distribution="psutil">
-    <optimization-time pass="1" time="0.15" micro_passes="7" max_branch_merge="116" merged_total="6075" />
+    <optimization-time pass="1" time="0.16" micro_passes="7" max_branch_merge="116" merged_total="6075" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="54" merged_total="777" />
     <module_usages>
       <module_usage name="functools" finding="absolute" line="9" />
@@ -3368,7 +3354,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._psbsd" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psbsd.py" distribution="psutil">
-    <optimization-time pass="1" time="0.24" micro_passes="6" max_branch_merge="141" merged_total="8407" />
+    <optimization-time pass="1" time="0.29" micro_passes="6" max_branch_merge="141" merged_total="8407" />
     <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="67" merged_total="1319" />
     <module_usages>
       <module_usage name="contextlib" finding="absolute" line="7" />
@@ -3405,8 +3391,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._pslinux" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pslinux.py" distribution="psutil">
-    <optimization-time pass="1" time="0.77" micro_passes="7" max_branch_merge="221" merged_total="30406" />
-    <optimization-time pass="2" time="0.10" micro_passes="1" max_branch_merge="112" merged_total="4138" />
+    <optimization-time pass="1" time="0.82" micro_passes="7" max_branch_merge="221" merged_total="30406" />
+    <optimization-time pass="2" time="0.12" micro_passes="1" max_branch_merge="112" merged_total="4138" />
     <module_usages>
       <module_usage name="base64" finding="absolute" line="8" />
       <module_usage name="collections" finding="absolute" line="9" />
@@ -3473,7 +3459,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._psosx" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psosx.py" distribution="psutil">
-    <optimization-time pass="1" time="0.10" micro_passes="6" max_branch_merge="114" merged_total="4618" />
+    <optimization-time pass="1" time="0.12" micro_passes="6" max_branch_merge="114" merged_total="4618" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="54" merged_total="708" />
     <module_usages>
       <module_usage name="errno" finding="absolute" line="7" />
@@ -3504,7 +3490,7 @@ cc1.exe: out of memory allocating 4194296 bytes
   </module>
   <module name="psutil._psposix" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psposix.py" distribution="psutil">
     <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="46" merged_total="810" />
-    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="34" merged_total="144" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="34" merged_total="144" />
     <module_usages>
       <module_usage name="enum" finding="absolute" line="7" />
       <module_usage name="glob" finding="absolute" line="8" />
@@ -3521,8 +3507,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="psutil._pssunos" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pssunos.py" distribution="psutil">
-    <optimization-time pass="1" time="0.21" micro_passes="7" max_branch_merge="136" merged_total="7610" />
-    <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="64" merged_total="994" />
+    <optimization-time pass="1" time="0.23" micro_passes="7" max_branch_merge="136" merged_total="7610" />
+    <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="64" merged_total="994" />
     <module_usages>
       <module_usage name="errno" finding="absolute" line="7" />
       <module_usage name="functools" finding="absolute" line="8" />
@@ -3563,7 +3549,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     <module_usages />
   </module>
   <module name="psutil._pswindows" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pswindows.py" distribution="psutil">
-    <optimization-time pass="1" time="0.24" micro_passes="6" max_branch_merge="140" merged_total="9118" />
+    <optimization-time pass="1" time="0.26" micro_passes="6" max_branch_merge="140" merged_total="9118" />
     <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="67" merged_total="1387" />
     <module_usages>
       <module_usage name="contextlib" finding="absolute" line="7" />
@@ -3652,7 +3638,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="pywin.dialogs.list" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\Pythonwin\pywin\dialogs\list.py">
-    <optimization-time pass="1" time="0.31" micro_passes="7" max_branch_merge="34" merged_total="2314" />
+    <optimization-time pass="1" time="0.32" micro_passes="7" max_branch_merge="34" merged_total="2314" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="34" merged_total="312" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -3667,7 +3653,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="pywin.dialogs.status" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\Pythonwin\pywin\dialogs\status.py">
-    <optimization-time pass="1" time="1.08" micro_passes="5" max_branch_merge="29" merged_total="1923" />
+    <optimization-time pass="1" time="1.05" micro_passes="5" max_branch_merge="29" merged_total="1923" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="29" merged_total="329" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -3728,7 +3714,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="pywin.mfc.window" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\Pythonwin\pywin\mfc\window.py">
-    <optimization-time pass="1" time="0.01" micro_passes="4" max_branch_merge="15" merged_total="648" />
+    <optimization-time pass="1" time="0.02" micro_passes="4" max_branch_merge="15" merged_total="648" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="15" merged_total="150" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -4049,7 +4035,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="src.autostart" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\autostart.py">
-    <optimization-time pass="1" time="0.07" micro_passes="6" max_branch_merge="31" merged_total="3162" />
+    <optimization-time pass="1" time="0.09" micro_passes="6" max_branch_merge="31" merged_total="3162" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="28" merged_total="507" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -4099,8 +4085,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="src.singleton_manager" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\singleton_manager.py">
-    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="49" merged_total="1070" />
-    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="27" merged_total="174" />
+    <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="49" merged_total="1060" />
+    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="27" merged_total="172" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="10" />
       <module_usage name="sys" finding="absolute" line="11" />
@@ -4125,8 +4111,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="src.state_manager" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\state_manager.py">
-    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="38" merged_total="1545" />
-    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="11" merged_total="259" />
+    <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="38" merged_total="1545" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="11" merged_total="259" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="9" />
       <module_usage name="sys" finding="absolute" line="10" />
@@ -4140,7 +4126,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="src.system_collector" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\system_collector.py">
-    <optimization-time pass="1" time="0.25" micro_passes="7" max_branch_merge="32" merged_total="7409" />
+    <optimization-time pass="1" time="0.27" micro_passes="7" max_branch_merge="32" merged_total="7409" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="28" merged_total="1015" />
     <distribution-usages>
       <distribution-usage name="psutil" />
@@ -4165,7 +4151,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="src.tcp_client" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\tcp_client.py">
-    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="66" merged_total="2702" />
+    <optimization-time pass="1" time="0.06" micro_passes="5" max_branch_merge="66" merged_total="2702" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="65" merged_total="521" />
     <module_usages>
       <module_usage name="socket" finding="absolute" line="1" />
@@ -4725,7 +4711,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\__init__.py" distribution="pywin32">
-    <optimization-time pass="1" time="2.05" micro_passes="5" max_branch_merge="73" merged_total="3798" />
+    <optimization-time pass="1" time="2.20" micro_passes="5" max_branch_merge="73" merged_total="3798" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="57" merged_total="663" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
@@ -4752,7 +4738,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client.build" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\build.py" distribution="pywin32">
-    <optimization-time pass="1" time="0.13" micro_passes="6" max_branch_merge="98" merged_total="7167" />
+    <optimization-time pass="1" time="0.14" micro_passes="6" max_branch_merge="98" merged_total="7167" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="94" merged_total="1140" />
     <module_usages>
       <module_usage name="builtins" finding="absolute" line="19" />
@@ -4766,7 +4752,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client.dynamic" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\dynamic.py" distribution="pywin32">
-    <optimization-time pass="1" time="0.14" micro_passes="6" max_branch_merge="79" merged_total="7077" />
+    <optimization-time pass="1" time="0.15" micro_passes="6" max_branch_merge="79" merged_total="7077" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="77" merged_total="1125" />
     <module_usages>
       <module_usage name="traceback" finding="absolute" line="19" />
@@ -4784,7 +4770,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client.gencache" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\gencache.py" distribution="pywin32">
-    <optimization-time pass="1" time="0.18" micro_passes="5" max_branch_merge="46" merged_total="5044" />
+    <optimization-time pass="1" time="0.21" micro_passes="5" max_branch_merge="46" merged_total="5044" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="39" merged_total="929" />
     <module_usages>
       <module_usage name="__future__" finding="absolute" line="24" />
@@ -4827,7 +4813,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client.genpy" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\genpy.py" distribution="pywin32">
-    <optimization-time pass="1" time="0.50" micro_passes="7" max_branch_merge="180" merged_total="18237" />
+    <optimization-time pass="1" time="0.54" micro_passes="7" max_branch_merge="180" merged_total="18237" />
     <optimization-time pass="2" time="0.06" micro_passes="1" max_branch_merge="140" merged_total="2447" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="16" />
@@ -4843,7 +4829,7 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="win32com.client.makepy" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32com\client\makepy.py" distribution="pywin32">
-    <optimization-time pass="1" time="0.14" micro_passes="5" max_branch_merge="64" merged_total="3958" />
+    <optimization-time pass="1" time="0.16" micro_passes="5" max_branch_merge="64" merged_total="3958" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="54" merged_total="746" />
     <module_usages>
       <module_usage name="importlib" finding="absolute" line="67" />
@@ -4886,7 +4872,7 @@ cc1.exe: out of memory allocating 4194296 bytes
   </module>
   <module name="win32con" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\win32con.py">
     <optimization-time pass="1" time="0.38" micro_passes="4" max_branch_merge="4" merged_total="56" />
-    <optimization-time pass="2" time="0.08" micro_passes="1" />
+    <optimization-time pass="2" time="0.07" micro_passes="1" />
     <module_usages />
   </module>
   <module name="win32event" kind="PythonExtensionModule" usage="import" reason="Extension module needed for standalone mode." source_path="${sys.prefix}\Lib\site-packages\win32\win32event.pyd" distribution="pywin32">
@@ -4908,8 +4894,8 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <module name="winerror" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\winerror.py">
-    <optimization-time pass="1" time="0.29" micro_passes="5" max_branch_merge="15" merged_total="246" />
-    <optimization-time pass="2" time="0.16" micro_passes="1" max_branch_merge="10" merged_total="18" />
+    <optimization-time pass="1" time="0.31" micro_passes="5" max_branch_merge="15" merged_total="246" />
+    <optimization-time pass="2" time="0.17" micro_passes="1" max_branch_merge="10" merged_total="18" />
     <module_usages>
       <module_usage name="warnings" finding="absolute" line="5" />
     </module_usages>
@@ -5030,9 +5016,9 @@ cc1.exe: out of memory allocating 4194296 bytes
     </module_usages>
   </module>
   <performance>
-    <memory_usage name="after_launch" value="49852416" />
-    <memory_usage name="before_c_code_generation" value="134180864" />
-    <memory_usage name="before_running_scons" value="139186176" />
+    <memory_usage name="after_launch" value="49684480" />
+    <memory_usage name="before_c_code_generation" value="134254592" />
+    <memory_usage name="before_running_scons" value="139501568" />
   </performance>
   <included_extension name="_bz2.pyd" dest_path="_bz2.pyd" source_path="${sys.real_prefix}\DLLs\_bz2.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="_ctypes.pyd" dest_path="_ctypes.pyd" source_path="${sys.real_prefix}\DLLs\_ctypes.pyd" package="" ignored="no" reason="used extension module" />
@@ -5050,7 +5036,7 @@ cc1.exe: out of memory allocating 4194296 bytes
   <included_extension name="win32api.pyd" dest_path="win32api.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32api.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32event.pyd" dest_path="win32event.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32event.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32ui.pyd" dest_path="win32ui.pyd" source_path="${sys.prefix}\Lib\site-packages\Pythonwin\win32ui.pyd" package="" ignored="no" reason="used extension module" />
-  <data_composer blob_size="6923060" total="30529">
+  <data_composer blob_size="6922978" total="30526">
     <module_data filename="__bytecode.const" blob_name=".bytecode" blob_size="6349385" input_size="6372443" />
     <module_data filename="__constants.const" blob_name="" blob_size="872" input_size="2226" />
     <module_data filename="module.__main__.const" blob_name="__main__" blob_size="2963" input_size="4516" />
@@ -5076,12 +5062,12 @@ cc1.exe: out of memory allocating 4194296 bytes
     <module_data filename="module.pywin.mfc.window.const" blob_name="pywin.mfc.window" blob_size="684" input_size="1301" />
     <module_data filename="module.pywin32_system32.const" blob_name="pywin32_system32" blob_size="134" input_size="251" />
     <module_data filename="module.pywintypes.const" blob_name="pywintypes" blob_size="698" input_size="1271" />
-    <module_data filename="module.src.autostart.const" blob_name="src.autostart" blob_size="4443" input_size="6337" />
+    <module_data filename="module.src.autostart.const" blob_name="src.autostart" blob_size="4449" input_size="6343" />
     <module_data filename="module.src.config.const" blob_name="src.config" blob_size="264" input_size="587" />
     <module_data filename="module.src.const" blob_name="src" blob_size="372" input_size="618" />
     <module_data filename="module.src.logger.const" blob_name="src.logger" blob_size="868" input_size="1622" />
     <module_data filename="module.src.platform_utils.const" blob_name="src.platform_utils" blob_size="1091" input_size="1893" />
-    <module_data filename="module.src.singleton_manager.const" blob_name="src.singleton_manager" blob_size="2420" input_size="3680" />
+    <module_data filename="module.src.singleton_manager.const" blob_name="src.singleton_manager" blob_size="2332" input_size="3553" />
     <module_data filename="module.src.start_net_manager.const" blob_name="src.start_net_manager" blob_size="689" input_size="1239" />
     <module_data filename="module.src.state_manager.const" blob_name="src.state_manager" blob_size="2518" input_size="3964" />
     <module_data filename="module.src.system_collector.const" blob_name="src.system_collector" blob_size="5688" input_size="8600" />

@@ -2,7 +2,7 @@
   <div class="p-[12px] size-full">
     <div class="size-full bg-white rounded-lg shadow p-[12px]">
       <!-- 统计卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[12px]">
         <div class="bg-blue-100 rounded-lg p-4 shadow">
           <div class="text-2xl font-bold text-blue-800">
             {{ statistics.totalDevices }}
@@ -22,55 +22,56 @@
           <div class="text-gray-600">离线设备</div>
         </div>
       </div>
-
       <!-- 设备列表 -->
-      <div class="bg-white rounded-lg shadow">
-        <div class="px-4 py-3 border-b border-gray-200">
-          <h3 class="text-lg font-medium">设备列表</h3>
+      <div class="bg-white rounded-lg" style="height: calc(100% - 78px)">
+        <div class="px-4 pb-[4px] border-b border-gray-200 layout-left-center">
+          <div class="text-lg font-medium layout-left-center h-[40px]">
+            设备列表
+          </div>
         </div>
-        <div class="overflow-x-auto">
+        <div class="overflow-auto" style="height: calc(100% - 45px)">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   设备名称
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   IP地址
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   MAC地址
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   操作系统
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   状态
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   最后更新
                 </th>
                 <th
                   scope="col"
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
                 >
                   设备类型
                 </th>
@@ -79,17 +80,17 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="device in devices" :key="device.mac_address">
                 <td
-                  class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                  class="px-6 py-4 whitespace-nowrap font-medium text-gray-900"
                 >
                   {{ device.hostname || '未知设备' }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                   {{ device.ip_address || '未知' }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                   {{ device.mac_address || '未知' }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                   {{ formatOSInfo(device) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -99,23 +100,20 @@
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                     "
-                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                    class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
                   >
                     {{ device.online ? '在线' : '离线' }}
                   </span>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                   {{ formatTimestamp(device.timestamp) }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                   {{ device.type || '未设置' }}
                 </td>
               </tr>
               <tr v-if="devices.length === 0">
-                <td
-                  colspan="8"
-                  class="px-6 py-4 text-center text-sm text-gray-500"
-                >
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
                   暂无设备数据
                 </td>
               </tr>
