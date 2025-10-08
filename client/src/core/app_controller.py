@@ -2,356 +2,350 @@
 # -*- coding: utf-8 -*-
 
 """
-应用程序控制器
-负责管理NetManager客户端的生命周期和核心逻辑
+应用控制器模块
+负责协调和管理应用程序的各个组件
+包括配置管理、系统信息收集、网络通信等功能
 """
 
+import signal
 import time
 import json
-import hashlib
 import threading
-from typing import Optional
-from datetime import datetime
+from typing import Optional, Any, Dict, Callable
 
-from ..config_module.config import config
-from ..system.system_collector import SystemCollector, SystemInfo
-from ..network.tcp_client import TCPClient
-from ..utils.logger import logger
-from ..utils.platform_utils import setup_signal_handlers
-from ..system.autostart import enable_autostart, disable_autostart, is_autostart_enabled, create_daemon_script
-from ..utils.singleton_manager import get_client_singleton_manager
-from ..core.state_manager import get_state_manager
+# 第三方库导入
+import psutil
+
+# 本地应用/库导入
+from src.config_module.config import config
+from src.exceptions.exceptions import (
+    NetworkDiscoveryError,
+    NetworkConnectionError,
+    SystemInfoCollectionError,
+    ConfigurationError
+)
+from src.network.tcp_client import get_tcp_client, initialize_tcp_client
+from src.system.system_collector import SystemCollector
+from src.system.autostart import enable_autostart, disable_autostart, is_autostart_enabled
+from src.utils.logger import get_logger
+from src.utils.platform_utils import get_executable_path
 
 
 class AppController:
-    """应用程序控制器，管理客户端的核心逻辑"""
+    """
+    应用控制器类
+    负责协调和管理应用程序的各个组件
+    """
     
     def __init__(self):
-        """初始化应用程序控制器"""
-        # 配置值
-        self.collect_interval = config.COLLECT_INTERVAL
+        """
+        初始化应用控制器
+        """
+        self.logger = get_logger()
+        self.tcp_client: Optional[Any] = None
+        self.system_collector = SystemCollector()
+        self.running = False
+        self.main_thread: Optional[threading.Thread] = None
+        self.stop_event = threading.Event()
         
-        # 核心组件
-        self.collector: Optional[SystemCollector] = None
-        self.tcp_client: Optional[TCPClient] = None
-        
-        # 状态管理
-        self.last_system_info_hash: Optional[str] = None
-        self.shutdown_event = threading.Event()
-        
-        # 单例管理器
-        self.singleton_manager = get_client_singleton_manager()
-        
-        # 初始化标志
-        self.initialized = False
+        # 注册信号处理器
+        self._setup_signal_handlers()
     
-    def initialize(self) -> bool:
+    def _setup_signal_handlers(self) -> None:
         """
-        初始化应用程序控制器
-        
-        Returns:
-            bool: 初始化成功返回True，否则返回False
+        设置信号处理器
         """
-        if self.initialized:
-            return True
-            
         try:
-            # 尝试获取锁
-            if not self.singleton_manager.acquire_lock():
-                logger.error("客户端已在运行中，请勿重复启动")
-                return False
-            
-            # 获取状态管理器实例
-            self.state_manager = get_state_manager()
-            client_id = self.state_manager.get_client_id()
-            logger.info(f"客户端唯一标识符: {client_id}")
-            
-            # 初始化各组件
-            self.collector = SystemCollector()
-            self.tcp_client = TCPClient()
-            
-            # 设置信号处理器
-            setup_signal_handlers(self._signal_handler)
-            
-            self.initialized = True
-            logger.info("应用程序控制器初始化成功")
-            return True
-            
+            signal.signal(signal.SIGINT, self._signal_handler)
+            signal.signal(signal.SIGTERM, self._signal_handler)
+            self.logger.debug("信号处理器设置成功")
         except Exception as e:
-            logger.error(f"应用程序控制器初始化失败: {e}")
-            return False
+            self.logger.error(f"设置信号处理器失败: {e}")
     
-    def _signal_handler(self, sig, frame):
-        """信号处理函数"""
-        logger.info("接收到终止信号，正在关闭程序...")
-        self.shutdown()
-    
-    def _calculate_system_info_hash(self, system_info: SystemInfo) -> str:
+    def _signal_handler(self, signum: int, frame: Any) -> None:
         """
-        计算系统信息的哈希值，用于比较两次数据是否相同
+        信号处理函数
         
         Args:
-            system_info (SystemInfo): 系统信息对象
+            signum (int): 信号编号
+            frame (Any): 帧对象
+        """
+        self.logger.info(f"收到信号 {signum}，准备退出...")
+        self.stop()
+    
+    def _calculate_system_info_hash(self, system_info: Any) -> str:
+        """
+        计算系统信息的哈希值，用于检测系统信息是否发生变化
+        
+        Args:
+            system_info: 系统信息对象
             
         Returns:
-            str: 系统信息的MD5哈希值
+            str: 系统信息的哈希值
         """
         try:
-            # 将SystemInfo对象转换为字典，排除时间戳字段
-            info_dict = {
-                'hostname': system_info.hostname,
-                'ip_address': system_info.ip_address,
-                'mac_address': system_info.mac_address,
-                'services': system_info.services,  # 这已经是JSON字符串
-                'processes': system_info.processes  # 这已经是JSON字符串
+            # 提取关键信息用于哈希计算
+            key_info = {
+                "hostname": system_info.hostname,
+                "ip_address": system_info.ip_address,
+                "mac_address": system_info.mac_address,
+                "gateway": system_info.gateway,
+                "netmask": system_info.netmask,
+                "os_name": system_info.os_name,
+                "os_version": system_info.os_version,
+                "os_architecture": system_info.os_architecture,
+                "machine_type": system_info.machine_type
             }
             
-            # 将字典转换为JSON字符串并计算哈希值
-            info_str = json.dumps(info_dict, sort_keys=True)
+            # 转换为JSON字符串并计算哈希值
+            info_str = json.dumps(key_info, sort_keys=True)
+            import hashlib
             return hashlib.md5(info_str.encode('utf-8')).hexdigest()
         except Exception as e:
-            logger.error(f"计算系统信息哈希值失败: {e}")
+            self.logger.error(f"计算系统信息哈希值失败: {e}")
             return ""
     
     def _handle_autostart(self) -> None:
-        """处理开机自启动和守护进程功能"""
-        try:
-            import sys
-            # 检查是否处于打包环境（Nuitka或PyInstaller）
-            is_frozen = hasattr(sys, 'frozen') and sys.frozen
-            is_nuitka = '__compiled__' in globals()
-            
-            if is_frozen or is_nuitka:
-                logger.info("检测到打包环境，执行开机自启动和守护进程功能")
-                
-                # 默认启动时自动启用开机自启动和创建守护进程
-                if is_autostart_enabled():
-                    logger.info("开机自启动已启用")
-                else:
-                    if enable_autostart():
-                        logger.info("已自动启用开机自启动")
-                    else:
-                        logger.warning("自动启用开机自启动失败")
-                    
-                if create_daemon_script():
-                    logger.info("已自动创建守护进程脚本")
-                else:
-                    logger.warning("自动创建守护进程脚本失败")
-            else:
-                logger.info("检测到开发环境，跳过开机自启动和守护进程功能")
-        except Exception as e:
-            logger.error(f"处理开机自启动功能时出错: {e}")
-    
-    def _connect_to_server(self) -> bool:
         """
-        连接到服务端
+        处理开机自启动设置
+        """
+        try:
+            # 启用开机自启动
+            client_path = get_executable_path()
+            if enable_autostart(client_path):
+                self.logger.info("已启用开机自启动")
+            else:
+                self.logger.error("启用开机自启动失败")
+        except Exception as e:
+            self.logger.error(f"处理开机自启动设置失败: {e}")
+    
+    def _connect_to_server_with_retry(self, retry_delay: float = 5.0) -> bool:
+        """
+        尝试连接到服务端，带无限重试机制
         
+        Args:
+            retry_delay (float): 重试间隔（秒）
+            
         Returns:
             bool: 连接成功返回True，否则返回False
         """
-        connection_retry_count = 0
-        max_retries = 3
+        attempt = 0
+        server_address = None
         
-        while connection_retry_count < max_retries and not self.shutdown_event.is_set():
+        while self.running:
             try:
-                # 尝试通过UDP发现并连接到服务端
-                if self.tcp_client.discover_server():
-                    if self.tcp_client.connect_to_server():
-                        logger.info("已通过TCP连接到服务端")
-                        return True
-                    else:
-                        connection_retry_count += 1
-                        logger.warning(f"TCP连接失败，正在进行第{connection_retry_count}次重试...")
-                else:
-                    connection_retry_count += 1
-                    logger.warning(f"无法通过UDP发现服务端，正在进行第{connection_retry_count}次重试...")
+                attempt += 1
+                self.logger.info(f"尝试连接到服务端 (第{attempt}次)")
                 
-                # 添加延迟
-                if self.shutdown_event.wait(5):
-                    break
+                # 只在第一次尝试时初始化TCP客户端和发现服务端
+                if attempt == 1:
+                    # 初始化TCP客户端
+                    self.tcp_client = initialize_tcp_client()
                     
+                    # 发现服务端
+                    server_address = self.tcp_client.discover_server()
+                    if not server_address:
+                        self.logger.warning("未发现服务端")
+                        self.logger.info(f"等待{retry_delay}秒后重试...")
+                        time.sleep(retry_delay)
+                        continue
+                
+                # 检查是否已获取到服务端地址
+                if not server_address:
+                    self.logger.warning("未发现服务端")
+                    self.logger.info(f"等待{retry_delay}秒后重试...")
+                    time.sleep(retry_delay)
+                    continue
+                
+                # 连接到服务端
+                if self.tcp_client.connect():
+                    self.logger.info(f"成功连接到服务端 {server_address}")
+                    return True
+                else:
+                    self.logger.error("连接到服务端失败")
+                    self.logger.info(f"等待{retry_delay}秒后重试...")
+                    time.sleep(retry_delay)
+                    continue
+                        
+            except NetworkDiscoveryError as e:
+                # 只在第一次尝试时处理发现错误
+                if attempt == 1:
+                    self.logger.warning(f"服务端发现失败: {e}")
+                    self.logger.info(f"等待{retry_delay}秒后重试...")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    # 如果不是第一次尝试，直接重试连接
+                    self.logger.info(f"等待{retry_delay}秒后重试...")
+                    time.sleep(retry_delay)
+                    continue
+            except NetworkConnectionError as e:
+                self.logger.warning(f"连接到服务端失败: {e}")
+                self.logger.info(f"等待{retry_delay}秒后重试...")
+                time.sleep(retry_delay)
+                continue
             except Exception as e:
-                connection_retry_count += 1
-                logger.error(f"连接到服务端时发生错误: {e}，正在进行第{connection_retry_count}次重试...")
+                self.logger.error(f"连接到服务端时发生未知错误: {e}")
+                self.logger.info(f"等待{retry_delay}秒后重试...")
+                time.sleep(retry_delay)
+                continue
         
-        if connection_retry_count >= max_retries:
-            logger.error("达到最大重试次数，无法连接到服务端")
-        
+        # 如果running为False，则返回False
         return False
     
-    def _send_system_info(self, system_info: SystemInfo) -> bool:
+    def _send_system_info(self) -> bool:
         """
-        发送系统信息到服务端
+        收集并发送系统信息到服务端
         
-        Args:
-            system_info (SystemInfo): 系统信息对象
-            
         Returns:
             bool: 发送成功返回True，否则返回False
         """
         try:
-            # 计算当前系统信息的哈希值
-            current_hash = self._calculate_system_info_hash(system_info)
-            
-            # 比较当前数据与上一次数据是否相同
-            if current_hash != self.last_system_info_hash:
-                logger.info("系统信息发生变化，准备发送到服务端...")
-                
-                # 通过TCP发送到服务端
-                send_success = False
-                if self.tcp_client and self.tcp_client.is_connected():
-                    success_tcp = self.tcp_client.send_system_info(system_info)
-                    if success_tcp:
-                        # 更新上一次的哈希值
-                        self.last_system_info_hash = current_hash
-                        logger.info("系统信息已发送到服务端")
-                        send_success = True
-                    else:
-                        logger.warning("系统信息TCP发送失败")
+            # 发送系统信息
+            if self.tcp_client and self.tcp_client.is_connected():
+                success = self.tcp_client.send_system_info()
+                if success:
+                    self.logger.info("系统信息发送成功")
+                    return True
                 else:
-                    logger.warning("TCP连接已断开")
-                
-                # 如果发送失败，尝试重新连接
-                if not send_success:
-                    logger.info("尝试重新连接到服务端...")
-                    if self._connect_to_server():
-                        logger.info("TCP连接已恢复")
-                        if self.tcp_client.send_system_info(system_info):
-                            self.last_system_info_hash = current_hash
-                            logger.info("系统信息已重新发送到服务端")
-                            send_success = True
-                        else:
-                            logger.warning("重新发送数据失败")
-                    else:
-                        logger.warning("重新连接失败")
-                
-                return send_success
+                    self.logger.error("系统信息发送失败")
+                    return False
             else:
-                logger.debug("系统信息未发生变化，跳过发送")
-                return True
-        except Exception as e:
-            logger.error(f"发送系统信息时发生错误: {e}")
-            return False
-    
-    def _reconnect_to_server(self) -> bool:
-        """
-        重新连接到服务端
-        
-        Returns:
-            bool: 重连成功返回True，否则返回False
-        """
-        try:
-            logger.info("尝试重新连接到服务端...")
-            if self.tcp_client.discover_server() and self.tcp_client.connect_to_server():
-                logger.info("TCP连接已恢复")
-                return True
-            else:
-                logger.warning("重新连接失败")
+                self.logger.warning("TCP客户端未连接，无法发送系统信息")
                 return False
+                
+        except SystemInfoCollectionError as e:
+            self.logger.error(f"系统信息收集失败: {e}")
+            return False
+        except NetworkConnectionError as e:
+            self.logger.error(f"发送系统信息失败: {e}")
+            return False
         except Exception as e:
-            logger.error(f"重新连接到服务端时出错: {e}")
+            self.logger.error(f"发送系统信息时发生未知错误: {e}")
             return False
     
-    def run(self) -> None:
-        """运行应用程序主循环"""
+    def _run_main_loop(self) -> None:
+        """
+        运行应用主循环
+        """
+        self.logger.info("应用主循环开始")
+        
+        # 连接到服务端
+        if not self._connect_to_server_with_retry():
+            self.logger.error("无法连接到服务端，应用退出")
+            self.running = False
+            return
+        
+        # 发送初始系统信息
+        self._send_system_info()
+        
+        # 主循环
+        while self.running and not self.stop_event.is_set():
+            try:
+                # 检查TCP连接状态
+                if not self.tcp_client or not self.tcp_client.is_connected():
+                    self.logger.warning("与服务端的连接已断开，尝试重新连接...")
+                    if not self._connect_to_server_with_retry():
+                        self.logger.error("重新连接到服务端失败")
+                        break
+                
+                # 定期发送心跳或系统信息（使用配置的间隔时间）
+                self.stop_event.wait(config.COLLECT_INTERVAL)
+                if self.running and not self.stop_event.is_set():
+                    self._send_system_info()
+                    
+            except Exception as e:
+                self.logger.error(f"主循环中发生错误: {e}")
+                if self.running and not self.stop_event.is_set():
+                    # 出错后短暂等待再继续
+                    self.stop_event.wait(5)
+        
+        self.logger.info("应用主循环结束")
+    
+    def start(self) -> None:
+        """
+        启动应用控制器
+        """
+        if self.running:
+            self.logger.warning("应用已在运行中")
+            return
+        
+        self.logger.info("启动应用控制器")
+        self.running = True
+        self.stop_event.clear()
+        
         try:
-            if not self.initialized:
-                logger.error("应用程序控制器未初始化")
-                return
-            
-            logger.info("Net Manager 启动...")
-            
-            # 处理开机自启动功能
+            # 处理开机自启动设置
             self._handle_autostart()
             
-            # 连接到服务端
-            if not self._connect_to_server():
-                logger.error("无法连接到服务端，程序退出")
-                return
+            # 在单独的线程中运行主循环
+            self.main_thread = threading.Thread(target=self._run_main_loop, daemon=True)
+            self.main_thread.start()
             
-            # 主循环
-            logger.info("开始主循环")
-            while not self.shutdown_event.is_set():
-                try:
-                    logger.debug("开始收集系统信息...")
-                    
-                    # 收集系统信息
-                    system_info = self.collector.collect_system_info()
-                    
-                    # 计算当前系统信息的哈希值
-                    current_hash = self._calculate_system_info_hash(system_info)
-                    
-                    # 比较当前数据与上一次数据是否相同
-                    if current_hash != self.last_system_info_hash:
-                        logger.info("系统信息发生变化，准备发送到服务端...")
-                        
-                        # 发送系统信息
-                        send_success = self._send_system_info(system_info)
-                        
-                        if send_success:
-                            # 更新上一次的哈希值
-                            self.last_system_info_hash = current_hash
-                        else:
-                            # 如果发送失败，尝试重新连接
-                            if self._reconnect_to_server():
-                                # 重新连接成功后再次尝试发送
-                                if self._send_system_info(system_info):
-                                    self.last_system_info_hash = current_hash
-                                    logger.info("系统信息已重新发送到服务端")
-                                else:
-                                    logger.warning("重新发送数据失败")
-                    else:
-                        logger.debug("系统信息未发生变化，跳过发送")
-                    
-                    # 等待下次收集周期
-                    if self.shutdown_event.wait(self.collect_interval):
-                        break
-                        
-                except Exception as e:
-                    logger.error(f"主循环中发生错误: {e}")
-                    # 如果是系统性错误，可能需要重新连接
-                    if not self.tcp_client or not self.tcp_client.is_connected():
-                        if not self._reconnect_to_server():
-                            logger.error("重新连接失败，程序退出")
-                            break
-                    # 继续下一次循环
-                    if self.shutdown_event.wait(5):  # 短暂延迟后重试
-                        break
-            
-            logger.info("主循环结束")
-            
+            self.logger.info("应用控制器启动成功")
         except Exception as e:
-            logger.error(f"运行应用程序时发生未处理的错误: {e}")
-        finally:
-            self.shutdown()
+            self.logger.error(f"启动应用控制器失败: {e}")
+            self.running = False
+            raise
     
-    def shutdown(self) -> None:
-        """关闭应用程序"""
+    def stop(self) -> None:
+        """
+        停止应用控制器
+        """
+        if not self.running:
+            return
+        
+        self.logger.info("停止应用控制器")
+        self.running = False
+        self.stop_event.set()
+        
         try:
-            logger.info("正在关闭应用程序...")
-            
-            # 设置关闭事件
-            self.shutdown_event.set()
-            
             # 断开TCP连接
             if self.tcp_client:
                 self.tcp_client.disconnect()
             
-            # 释放单例锁
-            self.singleton_manager.release_lock()
-            
-            logger.info("应用程序已关闭")
+            # 等待主循环线程结束
+            if self.main_thread and self.main_thread.is_alive():
+                self.main_thread.join(timeout=5.0)
+                
         except Exception as e:
-            logger.error(f"关闭应用程序时出错: {e}")
+            self.logger.error(f"停止应用控制器时发生错误: {e}")
+        finally:
+            self.logger.info("应用控制器已停止")
+    
+    def wait(self) -> None:
+        """
+        等待应用控制器结束
+        """
+        if self.main_thread and self.main_thread.is_alive():
+            # 使用循环等待，每次等待一小段时间，以便能够响应中断信号
+            while self.main_thread.is_alive():
+                self.main_thread.join(timeout=1.0)  # 每秒检查一次
+    
+    def cleanup(self) -> None:
+        """
+        清理资源
+        """
+        self.logger.info("清理应用控制器资源")
+        self.stop()
 
 
-# 全局应用程序控制器实例
-_app_controller: Optional[AppController] = None
+# 全局应用控制器实例
+_app_controller_instance: Optional[AppController] = None
+_app_controller_lock = threading.RLock()
 
 
 def get_app_controller() -> AppController:
-    """获取全局应用程序控制器实例"""
-    global _app_controller
-    if _app_controller is None:
-        _app_controller = AppController()
-    return _app_controller
+    """
+    获取应用控制器单例实例
+    
+    Returns:
+        AppController: 应用控制器实例
+    """
+    global _app_controller_instance
+    
+    with _app_controller_lock:
+        if _app_controller_instance is None:
+            _app_controller_instance = AppController()
+            get_logger().info("应用控制器实例已创建")
+        return _app_controller_instance

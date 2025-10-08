@@ -171,7 +171,7 @@ def _build_application(app_type, app_dir, output_dir, console_mode):
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"✓ {app_type}打包成功")
         return True
     except subprocess.CalledProcessError as e:
@@ -185,7 +185,7 @@ def build_client():
         app_type="client",
         app_dir=CLIENT_DIR,
         output_dir=str(DIST_DIR / "client"),
-        console_mode="hide"
+        console_mode="force"
     )
 
 def build_server():

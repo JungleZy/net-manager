@@ -57,7 +57,7 @@ def udp_server():
                         # 发送服务端信息作为响应
                         response = {
                             'type': 'discovery_response',
-                            'tcp_port': TCP_PORT,
+                            'tcp_port': int(TCP_PORT),  # 确保tcp_port是整数类型
                             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         response_data = json.dumps(response).encode('utf-8')

@@ -33,7 +33,7 @@ def test_tcp_connection():
     
     # 测试连接到服务端
     print("2. 测试连接到服务端...")
-    if tcp_client.connect_to_server():
+    if tcp_client.connect():
         print("   ✓ 连接成功")
     else:
         print("   ✗ 连接失败")

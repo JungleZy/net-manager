@@ -2,369 +2,554 @@
 # -*- coding: utf-8 -*-
 
 """
-开机自启动和守护进程功能模块
-支持Windows和Linux双平台
+开机自启动管理模块
+负责在不同操作系统上启用/禁用客户端的开机自启动功能
+支持Windows、Linux(systemd)和macOS(LaunchAgent)
 """
 
 import os
 import sys
 import platform
-import subprocess
-import shutil
 from pathlib import Path
-from ..utils.logger import logger
+from typing import Optional
+
+# 第三方库导入
+# 无
+
+# 本地应用/库导入
+from src.exceptions.exceptions import PlatformError, AutoStartError
+from src.utils.logger import get_logger
+from src.utils.platform_utils import (
+    get_executable_path,
+    get_appropriate_encoding,
+    normalize_path
+)
 
 
-def get_platform():
-    """获取当前操作系统平台"""
-    return platform.system().lower()
-
-
-def is_windows():
-    """检查是否为Windows系统"""
-    return get_platform() == 'windows'
-
-
-def is_linux():
-    """检查是否为Linux系统"""
-    return get_platform() == 'linux'
-
-
-def get_executable_path():
-    """获取可执行文件路径"""
-    return os.path.dirname(os.path.abspath(sys.argv[0]))
-
-
-def get_client_executable_path():
-    """获取客户端可执行文件路径"""
-    # 如果是打包后的exe文件，返回exe文件路径
-    is_frozen = hasattr(sys, 'frozen') and sys.frozen
-    is_nuitka = '__compiled__' in globals()
+def get_client_executable_path() -> str:
+    """
+    获取客户端可执行文件路径
     
-    if is_frozen or is_nuitka:
-        # 打包后的可执行文件路径
-        return sys.executable
-    else:
-        # 开发环境下的脚本路径
-        return os.path.abspath(sys.argv[0])
-
-
-def enable_autostart():
-    """启用开机自启动"""
+    Returns:
+        str: 客户端可执行文件路径
+        
+    Raises:
+        AutoStartError: 获取可执行文件路径失败
+    """
     try:
-        if is_windows():
-            return _enable_autostart_windows()
-        elif is_linux():
-            return _enable_autostart_linux()
-        else:
-            logger.error(f"不支持的操作系统平台: {get_platform()}")
-            return False
+        return get_executable_path()
     except Exception as e:
-        logger.error(f"启用开机自启动时出错: {e}")
+        logger = get_logger()
+        logger.error(f"获取客户端可执行文件路径失败: {e}")
+        raise AutoStartError(f"获取客户端可执行文件路径失败: {e}")
+
+
+def enable_autostart(daemon_script_path: Optional[str] = None) -> bool:
+    """
+    启用开机自启动
+    
+    Args:
+        daemon_script_path (Optional[str]): 守护进程脚本路径
+        
+    Returns:
+        bool: 是否成功启用开机自启动
+    """
+    logger = get_logger()
+    system = platform.system().lower()
+    
+    try:
+        if system == "windows":
+            return _enable_autostart_windows(daemon_script_path)
+        elif system == "linux":
+            return _enable_autostart_linux(daemon_script_path)
+        elif system == "darwin":  # macOS
+            return _enable_autostart_macos(daemon_script_path)
+        else:
+            logger.error(f"不支持的操作系统: {system}")
+            raise PlatformError(f"不支持的操作系统: {system}")
+    except Exception as e:
+        logger.error(f"启用开机自启动失败: {e}")
         return False
 
 
-def disable_autostart():
-    """禁用开机自启动"""
+def disable_autostart(daemon_script_path: Optional[str] = None) -> bool:
+    """
+    禁用开机自启动
+    
+    Args:
+        daemon_script_path (Optional[str]): 守护进程脚本路径
+        
+    Returns:
+        bool: 是否成功禁用开机自启动
+    """
+    logger = get_logger()
+    system = platform.system().lower()
+    
     try:
-        if is_windows():
+        if system == "windows":
             return _disable_autostart_windows()
-        elif is_linux():
+        elif system == "linux":
             return _disable_autostart_linux()
+        elif system == "darwin":  # macOS
+            return _disable_autostart_macos()
         else:
-            logger.error(f"不支持的操作系统平台: {get_platform()}")
-            return False
+            logger.error(f"不支持的操作系统: {system}")
+            raise PlatformError(f"不支持的操作系统: {system}")
     except Exception as e:
-        logger.error(f"禁用开机自启动时出错: {e}")
+        logger.error(f"禁用开机自启动失败: {e}")
         return False
 
 
-def is_autostart_enabled():
-    """检查是否已启用开机自启动"""
+def is_autostart_enabled() -> bool:
+    """
+    检查是否已启用开机自启动
+    
+    Returns:
+        bool: 是否已启用开机自启动
+    """
+    logger = get_logger()
+    system = platform.system().lower()
+    
     try:
-        if is_windows():
+        if system == "windows":
             return _is_autostart_enabled_windows()
-        elif is_linux():
+        elif system == "linux":
             return _is_autostart_enabled_linux()
+        elif system == "darwin":  # macOS
+            return _is_autostart_enabled_macos()
         else:
-            logger.error(f"不支持的操作系统平台: {get_platform()}")
-            return False
+            logger.error(f"不支持的操作系统: {system}")
+            raise PlatformError(f"不支持的操作系统: {system}")
     except Exception as e:
-        logger.error(f"检查开机自启动状态时出错: {e}")
+        logger.error(f"检查开机自启动状态失败: {e}")
         return False
 
 
-def _enable_autostart_windows():
-    """Windows平台启用开机自启动"""
+def _enable_autostart_windows(daemon_script_path: Optional[str]) -> bool:
+    """
+    在Windows上启用开机自启动
+    
+    Args:
+        daemon_script_path (Optional[str]): 守护进程脚本路径
+        
+    Returns:
+        bool: 是否成功启用开机自启动
+    """
+    logger = get_logger()
     try:
-        # 使用启动文件夹方式实现开机自启动
         import winreg
         
-        # 获取当前用户的启动文件夹路径
-        startup_folder = Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-        
-        # 确保启动文件夹存在
-        startup_folder.mkdir(parents=True, exist_ok=True)
-        
         # 获取客户端可执行文件路径
-        client_exe_path = get_client_executable_path()
-        
-        # 如果是打包后的exe文件，创建快捷方式
-        # 只在打包环境下执行开机自启动和守护进程功能
-        # 检查是否处于打包环境（Nuitka或PyInstaller）
-        is_frozen = hasattr(sys, 'frozen') and sys.frozen
-        is_nuitka = '__compiled__' in globals()
-        
-        if is_frozen or is_nuitka:
-            # 创建快捷方式
-            try:
-                import win32com.client
-                shortcut_path = startup_folder / "NetManagerClient.lnk"
-                shell = win32com.client.Dispatch("WScript.Shell")
-                shortcut = shell.CreateShortCut(str(shortcut_path))
-                shortcut.Targetpath = client_exe_path
-                shortcut.WorkingDirectory = os.path.dirname(client_exe_path)
-                shortcut.WindowStyle = 1  # 正常窗口
-                shortcut.save()
-                
-                logger.info(f"已创建开机启动快捷方式: {shortcut_path}")
-            except ImportError:
-                # 如果没有安装pywin32，则回退到创建批处理文件
-                bat_path = startup_folder / "start_net_manager.bat"
-                with open(bat_path, 'w', encoding='utf-8') as f:
-                    f.write("@echo off\n")
-                    f.write("cd /d %~dp0\n")
-                    f.write(f'"{client_exe_path}"\n')
-                
-                logger.info(f"已创建开机启动批处理文件: {bat_path}")
+        if daemon_script_path:
+            executable_path = daemon_script_path
         else:
-            # 开发环境下，创建Python脚本启动文件
-            bat_path = startup_folder / "start_net_manager.bat"
-            with open(bat_path, 'w', encoding='utf-8') as f:
-                f.write("@echo off\n")
-                f.write("cd /d %~dp0\n")
-                f.write(f'python "{client_exe_path}"\n')
-            
-            logger.info(f"已创建开机启动批处理文件: {bat_path}")
+            executable_path = get_client_executable_path()
         
+        # 打开注册表项
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_SET_VALUE
+        )
+        
+        # 设置开机自启动项
+        winreg.SetValueEx(key, "NetManagerClient", 0, winreg.REG_SZ, executable_path)
+        winreg.CloseKey(key)
+        
+        logger.info("Windows开机自启动已启用")
         return True
     except Exception as e:
-        logger.error(f"Windows平台启用开机自启动时出错: {e}")
+        logger.error(f"在Windows上启用开机自启动失败: {e}")
         return False
 
 
-def _disable_autostart_windows():
-    """Windows平台禁用开机自启动"""
+def _disable_autostart_windows() -> bool:
+    """
+    在Windows上禁用开机自启动
+    
+    Returns:
+        bool: 是否成功禁用开机自启动
+    """
+    logger = get_logger()
     try:
-        # 获取当前用户的启动文件夹路径
-        startup_folder = Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        import winreg
         
-        # 删除快捷方式文件
-        shortcut_path = startup_folder / "NetManagerClient.lnk"
-        if shortcut_path.exists():
-            shortcut_path.unlink()
-            logger.info(f"已删除开机启动快捷方式: {shortcut_path}")
+        # 打开注册表项
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_SET_VALUE
+        )
         
-        # 删除批处理文件（兼容旧版本）
-        bat_path = startup_folder / "start_net_manager.bat"
-        if bat_path.exists():
-            bat_path.unlink()
-            logger.info(f"已删除开机启动批处理文件: {bat_path}")
+        # 删除开机自启动项
+        winreg.DeleteValue(key, "NetManagerClient")
+        winreg.CloseKey(key)
         
+        logger.info("Windows开机自启动已禁用")
+        return True
+    except FileNotFoundError:
+        # 如果键不存在，说明已经禁用
+        logger.info("Windows开机自启动已禁用（注册表项不存在）")
         return True
     except Exception as e:
-        logger.error(f"Windows平台禁用开机自启动时出错: {e}")
+        logger.error(f"在Windows上禁用开机自启动失败: {e}")
         return False
 
 
-def _is_autostart_enabled_windows():
-    """Windows平台检查是否已启用开机自启动"""
+def _is_autostart_enabled_windows() -> bool:
+    """
+    检查Windows上是否已启用开机自启动
+    
+    Returns:
+        bool: 是否已启用开机自启动
+    """
+    logger = get_logger()
     try:
-        # 获取当前用户的启动文件夹路径
-        startup_folder = Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        import winreg
         
-        # 检查快捷方式是否存在
-        shortcut_path = startup_folder / "NetManagerClient.lnk"
-        if shortcut_path.exists():
-            return True
+        # 打开注册表项
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_READ
+        )
         
-        # 如果快捷方式不存在，检查批处理文件是否存在（兼容旧版本）
-        bat_path = startup_folder / "start_net_manager.bat"
-        return bat_path.exists()
+        # 检查是否存在开机自启动项
+        try:
+            value, _ = winreg.QueryValueEx(key, "NetManagerClient")
+            winreg.CloseKey(key)
+            return bool(value)
+        except FileNotFoundError:
+            winreg.CloseKey(key)
+            return False
     except Exception as e:
-        logger.error(f"Windows平台检查开机自启动状态时出错: {e}")
+        logger.error(f"检查Windows开机自启动状态失败: {e}")
         return False
 
 
-def _enable_autostart_linux():
-    """Linux平台启用开机自启动"""
-    try:
-        # 使用systemd服务方式实现开机自启动
-        service_name = "net-manager-client.service"
-        service_file_path = f"/etc/systemd/system/{service_name}"
+def _enable_autostart_linux(daemon_script_path: Optional[str]) -> bool:
+    """
+    在Linux上启用开机自启动（使用systemd）
+    
+    Args:
+        daemon_script_path (Optional[str]): 守护进程脚本路径
         
+    Returns:
+        bool: 是否成功启用开机自启动
+    """
+    logger = get_logger()
+    try:
         # 获取客户端可执行文件路径
-        client_exe_path = get_client_executable_path()
+        if daemon_script_path:
+            executable_path = daemon_script_path
+        else:
+            executable_path = get_client_executable_path()
         
         # 创建systemd服务文件内容
         service_content = f"""[Unit]
-Description=Net Manager Client
+Description=NetManager Client
 After=network.target
 
 [Service]
 Type=simple
-ExecStart={client_exe_path}
-WorkingDirectory={get_executable_path()}
+ExecStart={executable_path}
 Restart=always
 RestartSec=10
+User={os.getenv('USER', 'root')}
 
 [Install]
 WantedBy=multi-user.target
 """
         
-        # 由于需要root权限，我们先创建临时文件
-        temp_service_file = "/tmp/net-manager-client.service"
-        with open(temp_service_file, 'w') as f:
+        # 获取服务文件路径
+        service_file = Path.home() / ".config" / "systemd" / "user" / "netmanager-client.service"
+        
+        # 确保目录存在
+        service_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 写入服务文件
+        with open(service_file, "w", encoding=get_appropriate_encoding()) as f:
             f.write(service_content)
         
-        # 使用sudo命令复制服务文件到系统目录
-        try:
-            subprocess.run(['sudo', 'cp', temp_service_file, service_file_path], check=True)
-            subprocess.run(['sudo', 'chmod', '644', service_file_path], check=True)
-            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
-            subprocess.run(['sudo', 'systemctl', 'enable', service_name], check=True)
-            logger.info(f"已创建并启用systemd服务: {service_name}")
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Linux平台启用开机自启动时出错: {e}")
-            return False
-    except Exception as e:
-        logger.error(f"Linux平台启用开机自启动时出错: {e}")
-        return False
-
-
-def _disable_autostart_linux():
-    """Linux平台禁用开机自启动"""
-    try:
-        service_name = "net-manager-client.service"
-        service_file_path = f"/etc/systemd/system/{service_name}"
+        # 启用服务
+        os.system("systemctl --user daemon-reload")
+        os.system("systemctl --user enable netmanager-client.service")
         
-        # 禁用并删除服务
-        try:
-            subprocess.run(['sudo', 'systemctl', 'disable', service_name], check=True)
-            subprocess.run(['sudo', 'rm', '-f', service_file_path], check=True)
-            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
-            logger.info(f"已禁用并删除systemd服务: {service_name}")
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Linux平台禁用开机自启动时出错: {e}")
-            return False
-    except Exception as e:
-        logger.error(f"Linux平台禁用开机自启动时出错: {e}")
-        return False
-
-
-def _is_autostart_enabled_linux():
-    """Linux平台检查是否已启用开机自启动"""
-    try:
-        service_name = "net-manager-client.service"
-        # 检查服务是否已启用
-        result = subprocess.run(['systemctl', 'is-enabled', service_name], 
-                               capture_output=True, text=True)
-        return result.returncode == 0 and 'enabled' in result.stdout
-    except Exception as e:
-        logger.error(f"Linux平台检查开机自启动状态时出错: {e}")
-        return False
-
-
-def create_daemon_script():
-    """创建守护进程脚本"""
-    try:
-        if is_windows():
-            return _create_daemon_script_windows()
-        elif is_linux():
-            return _create_daemon_script_linux()
-        else:
-            logger.error(f"不支持的操作系统平台: {get_platform()}")
-            return False
-    except Exception as e:
-        logger.error(f"创建守护进程脚本时出错: {e}")
-        return False
-
-
-def _create_daemon_script_windows():
-    """Windows平台创建守护进程脚本"""
-    try:
-        # 创建守护进程批处理脚本
-        script_path = Path(get_executable_path()) / "net_manager_daemon.bat"
-        client_exe_path = get_client_executable_path()
-        
-        script_content = f"""@echo off
-REM Net Manager 守护进程脚本
-
-:loop
-tasklist | find /i "{os.path.basename(client_exe_path)}" >nul
-if %errorlevel%==1 (
-    echo Net Manager 客户端未运行，正在启动...
-    start "" "{client_exe_path}"
-) else (
-    echo Net Manager 客户端正在运行
-)
-
-REM 等待60秒后再次检查
-timeout /t 60 /nobreak >nul
-goto loop
-"""
-        
-        with open(script_path, 'w', encoding='utf-8') as f:
-            f.write(script_content)
-        
-        logger.info(f"已创建Windows守护进程脚本: {script_path}")
+        logger.info("Linux开机自启动已启用")
         return True
     except Exception as e:
-        logger.error(f"Windows平台创建守护进程脚本时出错: {e}")
+        logger.error(f"在Linux上启用开机自启动失败: {e}")
         return False
 
 
-def _create_daemon_script_linux():
-    """Linux平台创建守护进程脚本"""
-    try:
-        # 创建守护进程shell脚本
-        script_path = Path(get_executable_path()) / "net_manager_daemon.sh"
-        client_exe_path = get_client_executable_path()
-        
-        script_content = f"""#!/bin/bash
-# Net Manager 守护进程脚本
-
-while true; do
-    if ! pgrep -f "{os.path.basename(client_exe_path)}" > /dev/null; then
-        echo "Net Manager 客户端未运行，正在启动..."
-        nohup {client_exe_path} > /dev/null 2>&1 &
-    else
-        echo "Net Manager 客户端正在运行"
-    fi
+def _disable_autostart_linux() -> bool:
+    """
+    在Linux上禁用开机自启动（使用systemd）
     
-    # 等待60秒后再次检查
-    sleep 60
-done
+    Returns:
+        bool: 是否成功禁用开机自启动
+    """
+    logger = get_logger()
+    try:
+        # 获取服务文件路径
+        service_file = Path.home() / ".config" / "systemd" / "user" / "netmanager-client.service"
+        
+        # 禁用并删除服务
+        os.system("systemctl --user disable netmanager-client.service")
+        service_file.unlink(missing_ok=True)
+        
+        # 重新加载systemd配置
+        os.system("systemctl --user daemon-reload")
+        
+        logger.info("Linux开机自启动已禁用")
+        return True
+    except Exception as e:
+        logger.error(f"在Linux上禁用开机自启动失败: {e}")
+        return False
+
+
+def _is_autostart_enabled_linux() -> bool:
+    """
+    检查Linux上是否已启用开机自启动（使用systemd）
+    
+    Returns:
+        bool: 是否已启用开机自启动
+    """
+    logger = get_logger()
+    try:
+        # 检查服务是否已启用
+        result = os.system("systemctl --user is-enabled netmanager-client.service > /dev/null 2>&1")
+        return result == 0
+    except Exception as e:
+        logger.error(f"检查Linux开机自启动状态失败: {e}")
+        return False
+
+
+def _enable_autostart_macos(daemon_script_path: Optional[str]) -> bool:
+    """
+    在macOS上启用开机自启动（使用LaunchAgent）
+    
+    Args:
+        daemon_script_path (Optional[str]): 守护进程脚本路径
+        
+    Returns:
+        bool: 是否成功启用开机自启动
+    """
+    logger = get_logger()
+    try:
+        # 获取客户端可执行文件路径
+        if daemon_script_path:
+            executable_path = daemon_script_path
+        else:
+            executable_path = get_client_executable_path()
+        
+        # 创建plist文件内容
+        plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.netmanager.client</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{executable_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
 """
         
-        with open(script_path, 'w', encoding='utf-8') as f:
+        # 获取plist文件路径
+        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
+        
+        # 确保目录存在
+        plist_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 写入plist文件
+        with open(plist_file, "w", encoding=get_appropriate_encoding()) as f:
+            f.write(plist_content)
+        
+        # 加载LaunchAgent
+        os.system(f"launchctl load {plist_file}")
+        
+        logger.info("macOS开机自启动已启用")
+        return True
+    except Exception as e:
+        logger.error(f"在macOS上启用开机自启动失败: {e}")
+        return False
+
+
+def _disable_autostart_macos() -> bool:
+    """
+    在macOS上禁用开机自启动（使用LaunchAgent）
+    
+    Returns:
+        bool: 是否成功禁用开机自启动
+    """
+    logger = get_logger()
+    try:
+        # 获取plist文件路径
+        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
+        
+        # 卸载LaunchAgent
+        os.system(f"launchctl unload {plist_file}")
+        plist_file.unlink(missing_ok=True)
+        
+        logger.info("macOS开机自启动已禁用")
+        return True
+    except Exception as e:
+        logger.error(f"在macOS上禁用开机自启动失败: {e}")
+        return False
+
+
+def _is_autostart_enabled_macos() -> bool:
+    """
+    检查macOS上是否已启用开机自启动（使用LaunchAgent）
+    
+    Returns:
+        bool: 是否已启用开机自启动
+    """
+    logger = get_logger()
+    try:
+        # 获取plist文件路径
+        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
+        
+        # 检查plist文件是否存在
+        return plist_file.exists()
+    except Exception as e:
+        logger.error(f"检查macOS开机自启动状态失败: {e}")
+        return False
+
+
+def create_daemon_script() -> Optional[str]:
+    """
+    创建守护进程脚本
+    
+    Returns:
+        Optional[str]: 守护进程脚本路径，如果创建失败则返回None
+    """
+    logger = get_logger()
+    system = platform.system().lower()
+    
+    try:
+        if system == "windows":
+            return _create_daemon_script_windows()
+        elif system == "linux":
+            return _create_daemon_script_linux()
+        elif system == "darwin":  # macOS
+            return _create_daemon_script_macos()
+        else:
+            logger.error(f"不支持的操作系统: {system}")
+            raise PlatformError(f"不支持的操作系统: {system}")
+    except Exception as e:
+        logger.error(f"创建守护进程脚本失败: {e}")
+        return None
+
+
+def _create_daemon_script_windows() -> Optional[str]:
+    """
+    在Windows上创建守护进程脚本
+    
+    Returns:
+        Optional[str]: 守护进程脚本路径，如果创建失败则返回None
+    """
+    logger = get_logger()
+    try:
+        # 获取客户端可执行文件路径
+        client_path = get_client_executable_path()
+        
+        # 创建批处理脚本内容
+        script_content = f"""@echo off
+"{client_path}"
+"""
+        
+        # 获取脚本路径
+        script_path = Path(normalize_path("./netmanager_daemon.bat"))
+        
+        # 写入脚本文件
+        with open(script_path, "w", encoding=get_appropriate_encoding()) as f:
+            f.write(script_content)
+        
+        logger.info(f"Windows守护进程脚本已创建: {script_path}")
+        return str(script_path)
+    except Exception as e:
+        logger.error(f"在Windows上创建守护进程脚本失败: {e}")
+        return None
+
+
+def _create_daemon_script_linux() -> Optional[str]:
+    """
+    在Linux上创建守护进程脚本
+    
+    Returns:
+        Optional[str]: 守护进程脚本路径，如果创建失败则返回None
+    """
+    logger = get_logger()
+    try:
+        # 获取客户端可执行文件路径
+        client_path = get_client_executable_path()
+        
+        # 创建shell脚本内容
+        script_content = f"""#!/bin/bash
+{client_path}
+"""
+        
+        # 获取脚本路径
+        script_path = Path(normalize_path("./netmanager_daemon.sh"))
+        
+        # 写入脚本文件
+        with open(script_path, "w", encoding=get_appropriate_encoding()) as f:
             f.write(script_content)
         
         # 添加执行权限
         os.chmod(script_path, 0o755)
         
-        logger.info(f"已创建Linux守护进程脚本: {script_path}")
-        return True
+        logger.info(f"Linux守护进程脚本已创建: {script_path}")
+        return str(script_path)
     except Exception as e:
-        logger.error(f"Linux平台创建守护进程脚本时出错: {e}")
-        return False
+        logger.error(f"在Linux上创建守护进程脚本失败: {e}")
+        return None
 
 
+def _create_daemon_script_macos() -> Optional[str]:
+    """
+    在macOS上创建守护进程脚本
+    
+    Returns:
+        Optional[str]: 守护进程脚本路径，如果创建失败则返回None
+    """
+    logger = get_logger()
+    try:
+        # 获取客户端可执行文件路径
+        client_path = get_client_executable_path()
+        
+        # 创建shell脚本内容
+        script_content = f"""#!/bin/bash
+{client_path}
+"""
+        
+        # 获取脚本路径
+        script_path = Path(normalize_path("./netmanager_daemon.sh"))
+        
+        # 写入脚本文件
+        with open(script_path, "w", encoding=get_appropriate_encoding()) as f:
+            f.write(script_content)
+        
+        # 添加执行权限
+        os.chmod(script_path, 0o755)
+        
+        logger.info(f"macOS守护进程脚本已创建: {script_path}")
+        return str(script_path)
+    except Exception as e:
+        logger.error(f"在macOS上创建守护进程脚本失败: {e}")
+        return None
+
+
+# 测试代码
 if __name__ == "__main__":
-    # 测试代码
-    print("当前平台:", get_platform())
-    print("是否为Windows:", is_windows())
-    print("是否为Linux:", is_linux())
-    print("客户端可执行文件路径:", get_client_executable_path())
+    # 这里可以添加一些测试代码
+    pass

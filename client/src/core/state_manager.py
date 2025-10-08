@@ -2,171 +2,242 @@
 # -*- coding: utf-8 -*-
 
 """
-客户端状态管理器
+状态管理器
 用于统一管理客户端状态，包括client_id的存储和读取
 """
 
 import os
 import sys
 import json
+import uuid
 import threading
-from typing import Optional, Any
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-from ..utils.logger import logger
-from ..utils.unique_id import get_or_create_unique_id
+# 延迟导入logger以避免循环依赖
+# from ..utils.logger import logger
+from ..exceptions.exceptions import StateManagerError
 
 
 class StateManager:
-    """客户端状态管理器，用于存储和读取客户端状态"""
+    """状态管理器，使用单例模式"""
     
     _instance = None
     _lock = threading.Lock()
     
     def __new__(cls):
-        """确保单例模式"""
         if cls._instance is None:
             with cls._lock:
+                # 双重检查锁定模式
                 if cls._instance is None:
-                    cls._instance = super(StateManager, cls).__new__(cls)
+                    cls._instance = super().__new__(cls)
         return cls._instance
     
     def __init__(self):
-        """初始化状态管理器"""
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        logger.error("初始化状态管理器")
         # 防止重复初始化
         if hasattr(self, '_initialized'):
             return
             
-        self._state = {}
-        self._state_lock = threading.RLock()
         self._initialized = True
-        self._client_id = None
-        
-        # 获取应用程序路径
-        self._app_path = self._get_application_path()
-        
-        # 加载现有状态
+        self.state_file = self._get_application_path() / "client_state.json"
+        self.lock = threading.RLock()  # 使用可重入锁保护状态访问
         self._load_state()
         
-        # 获取或创建客户端ID
-        self._client_id = get_or_create_unique_id(self._app_path)
-        self.set_state('client_id', self._client_id)
-    
-    def _get_application_path(self) -> str:
-        """获取应用程序路径，兼容开发环境和打包环境"""
-        is_frozen = hasattr(sys, 'frozen') and sys.frozen
-        is_nuitka = '__compiled__' in globals()
+    def _get_application_path(self) -> Path:
+        """
+        获取应用程序路径，兼容开发环境和打包环境
         
-        if is_frozen or is_nuitka:
-            # 打包后的可执行文件路径
-            application_path = os.path.dirname(sys.executable)
-        else:
-            # 开发环境 - 确保指向项目根目录
-            # 获取当前文件的绝对路径
-            current_file_path = os.path.abspath(__file__)
-            # 获取src目录路径
-            src_path = os.path.dirname(current_file_path)
-            # 获取core目录路径
-            core_path = os.path.dirname(src_path)
-            # 获取项目根目录路径
-            application_path = os.path.dirname(core_path)
+        Returns:
+            Path: 应用程序路径
+        """
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
         
-        
-        return application_path
-    
-    def _get_state_file_path(self) -> str:
-        """获取状态文件路径"""
-        state_file_path = os.path.join(self._app_path, "client_state.json")
-        return state_file_path
-    
-    def _load_state(self) -> None:
-        """从文件加载状态"""
         try:
-            state_file = self._get_state_file_path()
-            if os.path.exists(state_file):
-                with open(state_file, 'r', encoding='utf-8') as f:
-                    loaded_state = json.load(f)
-                    with self._state_lock:
-                        self._state.update(loaded_state)
-                logger.debug("状态已从文件加载")
+            is_frozen = hasattr(sys, 'frozen') and sys.frozen
+            is_nuitka = '__compiled__' in globals()
+            if is_frozen or is_nuitka:
+                # 打包后的exe路径
+                application_path = Path(sys.executable).parent
             else:
-                logger.debug("状态文件不存在，使用默认状态")
-        except Exception as e:
-            logger.error(f"加载状态失败: {e}")
-    
-    def _save_state(self) -> None:
-        """将状态保存到文件"""
-        try:
-            state_file = self._get_state_file_path()
-            with self._state_lock:
-                state_copy = self._state.copy()
+                # 开发环境路径
+                application_path = Path(__file__).parent.parent.parent
             
             # 确保目录存在
-            os.makedirs(os.path.dirname(state_file), exist_ok=True)
-            
-            with open(state_file, 'w', encoding='utf-8') as f:
-                json.dump(state_copy, f, ensure_ascii=False, indent=2)
-            logger.debug("状态已保存到文件")
+            application_path.mkdir(parents=True, exist_ok=True)
+            return application_path
         except Exception as e:
-            logger.error(f"保存状态失败: {e}")
+            logger.error(f"获取应用程序路径失败: {e}")
+            raise StateManagerError(f"无法确定应用程序路径: {e}")
+    
+    def _load_state(self) -> None:
+        """
+        加载状态文件
+        """
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        
+        with self.lock:
+            try:
+                if self.state_file.exists():
+                    with open(self.state_file, 'r', encoding='utf-8') as f:
+                        loaded_state = json.load(f)
+                        if isinstance(loaded_state, dict):
+                            self.state = loaded_state
+                            logger.info(f"状态文件已加载: {self.state_file}")
+                        else:
+                            logger.warning("状态文件格式不正确，使用默认状态")
+                            self.state = {}
+                else:
+                    # 初始化默认状态
+                    self.state = {}
+                    self._save_state()
+                    logger.info("创建新的状态文件")
+            except json.JSONDecodeError as e:
+                logger.error(f"解析状态文件失败: {e}")
+                # 使用默认状态
+                self.state = {}
+            except Exception as e:
+                logger.error(f"加载状态文件失败: {e}")
+                # 使用默认状态
+                self.state = {}
+    
+    def _save_state(self) -> None:
+        """
+        保存状态到文件
+        """
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        
+        try:
+            # 确保目录存在
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.state_file, 'w', encoding='utf-8') as f:
+                json.dump(self.state, f, ensure_ascii=False, indent=2)
+            logger.debug(f"状态已保存到: {self.state_file}")
+        except Exception as e:
+            logger.error(f"保存状态文件失败: {e}")
+            raise StateManagerError(f"保存状态文件失败: {e}")
     
     def get_state(self, key: str, default: Any = None) -> Any:
         """
         获取状态值
         
         Args:
-            key (str): 状态键
-            default (Any): 默认值
+            key: 状态键
+            default: 默认值
             
         Returns:
-            Any: 状态值
+            状态值或默认值
         """
-        with self._state_lock:
-            return self._state.get(key, default)
+        with self.lock:
+            return self.state.get(key, default)
     
-    def set_state(self, key: str, value: Any) -> None:
+    def set_state(self, key: str, value: Any) -> bool:
         """
         设置状态值
         
         Args:
-            key (str): 状态键
-            value (Any): 状态值
+            key: 状态键
+            value: 状态值
+            
+        Returns:
+            是否设置成功
         """
-        with self._state_lock:
-            self._state[key] = value
-        # 自动保存状态
-        self._save_state()
-        logger.debug(f"状态已更新: {key} = {value}")
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        
+        with self.lock:
+            try:
+                self.state[key] = value
+                self.state['udp_port'] = 12345
+                self.state['tcp_port'] = 12346
+                self.state['collect_interval'] = 10
+                self._save_state()
+                return True
+            except Exception as e:
+                logger.error(f"设置状态失败: {e}")
+                return False
+    
+    def update_states(self, states: Dict[str, Any]) -> bool:
+        """
+        批量更新状态
+        
+        Args:
+            states: 状态字典
+            
+        Returns:
+            是否更新成功
+        """
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        
+        with self.lock:
+            try:
+                self.state.update(states)
+                self._save_state()
+                return True
+            except Exception as e:
+                logger.error(f"批量更新状态失败: {e}")
+                return False
     
     def get_client_id(self) -> str:
         """
-        获取客户端唯一标识符
+        获取客户端ID，如果不存在则生成一个新的
         
         Returns:
-            str: 客户端唯一标识符
+            客户端ID
+            
+        Raises:
+            StateManagerError: 获取或生成客户端ID失败
         """
-        return self._client_id
-    
-    def update_client_state(self, state_data: dict) -> None:
-        """
-        批量更新客户端状态
+        # 延迟导入logger以避免循环依赖
+        from ..utils.logger import get_logger
+        logger = get_logger()
         
-        Args:
-            state_data (dict): 状态数据字典
-        """
-        with self._state_lock:
-            self._state.update(state_data)
-        self._save_state()
-        logger.debug(f"批量更新状态: {list(state_data.keys())}")
+        try:
+            client_id = self.get_state('client_id')
+            if not client_id:
+                # 生成新的UUID作为client_id
+                client_id = str(uuid.uuid4())
+                if not self.set_state('client_id', client_id):
+                    raise StateManagerError("无法保存新生成的客户端ID")
+                logger.info(f"生成新的客户端ID: {client_id}")
+            return client_id
+        except Exception as e:
+            logger.error(f"获取客户端ID失败: {e}")
+            raise StateManagerError(f"获取客户端ID失败: {e}")
 
-
-# 全局状态管理器实例
-_state_manager: Optional[StateManager] = None
-
+# 创建全局状态管理器实例
+_state_manager_instance: Optional[StateManager] = None
 
 def get_state_manager() -> StateManager:
-    """获取全局状态管理器实例"""
-    global _state_manager
-    if _state_manager is None:
-        _state_manager = StateManager()
-    return _state_manager
+    """
+    获取全局状态管理器实例
+    
+    Returns:
+        StateManager: 状态管理器实例
+        
+    Raises:
+        StateManagerError: 初始化状态管理器失败
+    """
+    global _state_manager_instance
+    if _state_manager_instance is None:
+        try:
+            _state_manager_instance = StateManager()
+        except Exception as e:
+            # 延迟导入logger以避免循环依赖
+            from ..utils.logger import get_logger
+            logger = get_logger()
+            logger.error(f"初始化状态管理器失败: {e}")
+            raise StateManagerError(f"初始化状态管理器失败: {e}")
+    return _state_manager_instance

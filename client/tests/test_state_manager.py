@@ -94,7 +94,7 @@ class TestStateManager(unittest.TestCase):
             "version": "1.0.0",
             "last_update": "2025-10-05"
         }
-        state_manager.update_client_state(state_data)
+        state_manager.update_states(state_data)
         
         # 验证状态是否正确更新
         self.assertEqual(state_manager.get_state("status"), "active")

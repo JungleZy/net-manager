@@ -7,7 +7,7 @@ import os
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from system_collector import SystemCollector
+from src.system.system_collector import SystemCollector
 import platform
 
 def test_gateway_detection():

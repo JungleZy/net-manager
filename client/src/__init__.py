@@ -5,8 +5,8 @@
 """
 
 # 从各个子模块导入功能
-from .config_module import config, ConfigManager
 from .core import get_state_manager, start_net_manager
+from .config_module import config, ConfigManager
 from .exceptions import (
     NetManagerError,
     NetworkDiscoveryError,
@@ -37,13 +37,13 @@ from .utils import (
 )
 
 __all__ = [
-    # 配置模块
-    'config',
-    'ConfigManager',
-    
     # 核心模块
     'get_state_manager',
     'start_net_manager',
+    
+    # 配置模块
+    'config',
+    'ConfigManager',
     
     # 异常模块
     'NetManagerError',

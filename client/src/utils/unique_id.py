@@ -9,10 +9,10 @@
 import os
 import uuid
 import json
-import logging
 
-# 配置日志
-logger = logging.getLogger(__name__)
+# 使用统一的日志记录器
+from .logger import get_logger
+logger = get_logger()
 
 # 状态文件名
 STATE_FILE = "client_state.json"
