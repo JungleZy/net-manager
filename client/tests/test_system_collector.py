@@ -8,7 +8,7 @@ from pathlib import Path
 project_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(project_dir))
 
-from src.system_collector import SystemCollector, SystemInfo
+from src.system.system_collector import SystemCollector, SystemInfo
 
 class TestSystemCollector(unittest.TestCase):
     

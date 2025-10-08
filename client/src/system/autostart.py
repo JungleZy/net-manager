@@ -12,7 +12,7 @@ import platform
 import subprocess
 import shutil
 from pathlib import Path
-from src.logger import logger
+from ..utils.logger import logger
 
 
 def get_platform():

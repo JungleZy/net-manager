@@ -26,7 +26,6 @@ def generate_unique_id():
     """
     unique_id = str(uuid.uuid4())
     logger.debug(f"生成新的唯一标识符: {unique_id}")
-    print(f"DEBUG unique_id.generate_unique_id: 生成新的唯一标识符: {unique_id}")
     return unique_id
 
 def save_unique_id(unique_id, app_path):
@@ -43,7 +42,6 @@ def save_unique_id(unique_id, app_path):
     try:
         # 构建状态文件路径
         state_file_path = os.path.join(app_path, STATE_FILE)
-        print(f"DEBUG unique_id.save_unique_id: state_file_path = {state_file_path}")
         
         # 如果状态文件已存在，读取现有内容
         state_data = {}
@@ -51,25 +49,20 @@ def save_unique_id(unique_id, app_path):
             try:
                 with open(state_file_path, 'r', encoding='utf-8') as f:
                     state_data = json.load(f)
-                print(f"DEBUG unique_id.save_unique_id: 读取现有状态文件")
             except Exception as e:
                 logger.warning(f"读取现有状态文件时出错: {e}")
-                print(f"DEBUG unique_id.save_unique_id: 读取现有状态文件时出错: {e}")
         
         # 更新客户端ID
         state_data['client_id'] = unique_id
-        print(f"DEBUG unique_id.save_unique_id: 更新客户端ID = {unique_id}")
         
         # 写入状态文件
         with open(state_file_path, 'w', encoding='utf-8') as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         
         logger.info(f"唯一标识符已保存到状态文件: {state_file_path}")
-        print(f"DEBUG unique_id.save_unique_id: 唯一标识符已保存到状态文件: {state_file_path}")
         return True
     except Exception as e:
         logger.error(f"保存唯一标识符失败: {e}")
-        print(f"DEBUG unique_id.save_unique_id: 保存唯一标识符失败: {e}")
         return False
 
 def load_unique_id(app_path):
@@ -85,12 +78,10 @@ def load_unique_id(app_path):
     try:
         # 构建状态文件路径
         state_file_path = os.path.join(app_path, STATE_FILE)
-        print(f"DEBUG unique_id.load_unique_id: state_file_path = {state_file_path}")
         
         # 检查状态文件是否存在
         if not os.path.exists(state_file_path):
             logger.debug(f"状态文件不存在: {state_file_path}")
-            print(f"DEBUG unique_id.load_unique_id: 状态文件不存在: {state_file_path}")
             return None
             
         # 读取状态文件
@@ -100,19 +91,16 @@ def load_unique_id(app_path):
         # 获取客户端ID
         unique_id = state_data.get('client_id')
         if not unique_id:
-            logger.debug(f"状态文件中未找到客户端ID")
-            print(f"DEBUG unique_id.load_unique_id: 状态文件中未找到客户端ID")
+            logger.debug("状态文件中未找到客户端ID")
             return None
             
         # 验证UUID格式
         uuid.UUID(unique_id)  # 如果不是有效的UUID格式会抛出异常
         
         logger.debug(f"从状态文件加载唯一标识符: {unique_id}")
-        print(f"DEBUG unique_id.load_unique_id: 从状态文件加载唯一标识符: {unique_id}")
         return unique_id
     except Exception as e:
         logger.error(f"加载唯一标识符失败: {e}")
-        print(f"DEBUG unique_id.load_unique_id: 加载唯一标识符失败: {e}")
         return None
 
 def get_or_create_unique_id(app_path):
@@ -126,18 +114,14 @@ def get_or_create_unique_id(app_path):
     Returns:
         str: 唯一标识符
     """
-    print(f"DEBUG unique_id.get_or_create_unique_id: app_path = {app_path}")
     # 尝试从状态文件加载现有的唯一标识符
     unique_id = load_unique_id(app_path)
     
     # 如果加载失败，则生成新的
     if not unique_id:
-        print(f"DEBUG unique_id.get_or_create_unique_id: 未找到现有ID，生成新的ID")
         unique_id = generate_unique_id()
         # 保存新生成的唯一标识符到状态文件
         if not save_unique_id(unique_id, app_path):
             logger.warning("无法保存新生成的唯一标识符")
-            print(f"DEBUG unique_id.get_or_create_unique_id: 无法保存新生成的唯一标识符")
     
-    print(f"DEBUG unique_id.get_or_create_unique_id: 返回唯一标识符 = {unique_id}")
     return unique_id

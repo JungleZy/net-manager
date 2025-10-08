@@ -3,8 +3,13 @@ import json
 import threading
 import time
 from typing import Optional, Tuple
-from src.config import UDP_HOST, UDP_PORT, TCP_PORT
-from src.logger import logger
+from ..config_module.config import config
+from ..utils.logger import logger
+
+# 获取配置值
+UDP_HOST = config.UDP_HOST
+UDP_PORT = config.UDP_PORT
+TCP_PORT = config.TCP_PORT
 
 class TCPClient:
     """TCP客户端，用于与服务端建立长连接"""
@@ -88,7 +93,7 @@ class TCPClient:
                 
                 # 发送握手消息，包含client_id作为请求头信息
                 # 获取client_id
-                from src.state_manager import get_state_manager
+                from ..core.state_manager import get_state_manager
                 state_manager = get_state_manager()
                 client_id = state_manager.get_client_id()
                 

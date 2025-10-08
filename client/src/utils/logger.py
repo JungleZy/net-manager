@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
-from src.config import LOG_LEVEL, LOG_FILE
+from src.config_module.config import config
 
 def get_log_level(level_str):
     """根据字符串返回日志级别"""
@@ -58,8 +58,11 @@ def setup_logger(name, log_file=None, level=logging.INFO):
     return logger
 
 # 创建全局日志记录器
-log_level = get_log_level(LOG_LEVEL)
-# 确保LOG_FILE是Path对象
-if isinstance(LOG_FILE, str):
-    LOG_FILE = Path(LOG_FILE)
-logger = setup_logger('net_manager', LOG_FILE, log_level)
+log_level = get_log_level(config.LOG_LEVEL)
+log_file = config.get_log_file_path()
+logger = setup_logger('net_manager', log_file, log_level)
+
+
+def get_logger():
+    """获取全局日志记录器实例"""
+    return logger

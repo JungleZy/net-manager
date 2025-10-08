@@ -13,8 +13,8 @@ import time
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from src.tcp_client import TCPClient
-from src.system_collector import SystemCollector
+from src.network.tcp_client import TCPClient
+from src.system.system_collector import SystemCollector
 
 def test_tcp_connection():
     """测试TCP连接功能"""

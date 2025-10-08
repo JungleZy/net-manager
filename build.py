@@ -101,8 +101,6 @@ def _build_application(app_type, app_dir, output_dir, console_mode):
                 f"--windows-console-mode={console_mode}",  # 控制台模式
                 "--windows-uac-admin",  # 请求管理员权限
                 "--include-package=src",   # 包含src包
-                "--follow-imports",  # 跟踪导入的模块
-                "--follow-stdlib",  # 优化标准库的处理
                 "--python-flag=-O",  # Python优化模式
                 "--lto=yes",  # 链接时优化
                 "--noinclude-unittest-mode=allow",
@@ -157,8 +155,6 @@ def _build_application(app_type, app_dir, output_dir, console_mode):
             f"--windows-console-mode={console_mode}",  # 控制台模式
             "--windows-uac-admin",  # 请求管理员权限
             "--include-package=src",   # 包含src包
-            "--follow-imports",  # 跟踪导入的模块
-            "--follow-stdlib",  # 优化标准库的处理
             "--python-flag=-O",  # Python优化模式
             "--lto=yes",  # 链接时优化
             "--noinclude-unittest-mode=allow",

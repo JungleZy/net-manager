@@ -15,7 +15,7 @@ from pathlib import Path
 parent_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(parent_dir))
 
-from src.platform_utils import (
+from src.utils.platform_utils import (
     get_platform, 
     is_windows, 
     is_linux, 
@@ -24,7 +24,8 @@ from src.platform_utils import (
     normalize_path,
     get_executable_path
 )
-from src.config import LOG_FILE
+from src.config_module.config import config
+LOG_FILE = config.get_log_file_path()
 
 
 class TestCrossPlatformCompatibility(unittest.TestCase):

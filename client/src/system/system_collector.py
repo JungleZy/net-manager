@@ -6,7 +6,7 @@ import uuid
 import threading
 from datetime import datetime
 from typing import List, Dict, Any
-from src.logger import logger
+from ..utils.logger import logger
 
 class SystemInfo:
     """系统信息模型"""
@@ -449,7 +449,7 @@ class SystemCollector:
             # 获取全局的客户端唯一标识符
             # 使用状态管理器获取client_id
             try:
-                from .state_manager import get_state_manager
+                from ..core.state_manager import get_state_manager
                 state_manager = get_state_manager()
                 client_id = state_manager.get_client_id()
             except Exception as e:

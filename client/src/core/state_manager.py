@@ -13,8 +13,8 @@ import threading
 from typing import Optional, Any
 from pathlib import Path
 
-from .logger import logger
-from .unique_id import get_or_create_unique_id
+from ..utils.logger import logger
+from ..utils.unique_id import get_or_create_unique_id
 
 
 class StateManager:
@@ -45,9 +45,6 @@ class StateManager:
         # 获取应用程序路径
         self._app_path = self._get_application_path()
         
-        # 添加调试信息
-        print(f"DEBUG StateManager: _app_path = {self._app_path}")
-        
         # 加载现有状态
         self._load_state()
         
@@ -63,63 +60,55 @@ class StateManager:
         if is_frozen or is_nuitka:
             # 打包后的可执行文件路径
             application_path = os.path.dirname(sys.executable)
-        elif '__compiled__' in globals():
-            # Nuitka打包环境
-            application_path = os.path.dirname(os.path.abspath(__file__))
         else:
-            # 开发环境
-            application_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            # 开发环境 - 确保指向项目根目录
+            # 获取当前文件的绝对路径
+            current_file_path = os.path.abspath(__file__)
+            # 获取src目录路径
+            src_path = os.path.dirname(current_file_path)
+            # 获取core目录路径
+            core_path = os.path.dirname(src_path)
+            # 获取项目根目录路径
+            application_path = os.path.dirname(core_path)
         
-        # 添加调试信息
-        print(f"DEBUG StateManager._get_application_path: application_path = {application_path}")
         
         return application_path
     
     def _get_state_file_path(self) -> str:
         """获取状态文件路径"""
         state_file_path = os.path.join(self._app_path, "client_state.json")
-        # 添加调试信息
-        print(f"DEBUG StateManager._get_state_file_path: state_file_path = {state_file_path}")
         return state_file_path
     
     def _load_state(self) -> None:
         """从文件加载状态"""
         try:
             state_file = self._get_state_file_path()
-            print(f"DEBUG StateManager._load_state: state_file = {state_file}")
             if os.path.exists(state_file):
                 with open(state_file, 'r', encoding='utf-8') as f:
                     loaded_state = json.load(f)
                     with self._state_lock:
                         self._state.update(loaded_state)
                 logger.debug("状态已从文件加载")
-                print("DEBUG StateManager._load_state: 状态已从文件加载")
             else:
                 logger.debug("状态文件不存在，使用默认状态")
-                print("DEBUG StateManager._load_state: 状态文件不存在，使用默认状态")
         except Exception as e:
             logger.error(f"加载状态失败: {e}")
-            print(f"DEBUG StateManager._load_state: 加载状态失败: {e}")
     
     def _save_state(self) -> None:
         """将状态保存到文件"""
         try:
             state_file = self._get_state_file_path()
-            print(f"DEBUG StateManager._save_state: state_file = {state_file}")
             with self._state_lock:
                 state_copy = self._state.copy()
             
             # 确保目录存在
             os.makedirs(os.path.dirname(state_file), exist_ok=True)
-            print(f"DEBUG StateManager._save_state: 目录已创建或已存在")
             
             with open(state_file, 'w', encoding='utf-8') as f:
                 json.dump(state_copy, f, ensure_ascii=False, indent=2)
             logger.debug("状态已保存到文件")
-            print("DEBUG StateManager._save_state: 状态已保存到文件")
         except Exception as e:
             logger.error(f"保存状态失败: {e}")
-            print(f"DEBUG StateManager._save_state: 保存状态失败: {e}")
     
     def get_state(self, key: str, default: Any = None) -> Any:
         """
@@ -148,7 +137,6 @@ class StateManager:
         # 自动保存状态
         self._save_state()
         logger.debug(f"状态已更新: {key} = {value}")
-        print(f"DEBUG StateManager.set_state: 状态已更新: {key} = {value}")
     
     def get_client_id(self) -> str:
         """

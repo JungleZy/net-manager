@@ -11,7 +11,7 @@ import os
 import sys
 import platform
 import signal
-from src.logger import logger
+from src.utils.logger import logger
 
 def get_platform():
     """获取当前操作系统平台"""
