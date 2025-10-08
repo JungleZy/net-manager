@@ -19,8 +19,7 @@ from src.utils.platform_utils import (
     get_platform, 
     is_windows, 
     is_linux, 
-    get_path_separator,
-    get_line_separator,
+    get_appropriate_encoding,
     normalize_path,
     get_executable_path
 )
@@ -33,7 +32,7 @@ class TestCrossPlatformCompatibility(unittest.TestCase):
     def test_platform_detection(self):
         """测试平台检测功能"""
         platform_name = get_platform()
-        self.assertIn(platform_name, ['windows', 'linux', 'darwin'])
+        self.assertIn(platform_name, ['windows', 'linux'])
         
         # 验证平台检测一致性
         if platform_name == 'windows':
@@ -43,21 +42,13 @@ class TestCrossPlatformCompatibility(unittest.TestCase):
             self.assertTrue(is_linux())
             self.assertFalse(is_windows())
     
-    def test_path_separator(self):
-        """测试路径分隔符"""
-        separator = get_path_separator()
+    def test_encoding(self):
+        """测试平台适当编码"""
+        encoding = get_appropriate_encoding()
         if is_windows():
-            self.assertEqual(separator, '\\')
+            self.assertEqual(encoding, 'gbk')
         else:
-            self.assertEqual(separator, '/')
-    
-    def test_line_separator(self):
-        """测试行分隔符"""
-        separator = get_line_separator()
-        if is_windows():
-            self.assertEqual(separator, '\r\n')
-        else:
-            self.assertEqual(separator, '\n')
+            self.assertEqual(encoding, 'utf-8')
     
     def test_path_normalization(self):
         """测试路径标准化"""

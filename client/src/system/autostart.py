@@ -4,7 +4,7 @@
 """
 开机自启动管理模块
 负责在不同操作系统上启用/禁用客户端的开机自启动功能
-支持Windows、Linux(systemd)和macOS(LaunchAgent)
+支持Windows、Linux(systemd)
 """
 
 import os
@@ -24,6 +24,9 @@ from src.utils.platform_utils import (
     get_appropriate_encoding,
     normalize_path
 )
+
+# Windows注册表路径常量，用于管理开机自启动项
+WINDOWS_AUTOSTART_REGISTRY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
 def get_client_executable_path() -> str:
@@ -62,8 +65,6 @@ def enable_autostart(daemon_script_path: Optional[str] = None) -> bool:
             return _enable_autostart_windows(daemon_script_path)
         elif system == "linux":
             return _enable_autostart_linux(daemon_script_path)
-        elif system == "darwin":  # macOS
-            return _enable_autostart_macos(daemon_script_path)
         else:
             logger.error(f"不支持的操作系统: {system}")
             raise PlatformError(f"不支持的操作系统: {system}")
@@ -90,8 +91,6 @@ def disable_autostart(daemon_script_path: Optional[str] = None) -> bool:
             return _disable_autostart_windows()
         elif system == "linux":
             return _disable_autostart_linux()
-        elif system == "darwin":  # macOS
-            return _disable_autostart_macos()
         else:
             logger.error(f"不支持的操作系统: {system}")
             raise PlatformError(f"不支持的操作系统: {system}")
@@ -115,8 +114,6 @@ def is_autostart_enabled() -> bool:
             return _is_autostart_enabled_windows()
         elif system == "linux":
             return _is_autostart_enabled_linux()
-        elif system == "darwin":  # macOS
-            return _is_autostart_enabled_macos()
         else:
             logger.error(f"不支持的操作系统: {system}")
             raise PlatformError(f"不支持的操作系统: {system}")
@@ -148,7 +145,7 @@ def _enable_autostart_windows(daemon_script_path: Optional[str]) -> bool:
         # 打开注册表项
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            WINDOWS_AUTOSTART_REGISTRY_PATH,
             0,
             winreg.KEY_SET_VALUE
         )
@@ -177,7 +174,7 @@ def _disable_autostart_windows() -> bool:
         # 打开注册表项
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            WINDOWS_AUTOSTART_REGISTRY_PATH,
             0,
             winreg.KEY_SET_VALUE
         )
@@ -211,7 +208,7 @@ def _is_autostart_enabled_windows() -> bool:
         # 打开注册表项
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            WINDOWS_AUTOSTART_REGISTRY_PATH,
             0,
             winreg.KEY_READ
         )
@@ -327,103 +324,6 @@ def _is_autostart_enabled_linux() -> bool:
         return False
 
 
-def _enable_autostart_macos(daemon_script_path: Optional[str]) -> bool:
-    """
-    在macOS上启用开机自启动（使用LaunchAgent）
-    
-    Args:
-        daemon_script_path (Optional[str]): 守护进程脚本路径
-        
-    Returns:
-        bool: 是否成功启用开机自启动
-    """
-    logger = get_logger()
-    try:
-        # 获取客户端可执行文件路径
-        if daemon_script_path:
-            executable_path = daemon_script_path
-        else:
-            executable_path = get_client_executable_path()
-        
-        # 创建plist文件内容
-        plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.netmanager.client</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{executable_path}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-"""
-        
-        # 获取plist文件路径
-        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
-        
-        # 确保目录存在
-        plist_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 写入plist文件
-        with open(plist_file, "w", encoding=get_appropriate_encoding()) as f:
-            f.write(plist_content)
-        
-        # 加载LaunchAgent
-        os.system(f"launchctl load {plist_file}")
-        
-        logger.info("macOS开机自启动已启用")
-        return True
-    except Exception as e:
-        logger.error(f"在macOS上启用开机自启动失败: {e}")
-        return False
-
-
-def _disable_autostart_macos() -> bool:
-    """
-    在macOS上禁用开机自启动（使用LaunchAgent）
-    
-    Returns:
-        bool: 是否成功禁用开机自启动
-    """
-    logger = get_logger()
-    try:
-        # 获取plist文件路径
-        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
-        
-        # 卸载LaunchAgent
-        os.system(f"launchctl unload {plist_file}")
-        plist_file.unlink(missing_ok=True)
-        
-        logger.info("macOS开机自启动已禁用")
-        return True
-    except Exception as e:
-        logger.error(f"在macOS上禁用开机自启动失败: {e}")
-        return False
-
-
-def _is_autostart_enabled_macos() -> bool:
-    """
-    检查macOS上是否已启用开机自启动（使用LaunchAgent）
-    
-    Returns:
-        bool: 是否已启用开机自启动
-    """
-    logger = get_logger()
-    try:
-        # 获取plist文件路径
-        plist_file = Path.home() / "Library" / "LaunchAgents" / "com.netmanager.client.plist"
-        
-        # 检查plist文件是否存在
-        return plist_file.exists()
-    except Exception as e:
-        logger.error(f"检查macOS开机自启动状态失败: {e}")
-        return False
-
-
 def create_daemon_script() -> Optional[str]:
     """
     创建守护进程脚本
@@ -439,8 +339,6 @@ def create_daemon_script() -> Optional[str]:
             return _create_daemon_script_windows()
         elif system == "linux":
             return _create_daemon_script_linux()
-        elif system == "darwin":  # macOS
-            return _create_daemon_script_macos()
         else:
             logger.error(f"不支持的操作系统: {system}")
             raise PlatformError(f"不支持的操作系统: {system}")
@@ -511,40 +409,6 @@ def _create_daemon_script_linux() -> Optional[str]:
         return str(script_path)
     except Exception as e:
         logger.error(f"在Linux上创建守护进程脚本失败: {e}")
-        return None
-
-
-def _create_daemon_script_macos() -> Optional[str]:
-    """
-    在macOS上创建守护进程脚本
-    
-    Returns:
-        Optional[str]: 守护进程脚本路径，如果创建失败则返回None
-    """
-    logger = get_logger()
-    try:
-        # 获取客户端可执行文件路径
-        client_path = get_client_executable_path()
-        
-        # 创建shell脚本内容
-        script_content = f"""#!/bin/bash
-{client_path}
-"""
-        
-        # 获取脚本路径
-        script_path = Path(normalize_path("./netmanager_daemon.sh"))
-        
-        # 写入脚本文件
-        with open(script_path, "w", encoding=get_appropriate_encoding()) as f:
-            f.write(script_content)
-        
-        # 添加执行权限
-        os.chmod(script_path, 0o755)
-        
-        logger.info(f"macOS守护进程脚本已创建: {script_path}")
-        return str(script_path)
-    except Exception as e:
-        logger.error(f"在macOS上创建守护进程脚本失败: {e}")
         return None
 
 

@@ -2,94 +2,108 @@
 # -*- coding: utf-8 -*-
 
 """
-Net Manager 开发环境设置脚本
+开发环境设置脚本
+用于检查和安装项目所需的依赖项
 """
 
-import os
 import sys
+import os
+import platform
 import subprocess
-import venv
 from pathlib import Path
 
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent
+
+# 虚拟环境目录
+VENV_DIR = PROJECT_ROOT / "venv"
+
+# requirements.txt文件路径
+REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
+
+# Python版本要求
+REQUIRED_PYTHON_VERSION = (3, 8)
+
+
 def check_python_version():
-    """检查Python版本"""
-    version = sys.version_info
-    if version.major < 3 or (version.major == 3 and version.minor < 7):
-        print(f"警告: 当前Python版本为 {version.major}.{version.minor}.{version.micro}")
-        print("建议使用Python 3.7或更高版本")
+    """检查Python版本是否满足要求"""
+    current_version = sys.version_info[:2]
+    if current_version < REQUIRED_PYTHON_VERSION:
+        print(f"错误: 需要Python {REQUIRED_PYTHON_VERSION[0]}.{REQUIRED_PYTHON_VERSION[1]}或更高版本")
+        print(f"当前Python版本: {current_version[0]}.{current_version[1]}")
         return False
     return True
+
+
+def get_venv_python_path():
+    """获取虚拟环境中的Python解释器路径"""
+    system = platform.system().lower()
+    if system == "windows":
+        return VENV_DIR / "Scripts" / "python.exe"
+    else:  # Unix/Linux
+        return VENV_DIR / "bin" / "python"
+
+
+def get_venv_pip_path():
+    """获取虚拟环境中的pip路径"""
+    system = platform.system().lower()
+    if system == "windows":
+        return VENV_DIR / "Scripts" / "pip.exe"
+    else:  # Unix/Linux
+        return VENV_DIR / "bin" / "pip"
+
 
 def create_virtual_environment():
     """创建虚拟环境"""
     print("正在创建虚拟环境...")
     try:
-        venv.create("venv", with_pip=True)
+        subprocess.run([sys.executable, "-m", "venv", str(VENV_DIR)], check=True)
         print("虚拟环境创建成功")
         return True
-    except Exception as e:
-        print(f"创建虚拟环境时出错: {e}")
+    except subprocess.CalledProcessError:
+        print("虚拟环境创建失败")
         return False
-    
-    # 获取平台信息
-    import platform
-    system = platform.system().lower()
-    print(f"检测到运行平台: {system}")
 
-def install_dependencies():
-    """安装依赖"""
-    print("正在安装依赖...")
+
+def install_requirements():
+    """在虚拟环境中安装依赖项"""
+    print("正在安装依赖项...")
+    pip_path = get_venv_pip_path()
+    
     try:
-        # 在虚拟环境中安装依赖
-        if os.name == 'nt':  # Windows
-            pip_path = Path("venv") / "Scripts" / "pip"
-        else:  # Unix/Linux/macOS
-            pip_path = Path("venv") / "bin" / "pip"
-        
-        result = subprocess.run([str(pip_path), "install", "-r", "requirements.txt"], 
-                              capture_output=True, text=True)
-        if result.returncode == 0:
-            print("依赖安装成功")
-            return True
-        else:
-            print(f"依赖安装失败: {result.stderr}")
-            return False
-    except Exception as e:
-        print(f"安装依赖时出错: {e}")
+        subprocess.run([str(pip_path), "install", "-r", str(REQUIREMENTS_FILE)], check=True)
+        print("依赖项安装成功")
+        return True
+    except subprocess.CalledProcessError:
+        print("依赖项安装失败")
         return False
+
 
 def main():
     """主函数"""
-    print("Net Manager 开发环境设置")
-    print("=" * 30)
+    print("开始设置开发环境...")
     
     # 检查Python版本
     if not check_python_version():
-        response = input("是否继续? (y/n): ")
-        if response.lower() != 'y':
-            return
+        sys.exit(1)
     
     # 创建虚拟环境
     if not create_virtual_environment():
-        return
+        sys.exit(1)
     
-    # 安装依赖
-    if not install_dependencies():
-        return
+    # 安装依赖项
+    if not install_requirements():
+        sys.exit(1)
     
-    print("\n开发环境设置完成!")
-    print("\n使用说明:")
-    print("1. 激活虚拟环境:")
-    if os.name == 'nt':  # Windows
-        print("   .\\venv\\Scripts\\activate")
-    else:  # Unix/Linux/macOS
-        print("   source venv/bin/activate")
-    
-    print("2. 运行程序:")
-    print("   python main.py")
-    
-    print("\n提示: 运行测试:")
-    print("   python -m client.tests.test_system_collector")
+    print("开发环境设置完成!")
+    print(f"虚拟环境位置: {VENV_DIR}")
+    print("激活虚拟环境:")
+    system = platform.system().lower()
+    if system == "windows":
+        print(f"  {VENV_DIR}\\Scripts\\activate")
+    else:  # Unix/Linux
+        print(f"  source {VENV_DIR}/bin/activate")
+
 
 if __name__ == "__main__":
     main()

@@ -14,12 +14,7 @@ import uuid
 from typing import Optional, Dict, Any, Callable
 from datetime import datetime
 
-# 第三方库导入
-# 无
-
 # 本地应用/库导入
-# 延迟导入config，避免在获取客户端锁之前加载
-# from src.config_module.config import config
 from src.exceptions.exceptions import NetworkConnectionError, NetworkDiscoveryError
 from src.utils.logger import get_logger
 from src.system.system_collector import SystemCollector

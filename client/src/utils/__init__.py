@@ -1,29 +1,45 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
-工具模块
+客户端工具模块
+提供各种工具函数的统一接口
 """
 
-# 导出工具模块
-from src.utils.logger import setup_logger, get_logger
-from src.utils.platform_utils import get_platform as get_platform_info, is_linux, is_windows, get_appropriate_encoding as get_system_encoding
-from src.utils.singleton_manager import get_client_singleton_manager
-from src.utils.unique_id import generate_unique_id
+# 从各个子模块导入功能
+from .platform_utils import (
+    get_platform,
+    is_windows,
+    is_linux,
+    get_appropriate_encoding,
+    normalize_path,
+    get_executable_path,
+    setup_signal_handlers,
+    get_temp_directory,
+    get_home_directory,
+    create_platform_specific_directory
+)
 
-# 添加缺失的函数
-def is_macos():
-    """检查是否为macOS系统"""
-    from src.utils.platform_utils import get_platform
-    return get_platform() == 'darwin'
+from .logger import (
+    get_logger,
+    setup_logger
+)
 
+# 定义模块的公共接口
 __all__ = [
-    'setup_logger',
-    'get_logger',
-    'get_platform_info',
-    'is_linux',
-    'is_windows',
-    'is_macos',
-    'get_system_encoding',
-    'get_client_singleton_manager',
-    'generate_unique_id',
+    # 平台工具函数
+    "get_platform",
+    "is_windows",
+    "is_linux",
+    "get_appropriate_encoding",
+    "normalize_path",
+    "get_executable_path",
+    "setup_signal_handlers",
+    "get_temp_directory",
+    "get_home_directory",
+    "create_platform_specific_directory",
+    
+    # 日志工具函数
+    "get_logger",
+    "setup_logger"
 ]

@@ -1,74 +1,83 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
-客户端源代码包
+客户端主模块
+提供客户端核心功能的统一接口
 """
 
-# 从各个子模块导入功能
-from .core import get_state_manager, start_net_manager
-# 延迟导入config和ConfigManager，避免在获取客户端锁之前加载
-# from .config_module import config, ConfigManager
-from .exceptions import (
-    NetManagerError,
-    NetworkDiscoveryError,
-    NetworkConnectionError,
-    DataCollectionError,
-    SystemCommandError,
-    ConfigurationError,
-    StateUpdateError,
-    NetworkTimeoutError
-)
-from .network import TCPClient
-from .system import (
-    add_to_autostart,
-    remove_from_autostart,
+# 系统模块导入
+# 无
+
+# 第三方库导入
+# 无
+
+# 本地应用/库导入
+# 系统相关模块
+from .system.autostart import (
+    enable_autostart,
+    disable_autostart,
     is_autostart_enabled,
-    SystemInfoCollector
-)
-from .utils import (
-    setup_logger,
-    get_logger,
-    get_platform_info,
-    is_linux,
-    is_windows,
-    is_macos,
-    get_system_encoding,
-    get_client_singleton_manager,
-    generate_unique_id,
+    create_daemon_script
 )
 
+# 工具模块
+from .utils.platform_utils import (
+    get_platform,
+    is_windows,
+    is_linux,
+    get_appropriate_encoding,
+    normalize_path,
+    get_executable_path,
+    setup_signal_handlers,
+    get_temp_directory,
+    get_home_directory,
+    create_platform_specific_directory
+)
+
+from .utils.logger import (
+    get_logger,
+    setup_logger
+)
+
+from .network import TCPClient
+
+# 异常模块
+from .exceptions.exceptions import (
+    NetManagerError,
+    ConfigurationError,
+    PlatformError,
+    AutoStartError
+)
+
+# 定义模块的公共接口
 __all__ = [
-    # 核心模块
-    'get_state_manager',
-    'start_net_manager',
+    # 系统相关功能
+    "enable_autostart",
+    "disable_autostart",
+    "is_autostart_enabled",
+    "create_daemon_script",
     
-    # 异常模块
-    'NetManagerError',
-    'NetworkDiscoveryError',
-    'NetworkConnectionError',
-    'DataCollectionError',
-    'SystemCommandError',
-    'ConfigurationError',
-    'StateUpdateError',
-    'NetworkTimeoutError',
+    # 工具函数
+    "get_platform",
+    "is_windows",
+    "is_linux",
+    "get_appropriate_encoding",
+    "normalize_path",
+    "get_executable_path",
+    "setup_signal_handlers",
+    "get_temp_directory",
+    "get_home_directory",
+    "create_platform_specific_directory",
+    "get_logger",
+    "setup_logger",
     
-    # 网络模块
-    'TCPClient',
+    # 网络功能
+    "TCPClient",
     
-    # 系统模块
-    'add_to_autostart',
-    'remove_from_autostart',
-    'is_autostart_enabled',
-    'SystemInfoCollector',
-    
-    # 工具模块
-    'setup_logger',
-    'get_logger',
-    'get_platform_info',
-    'is_linux',
-    'is_windows',
-    'is_macos',
-    'get_system_encoding',
-    'get_client_singleton_manager',
-    'generate_unique_id',
+    # 异常类
+    "NetManagerError",
+    "ConfigurationError",
+    "PlatformError",
+    "AutoStartError"
 ]

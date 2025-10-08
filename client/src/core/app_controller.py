@@ -17,8 +17,6 @@ from typing import Optional, Any, Dict, Callable, Tuple
 import psutil
 
 # 本地应用/库导入
-# 延迟导入config，避免在获取客户端锁之前加载
-# from src.config_module.config import config
 from src.exceptions.exceptions import (
     NetworkDiscoveryError,
     NetworkConnectionError,

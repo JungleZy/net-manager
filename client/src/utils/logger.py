@@ -2,11 +2,39 @@ import logging
 import os
 import sys
 from typing import Optional
-from src.utils.platform_utils import get_appropriate_encoding, normalize_path
 from src.exceptions.exceptions import ConfigurationError
+
+# 延迟导入以避免循环依赖
+# from src.utils.platform_utils import get_appropriate_encoding, normalize_path
 
 # 全局日志记录器实例
 _logger: Optional[logging.Logger] = None
+
+def get_appropriate_encoding() -> str:
+    """
+    获取适合当前平台的编码格式
+    
+    Returns:
+        str: 适合当前平台的编码格式
+    """
+    import platform
+    if platform.system() == 'Windows':
+        return 'gbk'
+    else:
+        return 'utf-8'
+
+def normalize_path(path: str) -> str:
+    """
+    标准化路径，将路径中的分隔符统一为当前平台的分隔符
+    
+    Args:
+        path (str): 原始路径
+        
+    Returns:
+        str: 标准化后的路径
+    """
+    import os
+    return os.path.normpath(path)
 
 def get_log_level() -> int:
     """

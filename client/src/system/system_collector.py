@@ -386,11 +386,12 @@ class SystemCollector:
             
             for conn in connections:
                 if conn.status == psutil.CONN_LISTEN:
+                    # 根据连接类型确定协议
+                    protocol = "TCP" if conn.type == socket.SOCK_STREAM else "UDP" if conn.type == socket.SOCK_DGRAM else "Unknown"
+                    
                     services.append({
-                        'fd': conn.fd,
-                        'family': str(conn.family),
-                        'type': str(conn.type),
-                        'laddr': f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else "None",
+                        'protocol': protocol,
+                        'local_address': f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else "None",
                         'status': conn.status
                     })
             
@@ -398,7 +399,8 @@ class SystemCollector:
             return services
         except Exception as e:
             self.logger.error(f"获取服务信息失败: {e}")
-            raise SystemInfoCollectionError(f"获取服务信息失败: {e}")
+            # 返回空列表而不是抛出异常，以避免影响整体系统信息收集
+            return []
     
     def get_processes(self) -> List[Dict[str, Any]]:
         """

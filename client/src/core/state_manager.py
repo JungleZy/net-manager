@@ -14,8 +14,6 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# 延迟导入logger以避免循环依赖
-# from ..utils.logger import logger
 from ..exceptions.exceptions import StateManagerError
 
 

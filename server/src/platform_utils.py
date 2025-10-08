@@ -2,87 +2,100 @@
 # -*- coding: utf-8 -*-
 
 """
-处理Windows和Linux系统之间的差异
+服务器端跨平台系统差异处理工具模块
+提供处理不同操作系统间差异的工具函数
+支持Windows、Linux
 """
 
 import os
-import sys
 import platform
 import signal
-from src.logger import logger
+from typing import Optional, Callable, Any
+
+# 第三方库导入
+# 无
+
+# 本地应用/库导入
+# 无
 
 
-def get_platform():
-    """获取当前操作系统平台"""
+def get_platform() -> str:
+    """
+    获取当前操作系统平台
+    
+    Returns:
+        str: 操作系统平台名称 (windows, linux)
+    """
     return platform.system().lower()
 
 
-def is_windows():
-    """检查是否为Windows系统"""
-    return get_platform() == 'windows'
+def is_windows() -> bool:
+    """
+    检查当前是否为Windows系统
+    
+    Returns:
+        bool: 是否为Windows系统
+    """
+    return get_platform() == "windows"
 
 
-def is_linux():
-    """检查是否为Linux系统"""
-    return get_platform() == 'linux'
+def is_linux() -> bool:
+    """
+    检查当前是否为Linux系统
+    
+    Returns:
+        bool: 是否为Linux系统
+    """
+    return get_platform() == "linux"
 
 
-def get_path_separator():
-    """获取当前系统的路径分隔符"""
+def get_path_separator() -> str:
+    """
+    获取路径分隔符
+    
+    Returns:
+        str: 路径分隔符
+    """
     return os.sep
 
 
-def get_line_separator():
-    """获取当前系统的行分隔符"""
+def get_line_separator() -> str:
+    """
+    获取行分隔符
+    
+    Returns:
+        str: 行分隔符
+    """
+    return os.linesep
+
+
+def get_appropriate_encoding() -> str:
+    """
+    获取适合当前平台的编码
+    
+    Returns:
+        str: 适合当前平台的编码
+    """
     if is_windows():
-        return '\r\n'
+        return "gbk"
     else:
-        return '\n'
+        return "utf-8"
 
 
-def setup_signal_handlers(signal_handler):
-    """设置跨平台信号处理器"""
+def setup_signal_handlers(handler: Callable[[int, Any], None]) -> None:
+    """
+    设置信号处理器
+    
+    Args:
+        handler: 信号处理函数
+    """
     try:
-        # 注册SIGINT信号处理器（Ctrl+C）
-        signal.signal(signal.SIGINT, signal_handler)
+        # SIGINT (Ctrl+C) 在所有平台都支持
+        signal.signal(signal.SIGINT, handler)
         
-        # 在非Windows系统上注册SIGTERM信号处理器
+        # SIGTERM 在非Windows平台支持
         if not is_windows():
-            signal.signal(signal.SIGTERM, signal_handler)
-            
-        # 使用自定义logger记录信息
-        logger.info(f"信号处理器设置完成，当前平台: {get_platform()}")
-        return True
-    except Exception as e:
-        logger.error(f"设置信号处理器时出错: {e}")
-        return False
-
-
-def get_appropriate_encoding():
-    """获取适合当前平台的文本编码"""
-    if is_windows():
-        return 'gbk'  # Windows中文系统通常使用GBK编码
-    else:
-        return 'utf-8'  # Linux/macOS通常使用UTF-8编码
-
-
-def normalize_path(path):
-    """标准化路径，确保在不同平台上正确处理"""
-    return os.path.normpath(path)
-
-
-def get_executable_path():
-    """获取可执行文件路径"""
-    return os.path.dirname(os.path.abspath(sys.argv[0]))
-
-
-def create_platform_specific_directory(dir_path):
-    """创建平台特定的目录"""
-    try:
-        # 确保目录存在
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path, exist_ok=True)
-        return True
-    except Exception as e:
-        logger.error(f"创建目录 {dir_path} 失败: {e}")
-        return False
+            signal.signal(signal.SIGTERM, handler)
+    except Exception:
+        # 在某些平台上可能不支持信号处理，忽略错误
+        pass
