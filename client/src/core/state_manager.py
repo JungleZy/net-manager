@@ -34,9 +34,7 @@ class StateManager:
         return cls._instance
     
     def __init__(self):
-        from ..utils.logger import get_logger
-        logger = get_logger()
-        logger.error("初始化状态管理器")
+        
         # 防止重复初始化
         if hasattr(self, '_initialized'):
             return

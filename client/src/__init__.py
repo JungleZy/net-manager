@@ -6,7 +6,8 @@
 
 # 从各个子模块导入功能
 from .core import get_state_manager, start_net_manager
-from .config_module import config, ConfigManager
+# 延迟导入config和ConfigManager，避免在获取客户端锁之前加载
+# from .config_module import config, ConfigManager
 from .exceptions import (
     NetManagerError,
     NetworkDiscoveryError,
@@ -40,10 +41,6 @@ __all__ = [
     # 核心模块
     'get_state_manager',
     'start_net_manager',
-    
-    # 配置模块
-    'config',
-    'ConfigManager',
     
     # 异常模块
     'NetManagerError',

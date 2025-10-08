@@ -44,7 +44,6 @@ def main() -> int:
     """
     
     # 在任何其他初始化之前，首先尝试获取锁
-    print("尝试获取客户端锁...")
     try:
         from src.utils.singleton_manager import get_client_singleton_manager
         singleton_manager = get_client_singleton_manager()
@@ -62,7 +61,6 @@ def main() -> int:
         from src.core.state_manager import get_state_manager
         state_manager = get_state_manager()
         state_manager.get_client_id()
-        print("状态控制器初始化完成")
     except Exception as e:
         print(f"状态控制器初始化失败: {e}")
         return 1

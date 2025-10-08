@@ -25,9 +25,7 @@ class ConfigManager:
     
     def __init__(self):
         """初始化配置管理器并从状态文件加载配置"""
-        # 获取日志记录器
         self._load_config_from_state()
-        print("状态控制器初始化完成11")
     
     def _load_config_from_state(self):
         """从状态文件加载配置"""

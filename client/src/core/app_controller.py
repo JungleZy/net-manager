@@ -6,18 +6,19 @@
 负责协调和管理应用程序的各个组件
 包括配置管理、系统信息收集、网络通信等功能
 """
-
+import sys
 import signal
 import time
 import json
 import threading
-from typing import Optional, Any, Dict, Callable
+from typing import Optional, Any, Dict, Callable, Tuple
 
 # 第三方库导入
 import psutil
 
 # 本地应用/库导入
-from src.config_module.config import config
+# 延迟导入config，避免在获取客户端锁之前加载
+# from src.config_module.config import config
 from src.exceptions.exceptions import (
     NetworkDiscoveryError,
     NetworkConnectionError,
@@ -157,9 +158,9 @@ class AppController:
                     time.sleep(retry_delay)
                     continue
                 
-                # 连接到服务端
-                if self.tcp_client.connect():
-                    self.logger.info(f"成功连接到服务端 {server_address}")
+                # 连接到服务端，传递已发现的服务端地址
+                if self.tcp_client.connect(server_address):
+                    self.logger.info(f"成功连接到服务端 {server_address[0]}:{server_address[1]}")
                     return True
                 else:
                     self.logger.error("连接到服务端失败")
@@ -250,6 +251,8 @@ class AppController:
                         break
                 
                 # 定期发送心跳或系统信息（使用配置的间隔时间）
+                # 延迟导入config
+                from src.config_module.config import config
                 self.stop_event.wait(config.COLLECT_INTERVAL)
                 if self.running and not self.stop_event.is_set():
                     self._send_system_info()
@@ -270,13 +273,15 @@ class AppController:
             self.logger.warning("应用已在运行中")
             return
         
-        self.logger.info("启动应用控制器")
         self.running = True
         self.stop_event.clear()
         
         try:
             # 处理开机自启动设置
-            self._handle_autostart()
+            is_frozen = hasattr(sys, 'frozen') and sys.frozen
+            is_nuitka = '__compiled__' in globals()
+            if is_frozen or is_nuitka:
+                self._handle_autostart()    
             
             # 在单独的线程中运行主循环
             self.main_thread = threading.Thread(target=self._run_main_loop, daemon=True)

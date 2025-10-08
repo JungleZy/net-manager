@@ -157,7 +157,6 @@ def _enable_autostart_windows(daemon_script_path: Optional[str]) -> bool:
         winreg.SetValueEx(key, "NetManagerClient", 0, winreg.REG_SZ, executable_path)
         winreg.CloseKey(key)
         
-        logger.info("Windows开机自启动已启用")
         return True
     except Exception as e:
         logger.error(f"在Windows上启用开机自启动失败: {e}")

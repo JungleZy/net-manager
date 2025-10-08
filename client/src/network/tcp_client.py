@@ -18,7 +18,8 @@ from datetime import datetime
 # 无
 
 # 本地应用/库导入
-from src.config_module.config import config
+# 延迟导入config，避免在获取客户端锁之前加载
+# from src.config_module.config import config
 from src.exceptions.exceptions import NetworkConnectionError, NetworkDiscoveryError
 from src.utils.logger import get_logger
 from src.system.system_collector import SystemCollector
@@ -39,6 +40,8 @@ class TCPClient:
         self.command_handlers: Dict[str, Callable] = {}
         self.logger = get_logger()
         self.system_collector = SystemCollector()
+        self.server_ip: Optional[str] = None
+        self.server_port: Optional[int] = None
         
         # 注册默认命令处理器
         self.register_command_handler("disconnect", self._handle_disconnect_command)
@@ -76,6 +79,8 @@ class TCPClient:
         Raises:
             NetworkDiscoveryError: 服务发现失败
         """
+        # 延迟导入config
+        from src.config_module.config import config
         broadcast_address = config.get_server_broadcast_address()
         broadcast_port = config.get_server_broadcast_port()
         try:
@@ -132,10 +137,13 @@ class TCPClient:
             self.logger.error(f"服务发现失败: {e}")
             raise NetworkDiscoveryError(f"服务发现失败: {e}")
     
-    def connect(self) -> bool:
+    def connect(self, server_address: Optional[tuple] = None) -> bool:
         """
         连接到服务端
         
+        Args:
+            server_address (Optional[tuple]): 服务端地址 (ip, port)，如果未提供则自动发现
+            
         Returns:
             bool: 连接是否成功
         """
@@ -144,8 +152,12 @@ class TCPClient:
                 self.logger.warning("客户端已经连接到服务端")
                 return True
             
-            # 发现服务端
-            server_ip, server_port = self._discover_server()
+            # 如果提供了服务端地址，则直接使用；否则发现服务端
+            if server_address:
+                server_ip, server_port = server_address
+            else:
+                # 发现服务端
+                server_ip, server_port = self._discover_server()
             
             # 创建TCP socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -158,6 +170,9 @@ class TCPClient:
             
             # 执行握手
             if self._perform_handshake():
+                # 保存服务端地址以便重连时使用
+                self.server_ip = server_ip
+                self.server_port = server_port
                 self.connected = True
                 self.reconnecting = False
                 
@@ -376,15 +391,27 @@ class TCPClient:
             try:
                 time.sleep(reconnect_delay)
                 
-                # 尝试连接
-                if self.connect():
-                    self.logger.info("重新连接成功")
-                    self.reconnecting = False
-                    return
+                # 检查是否有已知的服务端地址
+                if self.server_ip and self.server_port:
+                    # 尝试连接，传递之前已知的服务端地址以避免重新发现
+                    if self.connect((self.server_ip, self.server_port)):
+                        self.logger.info("重新连接成功")
+                        self.reconnecting = False
+                        return
+                    else:
+                        self.logger.warning(f"重新连接失败，{reconnect_delay}秒后重试")
+                        # 指数退避，最大延迟60秒
+                        reconnect_delay = min(reconnect_delay * 2, 60)
                 else:
-                    self.logger.warning(f"重新连接失败，{reconnect_delay}秒后重试")
-                    # 指数退避，最大延迟60秒
-                    reconnect_delay = min(reconnect_delay * 2, 60)
+                    # 如果没有已知的服务端地址，则进行完整的服务发现和连接过程
+                    if self.connect():
+                        self.logger.info("重新连接成功")
+                        self.reconnecting = False
+                        return
+                    else:
+                        self.logger.warning(f"重新连接失败，{reconnect_delay}秒后重试")
+                        # 指数退避，最大延迟60秒
+                        reconnect_delay = min(reconnect_delay * 2, 60)
             except Exception as e:
                 self.logger.error(f"重连过程中出错: {e}")
                 reconnect_delay = min(reconnect_delay * 2, 60)
