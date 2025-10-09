@@ -20,4 +20,4 @@ API_PORT = 12344  # API监听端口（用于RESTful API服务）
 # 日志配置
 LOG_LEVEL = "INFO"
 # 使用pathlib处理跨平台路径
-LOG_FILE = Path(__file__).parent.parent / "logs" / "net_manager_server.log"
+LOG_FILE = Path(__file__).parent.parent.parent / "logs" / "net_manager_server.log"

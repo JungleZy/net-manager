@@ -18,9 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from src.config import TCP_PORT
-from src.logger import logger
-from src.database_manager import DatabaseManager, SystemInfo
+from src.core.config import TCP_PORT
+from src.core.logger import logger
+from src.database.database_manager import DatabaseManager
+from src.models.system_info import SystemInfo
 
 class TCPServer:
     """TCP服务端，用于与客户端建立长连接"""
@@ -273,19 +274,3 @@ class TCPServer:
             # 关闭线程池
             self.executor.shutdown(wait=True)
             logger.info("TCP服务端已停止")
-
-if __name__ == "__main__":
-    # 为支持500个客户端连接，增加线程池大小
-    tcp_server = TCPServer(max_workers=200)
-    tcp_server.start()
-
-
-    def _recv_all(self, sock, length):
-        """确保接收指定长度的数据"""
-        data = b''
-        while len(data) < length:
-            packet = sock.recv(length - len(data))
-            if not packet:
-                return None
-            data += packet
-        return data

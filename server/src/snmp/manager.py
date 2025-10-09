@@ -1,8 +1,8 @@
 from typing import Dict, List, Any, Optional
 import asyncio
 import logging
-from .snmp_monitor import SNMPMonitor
-from .oid_classifier import OIDClassifier
+from src.snmp.snmp_monitor import SNMPMonitor
+from src.snmp.oid_classifier import OIDClassifier
 
 # 配置日志
 logger = logging.getLogger(__name__)

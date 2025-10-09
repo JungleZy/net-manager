@@ -14,13 +14,13 @@ import time
 parent_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, parent_dir)
 
-from src.udp_server import udp_server
-from src.tcp_server import TCPServer
-from src.api_server import APIServer
-from src.database_manager import DatabaseManager
-from src.logger import logger
-from src.config import VERSION
-from src.singleton_manager import get_server_singleton_manager
+from src.network.udp_server import udp_server
+from src.network.tcp_server import TCPServer
+from src.network.api_server import APIServer
+from src.database.database_manager import DatabaseManager
+from src.core.logger import logger
+from src.core.config import VERSION
+from src.core.singleton_manager import get_server_singleton_manager
 
 # 获取单例管理器实例
 singleton_manager = get_server_singleton_manager()
@@ -53,7 +53,7 @@ def signal_handler(sig, frame):
             logger.error(f"停止API服务器时出错: {e}")
     # 停止UDP服务器
     try:
-        from src.udp_server import stop_udp_server
+        from src.network.udp_server import stop_udp_server
         stop_udp_server()
     except Exception as e:
         logger.error(f"停止UDP服务器时出错: {e}")

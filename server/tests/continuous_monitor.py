@@ -11,7 +11,7 @@ import sys
 import os
 import time
 from datetime import datetime
-from snmp.manager import SNMPManager
+from src.snmp.manager import SNMPManager
 
 # SNMP配置数组
 snmp_configs = [
@@ -21,23 +21,6 @@ snmp_configs = [
         'user': 'wjkjv3user',        # SNMP用户名
         'auth_key': 'Wjkj6912',      # 认证密钥
         'auth_protocol': 'sha'       # 认证协议 ('md5' 或 'sha')
-    },
-    {
-        'ip': '192.168.43.195',      # 设备IP地址
-        'snmp_version': 'v3',        # SNMP版本
-        'user': 'wjkjv3user',        # SNMP用户名
-        'auth_key': 'Wjkj6912',      # 认证密钥
-        'auth_protocol': 'sha',       # 认证协议 ('md5' 或 'sha')
-        'priv_key': 'Wjkj6912'       # 隐私密钥
-    },
-    {
-        'ip': '192.168.43.195',      # 设备IP地址
-        'snmp_version': 'v3',        # SNMP版本
-        'user': 'wjkjv3user',        # SNMP用户名
-        'auth_key': 'Wjkj6912',      # 认证密钥
-        'auth_protocol': 'sha',       # 认证协议 ('md5' 或 'sha')
-        'priv_key': 'Wjkj6912',       # 隐私密钥
-        'priv_protocol': 'des'       # 隐私协议 ('des' 或 'aes')
     },
     {
         'ip': '192.168.43.195',      # 设备IP地址

@@ -16,8 +16,8 @@ from datetime import datetime
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from src.config import UDP_HOST, UDP_PORT, TCP_PORT
-from src.logger import logger
+from src.core.config import UDP_HOST, UDP_PORT, TCP_PORT
+from src.core.logger import logger
 
 # 全局变量用于控制服务器运行状态
 _udp_running = True
@@ -82,6 +82,3 @@ def udp_server():
     finally:
         sock.close()
         logger.info("UDP服务端已停止")
-
-if __name__ == "__main__":
-    udp_server()

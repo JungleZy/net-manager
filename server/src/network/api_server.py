@@ -15,9 +15,9 @@ import tornado.httpserver
 from tornado.web import RequestHandler
 from tornado.escape import json_decode, json_encode
 
-from src.config import TCP_PORT, API_PORT
-from src.logger import logger
-from src.database_manager import DatabaseManager
+from src.core.config import TCP_PORT, API_PORT
+from src.core.logger import logger
+from src.database.database_manager import DatabaseManager
 
 
 class BaseHandler(RequestHandler):
@@ -378,7 +378,7 @@ class HealthHandler(BaseHandler):
 
 class APIServer:
     """API服务器类"""
-    def __init__(self, db_manager=None, port=12344):
+    def __init__(self, db_manager=None, port=API_PORT):
         self.port = port
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
         self.db_manager = db_manager if db_manager else DatabaseManager()

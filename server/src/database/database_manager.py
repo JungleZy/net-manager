@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union
 from contextlib import contextmanager
 
-from src.logger import logger
-from src.system_info import SystemInfo
-from src.db_exceptions import (
+from src.core.logger import logger
+from src.models.system_info import SystemInfo
+from src.database.db_exceptions import (
     DatabaseError, 
     DatabaseConnectionError, 
     DatabaseInitializationError,
