@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Net Manager 自动化打包脚本
-支持分别对客户端和服务端进行Nuitka打包
+网络管理工具构建脚本
+支持客户端和服务端的打包构建
 """
+
 
 import os
 import sys
@@ -19,6 +20,21 @@ CLIENT_DIR = PROJECT_ROOT / "client"
 SERVER_DIR = PROJECT_ROOT / "server"
 DIST_DIR = PROJECT_ROOT / "dist"
 VENV_DIR = PROJECT_ROOT / "venv"
+
+# Nuitka构建选项常量
+NUITKA_STATIC_LIBPYTHON_NO = "--static-libpython=no"  # 不静态链接Python库
+NUITKA_ASSUME_YES_FOR_DOWNLOADS = "--assume-yes-for-downloads"  # 自动下载必要的依赖
+NUITKA_ENABLE_PLUGIN_MULTIPROCESSING = "--enable-plugin=multiprocessing"  # 启用多进程插件
+NUITKA_FOLLOW_IMPORTS = "--follow-imports"       # 跟踪导入
+NUITKA_WINDOWS_UAC_ADMIN = "--windows-uac-admin"  # 请求管理员权限
+NUITKA_INCLUDE_PACKAGE = "--include-package=src"   # 包含src包
+NUITKA_FOLLOW_STDLIB = "--follow-stdlib"  # 优化标准库的处理
+NUITKA_PYTHON_FLAG_O = "--python-flag=-O"  # Python优化模式
+NUITKA_LTO_YES = "--lto=yes"  # 链接时优化
+NUITKA_NOINCLUDE_UNITTEST_MODE_ALLOW = "--noinclude-unittest-mode=allow"
+NUITKA_DISABLE_CCACHE = "--disable-ccache"  # 禁用编译缓存确保全新编译
+NUITKA_NO_PYI_FILE = "--no-pyi-file"  # 不生成pyi文件
+NUITKA_REMOVE_OUTPUT = "--remove-output"  # 构建完成后清理临时文件
 
 def check_nuitka():
     """检查Nuitka是否已安装"""
@@ -76,8 +92,7 @@ def _build_application(app_type, app_dir, output_dir, console_mode):
     # 获取项目版本
     version = "1.0.0"  # 默认版本
     
-    # 构建命令
-    # 首先尝试使用虚拟环境中的Python
+    # 使用虚拟环境中的Python
     if VENV_DIR.exists():
         if os.name == 'nt':  # Windows
             python_path = VENV_DIR / "Scripts" / "python.exe"
@@ -85,82 +100,34 @@ def _build_application(app_type, app_dir, output_dir, console_mode):
             python_path = VENV_DIR / "bin" / "python"
         
         if python_path.exists():
-            cmd = [
-                str(python_path), "-m", "nuitka",
-                f"--output-filename={output_filename}", # 设置输出文件名
-                f"--windows-product-name={product_name}",
-                f"--product-version={version}",  # 产品版本
-                f"--file-version={version}",    # 文件版本
-                "--standalone",           # 独立模式
-                "--onefile",              # 单文件
-                "--static-libpython=no",  # 不静态链接Python库
-                "--assume-yes-for-downloads",  # 自动下载必要的依赖
-                "--enable-plugin=multiprocessing",  # 启用多进程插件
-                "--follow-imports",       # 跟踪导入
-                f"--output-dir={output_dir}",  # 输出目录
-                f"--windows-console-mode={console_mode}",  # 控制台模式
-                "--windows-uac-admin",  # 请求管理员权限
-                "--include-package=src",   # 包含src包
-                "--python-flag=-O",  # Python优化模式
-                "--lto=yes",  # 链接时优化
-                "--noinclude-unittest-mode=allow",
-                "--disable-ccache",  # 禁用编译缓存确保全新编译
-                "--no-pyi-file",  # 不生成pyi文件
-                "--remove-output",  # 构建完成后清理临时文件
-                "main.py"                 # 入口文件
-            ]
+            python_path = str(python_path)
         else:
             # 如果虚拟环境中的Python不存在，回退到sys.executable
-            cmd = [
-                sys.executable, "-m", "nuitka",
-                f"--output-filename={output_filename}", # 设置输出文件名
-                f"--windows-product-name={product_name}",
-                f"--product-version={version}",  # 产品版本
-                f"--file-version={version}",    # 文件版本
-                "--standalone",           # 独立模式
-                "--onefile",              # 单文件
-                "--static-libpython=no",  # 不静态链接Python库
-                "--assume-yes-for-downloads",  # 自动下载必要的依赖
-                "--enable-plugin=multiprocessing",  # 启用多进程插件
-                "--follow-imports",       # 跟踪导入
-                f"--output-dir={output_dir}",  # 输出目录
-                f"--windows-console-mode={console_mode}",  # 控制台模式
-                "--windows-uac-admin",  # 请求管理员权限
-                "--include-package=src",   # 包含src包
-                "--follow-imports",  # 跟踪导入的模块
-                "--follow-stdlib",  # 优化标准库的处理
-                "--python-flag=-O",  # Python优化模式
-                "--lto=yes",  # 链接时优化
-                "--noinclude-unittest-mode=allow",
-                "--disable-ccache",  # 禁用编译缓存确保全新编译
-                "--no-pyi-file",  # 不生成pyi文件
-                "--remove-output",  # 构建完成后清理临时文件
-                "main.py"                 # 入口文件
-            ]
-    else:
-        # 如果没有虚拟环境，使用sys.executable
+            python_path = sys.executable
+
         cmd = [
-            sys.executable, "-m", "nuitka",
+            python_path, "-m", "nuitka",
             f"--output-filename={output_filename}", # 设置输出文件名
             f"--windows-product-name={product_name}",
             f"--product-version={version}",  # 产品版本
             f"--file-version={version}",    # 文件版本
-            "--standalone",           # 独立模式
-            "--onefile",              # 单文件
-            "--static-libpython=no",  # 不静态链接Python库
-            "--assume-yes-for-downloads",  # 自动下载必要的依赖
-            "--enable-plugin=multiprocessing",  # 启用多进程插件
-            "--follow-imports",       # 跟踪导入
             f"--output-dir={output_dir}",  # 输出目录
             f"--windows-console-mode={console_mode}",  # 控制台模式
-            "--windows-uac-admin",  # 请求管理员权限
-            "--include-package=src",   # 包含src包
-            "--python-flag=-O",  # Python优化模式
-            "--lto=yes",  # 链接时优化
-            "--noinclude-unittest-mode=allow",
-            "--disable-ccache",  # 禁用编译缓存确保全新编译
-            "--no-pyi-file",  # 不生成pyi文件
-            "--remove-output",  # 构建完成后清理临时文件
+            "--standalone",           # 独立模式
+            "--onefile",              # 单文件
+            NUITKA_STATIC_LIBPYTHON_NO,  # 不静态链接Python库
+            NUITKA_ASSUME_YES_FOR_DOWNLOADS,  # 自动下载必要的依赖
+            NUITKA_ENABLE_PLUGIN_MULTIPROCESSING,  # 启用多进程插件
+            NUITKA_FOLLOW_IMPORTS,       # 跟踪导入
+            NUITKA_WINDOWS_UAC_ADMIN,  # 请求管理员权限
+            NUITKA_INCLUDE_PACKAGE,   # 包含src包
+            NUITKA_FOLLOW_STDLIB,  # 优化标准库的处理
+            NUITKA_PYTHON_FLAG_O,  # Python优化模式
+            NUITKA_LTO_YES,  # 链接时优化
+            NUITKA_NOINCLUDE_UNITTEST_MODE_ALLOW,
+            NUITKA_DISABLE_CCACHE,  # 禁用编译缓存确保全新编译
+            NUITKA_NO_PYI_FILE,  # 不生成pyi文件
+            NUITKA_REMOVE_OUTPUT,  # 构建完成后清理临时文件
             "main.py"                 # 入口文件
         ]
     
