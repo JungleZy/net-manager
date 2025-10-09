@@ -86,7 +86,7 @@ class DatabaseManager:
     def init_db(self) -> None:
         """初始化数据库表结构
         
-        创建系统信息表和交换机配置表（如果不存在）。
+        创建设备信息表和交换机配置表（如果不存在）。
         
         Raises:
             DatabaseInitializationError: 表创建失败时抛出
@@ -95,9 +95,9 @@ class DatabaseManager:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                # 创建系统信息表，使用mac_address作为主键
+                # 创建设备信息表，使用mac_address作为主键
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS system_info (
+                    CREATE TABLE IF NOT EXISTS devices_info (
                         mac_address TEXT PRIMARY KEY,
                         hostname TEXT NOT NULL,
                         ip_address TEXT NOT NULL,
@@ -141,7 +141,7 @@ class DatabaseManager:
 
     def save_system_info(self, system_info: SystemInfo) -> None:
         """
-        保存系统信息到数据库
+        保存设备信息到数据库
         
         使用mac_address作为主键进行更新或插入操作。
         注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置。
@@ -159,11 +159,11 @@ class DatabaseManager:
                     
                     # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
                     cursor.execute('''
-                        INSERT OR REPLACE INTO system_info 
+                        INSERT OR REPLACE INTO devices_info 
                         (mac_address, hostname, ip_address, gateway, netmask, services, processes, 
                          client_id, os_name, os_version, os_architecture, machine_type, type, timestamp)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                            COALESCE((SELECT type FROM system_info WHERE mac_address = ?), ''), 
+                            COALESCE((SELECT type FROM devices_info WHERE mac_address = ?), ''), 
                             ?)
                     ''', (
                         system_info.mac_address, 
@@ -190,10 +190,10 @@ class DatabaseManager:
 
     def get_all_system_info(self) -> List[Dict[str, Any]]:
         """
-        获取所有系统信息
+        获取所有设备信息
         
         Returns:
-            包含所有系统信息的字典列表，按时间戳降序排列
+            包含所有设备信息的字典列表，按时间戳降序排列
             
         Raises:
             DatabaseQueryError: 查询失败时抛出
@@ -205,7 +205,7 @@ class DatabaseManager:
                 cursor.execute('''
                     SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, 
                            client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                    FROM system_info
+                    FROM devices_info
                     ORDER BY timestamp DESC
                 ''')
                 
@@ -238,13 +238,13 @@ class DatabaseManager:
 
     def get_system_info_by_mac(self, mac_address: str) -> Optional[Dict[str, Any]]:
         """
-        根据MAC地址获取系统信息
+        根据MAC地址获取设备信息
         
         Args:
             mac_address: MAC地址
             
         Returns:
-            系统信息字典，如果未找到则返回None
+            设备信息字典，如果未找到则返回None
             
         Raises:
             DatabaseQueryError: 查询失败时抛出
@@ -256,7 +256,7 @@ class DatabaseManager:
                 cursor.execute('''
                     SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, 
                            client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                    FROM system_info
+                    FROM devices_info
                     WHERE mac_address = ?
                 ''', (mac_address,))
                 
@@ -286,7 +286,7 @@ class DatabaseManager:
 
     def update_system_type(self, mac_address: str, device_type: str) -> bool:
         """
-        更新系统设备类型
+        更新设备类型
         
         Args:
             mac_address: MAC地址
@@ -304,7 +304,7 @@ class DatabaseManager:
                 
                 # 检查系统是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
                 ''', (mac_address,))
                 
                 count = cursor.fetchone()[0]
@@ -313,7 +313,7 @@ class DatabaseManager:
                 
                 # 更新设备类型
                 cursor.execute('''
-                    UPDATE system_info SET type = ? WHERE mac_address = ?
+                    UPDATE devices_info SET type = ? WHERE mac_address = ?
                 ''', (device_type, mac_address))
                 
                 conn.commit()
@@ -343,7 +343,7 @@ class DatabaseManager:
                 
                 # 检查设备是否已存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
                 ''', (device_data['mac_address'],))
                 
                 count = cursor.fetchone()[0]
@@ -352,7 +352,7 @@ class DatabaseManager:
                 
                 # 插入新设备信息
                 cursor.execute('''
-                    INSERT INTO system_info (
+                    INSERT INTO devices_info (
                         mac_address, hostname, ip_address, gateway, netmask, 
                         services, processes, client_id, os_name, os_version, 
                         os_architecture, machine_type, type, timestamp
@@ -402,7 +402,7 @@ class DatabaseManager:
                 
                 # 检查设备是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
                 ''', (device_data['mac_address'],))
                 
                 count = cursor.fetchone()[0]
@@ -411,7 +411,7 @@ class DatabaseManager:
                 
                 # 更新设备信息
                 cursor.execute('''
-                    UPDATE system_info SET 
+                    UPDATE devices_info SET 
                         hostname = ?, ip_address = ?, gateway = ?, netmask = ?,
                         os_name = ?, os_version = ?, os_architecture = ?, 
                         machine_type = ?, type = ?
@@ -458,7 +458,7 @@ class DatabaseManager:
                 
                 # 检查设备是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM system_info WHERE mac_address = ?
+                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
                 ''', (mac_address,))
                 
                 count = cursor.fetchone()[0]
@@ -467,7 +467,7 @@ class DatabaseManager:
                 
                 # 删除设备
                 cursor.execute('''
-                    DELETE FROM system_info WHERE mac_address = ?
+                    DELETE FROM devices_info WHERE mac_address = ?
                 ''', (mac_address,))
                 
                 conn.commit()
@@ -493,7 +493,7 @@ class DatabaseManager:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                cursor.execute('SELECT COUNT(*) FROM system_info')
+                cursor.execute('SELECT COUNT(*) FROM devices_info')
                 count = cursor.fetchone()[0]
                 return count
         except Exception as e:

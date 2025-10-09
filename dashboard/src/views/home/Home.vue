@@ -127,7 +127,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import SystemApi from '@/common/api/system.js'
+import DeviceApi from '@/common/api/device.js'
 
 // 设备统计数据
 const statistics = ref({
@@ -169,7 +169,7 @@ const formatTimestamp = (timestamp) => {
 // 获取设备统计数据
 const fetchDeviceStatistics = async () => {
   try {
-    const response = await SystemApi.getSystemsList()
+    const response = await DeviceApi.getDevicesList()
 
     // 处理API返回的数据结构
     devices.value = response.data || []

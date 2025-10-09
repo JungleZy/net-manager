@@ -275,7 +275,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import DeviceApi from '@/common/api/device.js'
-import SystemApi from '@/common/api/system.js'
 import { useWindowSize } from '@vueuse/core'
 
 // 设备列表
@@ -422,7 +421,7 @@ const clearFilter = () => {
 const handleShowServices = async (record) => {
   try {
     // 获取设备详细信息
-    const response = await SystemApi.getSystemInfo(record.mac_address)
+    const response = await DeviceApi.getDeviceInfo(record.mac_address)
     if (response.data && response.data.services) {
       // 按PID排序服务列表
       const sortedServices = [...response.data.services].sort((a, b) => {
@@ -448,7 +447,7 @@ const handleShowServices = async (record) => {
 const handleShowProcesses = async (record) => {
   try {
     // 获取设备详细信息
-    const response = await SystemApi.getSystemInfo(record.mac_address)
+    const response = await DeviceApi.getDeviceInfo(record.mac_address)
     if (response.data && response.data.processes) {
       // 按PID排序进程列表
       const sortedProcesses = [...response.data.processes].sort((a, b) => {
@@ -536,7 +535,7 @@ const formatOSInfo = (device) => {
 // 获取设备列表
 const fetchDevices = async () => {
   try {
-    const response = await SystemApi.getSystemsList()
+    const response = await DeviceApi.getDevicesList()
     devices.value = response.data || []
   } catch (error) {
     console.error('获取设备列表失败:', error)

@@ -51,7 +51,6 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import SystemApi from '@/common/api/system.js'
 
 // 获取路由信息
 const route = useRoute()

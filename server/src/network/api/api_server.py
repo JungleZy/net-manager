@@ -15,10 +15,14 @@ from src.database.database_manager import DatabaseManager
 
 # 导入拆分后的handlers
 from src.network.api.handlers.main_handler import MainHandler
-from src.network.api.handlers.systems_handler import SystemsHandler
-from src.network.api.handlers.system_handler import SystemHandler
-from src.network.api.handlers.system_type_handler import SystemTypeHandler
-from src.network.api.handlers.device_handlers import (DeviceCreateHandler, DeviceUpdateHandler, DeviceDeleteHandler)
+from src.network.api.handlers.devices_handlers import (
+    DeviceCreateHandler, 
+    DeviceUpdateHandler, 
+    DeviceDeleteHandler,
+    DeviceHandler,
+    DeviceTypeHandler,
+    DevicesHandler,
+)
 from src.network.api.handlers.health_handler import HealthHandler
 
 class APIServer:
@@ -43,9 +47,9 @@ class APIServer:
         """创建Tornado应用"""
         return tornado.web.Application([
             (r"/", MainHandler),
-            (r"/api/systems", SystemsHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
-            (r"/api/systems/([^/]+)/type", SystemTypeHandler, dict(db_manager=self.db_manager)),
-            (r"/api/systems/([^/]+)", SystemHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/devices", DevicesHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/devices/([^/]+)/type", DeviceTypeHandler, dict(db_manager=self.db_manager)),
+            (r"/api/devices/([^/]+)", DeviceHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
             (r"/api/devices/create", DeviceCreateHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/update", DeviceUpdateHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/delete", DeviceDeleteHandler, dict(db_manager=self.db_manager)),

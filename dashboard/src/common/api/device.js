@@ -38,6 +38,25 @@ const DeviceApi = {
       url: '/api/devices/delete',
       data: params
     })
+  },
+  getDevicesList: () => {
+    return axios({
+      method: 'get',
+      url: '/api/devices'
+    })
+  },
+  getDeviceInfo: (macAddress) => {
+    return axios({
+      method: 'get',
+      url: `/api/devices/${macAddress}`
+    })
+  },
+  updateDeviceType: (macAddress, data) => {
+    return axios({
+      method: 'put',
+      url: `/api/devices/${macAddress}/type`,
+      data: data
+    })
   }
 }
 
