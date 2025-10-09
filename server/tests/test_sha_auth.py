@@ -9,9 +9,9 @@ import sys
 import os
 
 # 添加src目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from snmp_monitor import SNMPMonitor
+from snmp.snmp_monitor import SNMPMonitor
 
 async def test_sha_auth():
     """测试SHA认证协议"""

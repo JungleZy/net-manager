@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-数据库模块 - 网络管理器的数据库操作模块
+数据库管理器模块 - 网络管理器的数据库操作模块
 """
 
 from src.database.managers.database_manager import DatabaseManager

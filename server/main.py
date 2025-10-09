@@ -17,7 +17,7 @@ sys.path.insert(0, parent_dir)
 from src.network.udp.udp_server import udp_server
 from src.network.tcp.tcp_server import TCPServer
 from src.network.api.api_server import APIServer
-from src.database.database_manager import DatabaseManager
+from src.database import DatabaseManager
 from src.core.logger import logger
 from src.core.config import VERSION
 from src.core.singleton_manager import get_server_singleton_manager

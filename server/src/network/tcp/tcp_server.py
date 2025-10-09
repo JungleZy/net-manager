@@ -20,7 +20,7 @@ sys.path.insert(0, parent_dir)
 
 from src.core.config import TCP_PORT
 from src.core.logger import logger
-from src.database.database_manager import DatabaseManager
+from src.database import DatabaseManager
 from src.models.system_info import SystemInfo
 
 class TCPServer:

@@ -11,7 +11,7 @@ import tornado.httpserver
 
 from src.core.config import API_PORT
 from src.core.logger import logger
-from src.database.database_manager import DatabaseManager
+from src.database import DatabaseManager
 
 # 导入拆分后的handlers
 from src.network.api.handlers.main_handler import MainHandler

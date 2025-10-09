@@ -17,7 +17,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.database.database_manager import DatabaseManager
+from src.database import DatabaseManager
 from src.models.system_info import SystemInfo
 
 class TestDatabaseManager(unittest.TestCase):

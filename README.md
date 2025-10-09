@@ -1,146 +1,115 @@
-# 华为交换机SNMP监控系统
+# Net Manager
 
-## 项目概述
-
-本项目是一个专门用于监控华为交换机的SNMP管理系统，支持通过SNMPv3协议获取设备的系统信息、接口状态、CPU使用率、内存使用情况和温度等关键监控指标。
-
-## 功能特性
-
-1. **系统信息获取**
-   - 设备型号和描述
-   - 系统运行时间
-   - 系统名称
-
-2. **网络接口监控**
-   - 接口数量统计
-
-3. **性能监控**
-   - CPU使用率
-   - 内存使用情况
-   - 设备温度
-
-4. **持续监控**
-   - 实时监控设备状态
-   - 定期刷新监控数据
-
-## 技术特点
-
-- 支持SNMPv3协议（authNoPriv安全级别）
-- 支持MD5和SHA认证协议
-- 使用异步编程提高性能
-- 自动实体索引发现机制
-- 错误处理和日志记录
-- 易于扩展的模块化设计
-
-## 认证协议支持
-
-项目现在支持MD5和SHA两种认证协议，其中SHA认证协议提供更高的安全性。详细信息请参阅 [SHA_AUTH_SUPPORT.md](docs/SHA_AUTH_SUPPORT.md)。
-
-## 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-## 使用方法
-
-### 1. 基本测试
-
-运行基本功能测试：
-
-```bash
-cd server/src
-python final_test.py
-```
-
-### 2. 持续监控
-
-启动持续监控（默认30秒刷新一次）：
-
-```bash
-cd server/src
-python continuous_monitor.py
-```
-
-持续监控脚本会定期获取设备的系统信息、CPU使用率、内存使用情况和接口流量等关键监控指标，并在控制台显示。
-
-### 3. 配置修改
-
-在脚本中修改以下SNMP配置参数以匹配您的设备：
-
-```python
-snmp_config = {
-    'ip': '192.168.43.195',      # 设备IP地址
-    'snmp_version': 'v3',        # SNMP版本
-    'user': 'your_username',     # SNMP用户名
-    'auth_key': 'your_auth_key', # 认证密钥
-    'auth_protocol': 'sha'       # 认证协议 ('md5' 或 'sha')
-}
-```
-
-默认使用MD5认证协议，如果需要使用SHA认证协议，请将`auth_protocol`设置为`sha`。
+Net Manager是一个网络设备管理系统，包含服务器和客户端两部分。
 
 ## 项目结构
 
 ```
 net-manager/
-├── server/
-│   └── src/
-│       ├── snmp/
-│       │   ├── __init__.py       # SNMP模块初始化文件
-│       │   ├── snmp_monitor.py   # 核心SNMP监控类
-│       │   ├── oid_classifier.py # OID分类和识别工具
-│       │   ├── manager.py        # 高级管理接口
-│       │   ├── example.py        # 使用示例
-│       │   └── test_sha_auth.py  # SHA认证测试脚本
-│       ├── continuous_monitor.py # 持续监控脚本
-│       ├── final_test.py        # 功能测试脚本
-│       └── snmp_manager.py      # 核心SNMP管理类（向后兼容）
-├── requirements.txt              # 项目依赖
-└── README.md                    # 项目说明文档
+├── client/                    # 客户端程序
+│   ├── src/                   # 客户端源代码
+│   └── requirements.txt       # 客户端依赖
+├── server/                    # 服务器程序
+│   ├── src/                   # 服务器源代码
+│   │   ├── core/              # 核心模块
+│   │   ├── database/          # 数据库模块（已重构）
+│   │   ├── models/            # 数据模型
+│   │   ├── network/           # 网络通信模块
+│   │   ├── snmp/              # SNMP监控模块
+│   │   └── utils/             # 工具模块
+│   ├── tests/                 # 测试代码
+│   └── requirements.txt       # 服务器依赖
+├── docs/                      # 文档
+└── README.md                  # 项目说明
 ```
 
-## 核心类说明
+## 数据库模块重构说明
 
-### HuaWeiSwitchSNMPManager
+数据库模块已从单一的`database_manager.py`文件重构为多个专门的管理器类，以提高代码的可维护性和可扩展性：
 
-主要的SNMP管理类，提供以下方法：
+- **BaseDatabaseManager**: 提供基础的数据库连接和线程安全访问
+- **DeviceManager**: 专门处理设备信息管理
+- **SwitchManager**: 专门处理交换机配置管理
+- **DatabaseManager**: 统一接口，保持向后兼容性
 
-- `get_system_info()`: 获取系统信息
-- `get_interface_count()`: 获取接口数量
-- `get_cpu_usage()`: 获取CPU使用率
-- `get_memory_usage()`: 获取内存使用情况
-- `get_temperature_info()`: 获取温度信息
-- `get_all_monitoring_data()`: 获取所有监控数据
+详细说明请参见 [数据库模块README](server/src/database/README.md)
 
-## 故障排除
+开发者迁移指南请参见 [数据库迁移指南](docs/DATABASE_MIGRATION_GUIDE.md)
 
-### 1. 连接问题
+## 功能特性
 
-确保以下几点：
-- 设备IP地址正确
-- SNMP服务已在设备上启用
-- 用户名和认证密钥正确
-- 网络连接正常
+### 服务器端
+- TCP服务器接收客户端信息
+- UDP服务器接收广播消息
+- RESTful API提供设备管理接口
+- 数据库存储设备信息
+- SNMP交换机监控功能
 
-### 2. 权限问题
+### 客户端
+- 收集系统信息
+- 通过TCP协议发送信息到服务器
+- 定期发送UDP广播消息
+- 跨平台支持（Windows/Linux/macOS）
 
-确保SNMP用户具有足够的权限访问所需OID。
+## 安装和运行
 
-### 3. OID不匹配
+### 服务器端
+```bash
+cd server
+pip install -r requirements.txt
+python src/main.py
+```
 
-如果获取不到数据，可能是设备型号不同导致OID有所差异，需要根据具体设备调整OID配置。
+### 客户端
+```bash
+cd client
+pip install -r requirements.txt
+python src/main.py
+```
 
-## 扩展开发
+## API接口
 
-可以通过以下方式扩展功能：
+### 设备管理
+- `GET /api/devices` - 获取所有设备信息
+- `GET /api/devices/{mac}` - 获取特定设备信息
+- `POST /api/devices` - 创建新设备
+- `PUT /api/devices/{mac}` - 更新设备信息
+- `DELETE /api/devices/{mac}` - 删除设备
+- `PUT /api/devices/{mac}/type` - 更新设备类型
 
-1. 添加更多监控指标
-2. 实现数据持久化存储
-3. 添加告警功能
-4. 开发Web界面
-5. 支持更多厂商设备
+### 健康检查
+- `GET /api/health` - 服务器健康检查
+
+### 交换机管理
+- `GET /api/switches` - 获取所有交换机配置
+- `POST /api/switches` - 添加交换机配置
+- `PUT /api/switches/{id}` - 更新交换机配置
+- `DELETE /api/switches/{id}` - 删除交换机配置
+
+## 技术栈
+
+- Python 3.7+
+- SQLite（数据库）
+- Socket编程（TCP/UDP通信）
+- Flask（Web API）
+- pysnmp（SNMP监控）
+- threading（并发处理）
+
+## 文档
+
+- [项目结构说明](docs/PROJECT_STRUCTURE.md)
+- [模块设计](docs/MODULE_DESIGN.md)
+- [接口规范](docs/INTERFACE_SPEC.md)
+- [开发计划](docs/开发计划.md)
+- [数据库模块重构说明](docs/DATABASE_MIGRATION_GUIDE.md)
+- [变更日志](docs/CHANGELOG.md)
+- [API文档](docs/API_DOCUMENTATION.md)
+- [仪表盘说明](docs/DASHBOARD_README.md)
+- [SHA认证支持](docs/SHA_AUTH_SUPPORT.md)
+- [状态管理器](docs/STATE_MANAGER.md)
+- [路由器配置指南](docs/ROUTER_CONFIG_GUIDE.md)
+- [打包说明](docs/PACKAGING.md)
 
 ## 许可证
 
-本项目仅供学习和参考使用。
+MIT License
