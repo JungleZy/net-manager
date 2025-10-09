@@ -141,18 +141,10 @@ class AppController:
                     # 初始化TCP客户端
                     self.tcp_client = initialize_tcp_client()
                     
-                    # 发现服务端
-                    server_address = self.tcp_client.discover_server()
-                    if not server_address:
-                        self.logger.warning("未发现服务端")
-                        self.logger.info(f"等待{retry_delay}秒后重试...")
-                        time.sleep(retry_delay)
-                        continue
-                
-                # 检查是否已获取到服务端地址
+                # 发现服务端
+                server_address = self.tcp_client.discover_server()
                 if not server_address:
-                    self.logger.warning("未发现服务端")
-                    self.logger.info(f"等待{retry_delay}秒后重试...")
+                    self.logger.warning(f"未发现服务端,等待{retry_delay}秒后重试...")
                     time.sleep(retry_delay)
                     continue
                 

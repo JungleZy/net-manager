@@ -382,20 +382,51 @@ class SystemCollector:
             logger = get_logger()
             
             services = []
-            connections = psutil.net_connections()
+            connections = psutil.net_connections(kind='inet')
             
             for conn in connections:
                 if conn.status == psutil.CONN_LISTEN:
-                    # 根据连接类型确定协议
-                    protocol = "TCP" if conn.type == socket.SOCK_STREAM else "UDP" if conn.type == socket.SOCK_DGRAM else "Unknown"
+                    service_info = {
+                        "protocol": "TCP",
+                        "local_address": f"{conn.laddr.ip}:{conn.laddr.port}",
+                        "status": conn.status,
+                        "pid": conn.pid if conn.pid else None,
+                        "process_name": None
+                    }
                     
-                    services.append({
-                        'protocol': protocol,
-                        'local_address': f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else "None",
-                        'status': conn.status
-                    })
+                    # 如果有PID信息，获取进程名称
+                    if conn.pid:
+                        try:
+                            process = psutil.Process(conn.pid)
+                            service_info["process_name"] = process.name()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    
+                    services.append(service_info)
             
-            logger.debug(f"获取到服务信息: {services}")
+            # 获取UDP连接信息
+            udp_connections = psutil.net_connections(kind='udp')
+            for conn in udp_connections:
+                if conn.laddr:
+                    service_info = {
+                        "protocol": "UDP",
+                        "local_address": f"{conn.laddr.ip}:{conn.laddr.port}",
+                        "status": "LISTENING",
+                        "pid": conn.pid if conn.pid else None,
+                        "process_name": None
+                    }
+                    
+                    # 如果有PID信息，获取进程名称
+                    if conn.pid:
+                        try:
+                            process = psutil.Process(conn.pid)
+                            service_info["process_name"] = process.name()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    
+                    services.append(service_info)
+                    
+            logger.debug(f"成功获取服务信息，共 {len(services)} 个服务")
             return services
         except Exception as e:
             self.logger.error(f"获取服务信息失败: {e}")
@@ -419,15 +450,34 @@ class SystemCollector:
             
             processes = []
             
-            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
+            for proc in psutil.process_iter(['pid', 'name', 'status', 'cpu_percent', 'memory_percent']):
                 try:
-                    processes.append({
-                        'pid': proc.info['pid'],
-                        'name': proc.info['name'],
-                        'username': proc.info['username'],
-                        'cpu_percent': proc.info['cpu_percent'],
-                        'memory_percent': round(proc.info['memory_percent'], 2)
-                    })
+                    process_info = {
+                        "pid": proc.info['pid'],
+                        "name": proc.info['name'],
+                        "status": proc.info['status'],
+                        "cpu_percent": proc.info['cpu_percent'] or 0.0,
+                        "memory_percent": round(proc.info['memory_percent'] or 0.0, 2),
+                        "ports": []  # 添加端口信息
+                    }
+                    
+                    # 获取进程占用的端口信息
+                    try:
+                        process = psutil.Process(proc.info['pid'])
+                        connections = process.connections()
+                        for conn in connections:
+                            # 只收集监听状态的连接
+                            if conn.status == psutil.CONN_LISTEN:
+                                port_info = {
+                                    "protocol": "TCP" if conn.type == socket.SOCK_STREAM else "UDP",
+                                    "local_address": f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else None
+                                }
+                                process_info["ports"].append(port_info)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        # 如果无法获取连接信息，跳过
+                        pass
+                    
+                    processes.append(process_info)
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     # 忽略无法访问的进程
                     pass

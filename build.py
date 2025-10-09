@@ -185,7 +185,7 @@ def build_client():
         app_type="client",
         app_dir=CLIENT_DIR,
         output_dir=str(DIST_DIR / "client"),
-        console_mode="force"
+        console_mode="hide"
     )
 
 def build_server():
