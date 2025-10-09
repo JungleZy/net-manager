@@ -6,7 +6,7 @@ This package contains data models for the network management server.
 """
 
 # Import model classes for easier access
-from .system_info import SystemInfo
+from src.models.system_info import SystemInfo
 
 __all__ = [
     'SystemInfo'

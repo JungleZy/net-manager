@@ -7,9 +7,9 @@ including UDP, TCP, and API servers.
 """
 
 # Import network components for easier access
-from src.network.udp_server import udp_server, stop_udp_server
-from src.network.tcp_server import TCPServer
-from src.network.api_server import APIServer
+from src.network.udp.udp_server import udp_server, stop_udp_server
+from src.network.tcp.tcp_server import TCPServer
+from src.network.api.api_server import APIServer
 
 __all__ = [
     'udp_server',
