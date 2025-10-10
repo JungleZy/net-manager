@@ -110,16 +110,28 @@
         <a-tab-pane key="2" tab="交换设备" force-render>
           <div class="mb-[12px] layout-side">
             <div></div>
-            <a-button
-              class="layout-center"
-              type="primary"
-              @click="openCreateSwitchModal"
-            >
-              <template #icon>
-                <PlusOutlined />
-              </template>
-              添加交换机
-            </a-button>
+            <div>
+              <a-button
+                class="layout-center mr-2"
+                type="primary"
+                @click="openDiscoverSwitchModal"
+              >
+                <template #icon>
+                  <SearchOutlined />
+                </template>
+                发现交换机
+              </a-button>
+              <a-button
+                class="layout-center"
+                type="primary"
+                @click="openCreateSwitchModal"
+              >
+                <template #icon>
+                  <PlusOutlined />
+                </template>
+                添加交换机
+              </a-button>
+            </div>
           </div>
           <!-- 交换机列表 -->
           <div class="w-full h-[calc(100%-44px)] overflow-auto">
@@ -188,19 +200,26 @@
         @ok="saveSwitch"
         @cancel="closeSwitchModal"
       />
+      
+      <!-- SNMP扫描模态框 -->
+      <SNMPScanModal
+        v-model:visible="showDiscoverSwitchModal"
+        @scan-complete="fetchSwitches"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import DeviceApi from '@/common/api/device.js'
 import SwitchApi from '@/common/api/switch.js'
 import ServiceDetailModal from '@/components/devices/ServiceDetailModal.vue'
 import ProcessDetailModal from '@/components/devices/ProcessDetailModal.vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import SwitchAddModal from '@/components/devices/SwitchAddModal.vue'
+import SNMPScanModal from '@/components/devices/SNMPScanModal.vue'
 import { message } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { formatOSInfo } from '@/common/utils/Utils.js'
@@ -291,6 +310,7 @@ const filterType = ref('')
 // 模态框相关
 const showModal = ref(false)
 const showSwitchModal = ref(false)
+const showDiscoverSwitchModal = ref(false)
 const isEditing = ref(false)
 const isSwitchEditing = ref(false)
 const currentDevice = ref({
@@ -576,6 +596,11 @@ const openCreateSwitchModal = () => {
     device_name: ''
   }
   showSwitchModal.value = true
+}
+
+// 打开发现交换机模态框
+const openDiscoverSwitchModal = () => {
+  showDiscoverSwitchModal.value = true
 }
 
 // 打开编辑交换机模态框

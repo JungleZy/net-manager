@@ -119,7 +119,7 @@ class DeviceManager(BaseDatabaseManager):
                     ))
                     
                     conn.commit()
-                    logger.info(f"系统信息保存成功，MAC地址: {system_info.mac_address}")
+                    # logger.info(f"系统信息保存成功，MAC地址: {system_info.mac_address}")
         except Exception as e:
             logger.error(f"保存系统信息失败: {e}")
             raise DatabaseQueryError(f"保存系统信息失败: {e}") from e

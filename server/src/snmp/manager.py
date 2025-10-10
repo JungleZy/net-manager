@@ -1,8 +1,12 @@
-from typing import Dict, List, Any, Optional
 import asyncio
 import logging
-from snmp_monitor import SNMPMonitor
-from oid_classifier import OIDClassifier
+import threading
+
+from typing import Dict, List, Any, Optional
+from concurrent.futures import ThreadPoolExecutor
+from .snmp_monitor import SNMPMonitor
+from .oid_classifier import OIDClassifier
+from pysnmp.hlapi import *
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -326,51 +330,116 @@ class SNMPManager:
             
         return results
     
-    async def scan_network_devices(self, ip_list: List[str], version: str, **kwargs) -> List[Dict[str, Any]]:
-        """
-        扫描网络中的多个设备
-        
-        Args:
-            ip_list: IP地址列表
-            version: SNMP版本
-            **kwargs: 认证参数
-            
-        Returns:
-            包含所有设备信息的列表
-        """
+    @staticmethod
+    def snmp_discovery_arp(network, iface=None):
+        """使用Ping方式发现本地网络设备"""
+        print("正在进行Ping发现...")
         devices = []
         
         try:
-            # 并行扫描所有设备
-            tasks = [
-                self.get_device_overview(ip, version, **kwargs)
-                for ip in ip_list
-            ]
+            # 解析网络地址
+            import ipaddress
+            import subprocess
+            import platform
+            import time
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            network_obj = ipaddress.ip_network(network, strict=False)
             
-            for i, result in enumerate(results):
-                ip = ip_list[i]
-                if isinstance(result, Exception):
-                    devices.append({
-                        'ip': ip,
-                        'status': 'error',
-                        'error': str(result)
-                    })
-                else:
-                    result['ip'] = ip
-                    result['status'] = 'success'
-                    devices.append(result)
+            # 根据平台设置ping命令参数
+            system = platform.system().lower()
+            if system == "windows":
+                ping_cmd = ["ping", "-n", "1", "-w", "1000"]  # Windows: -w is timeout in milliseconds
+            else:
+                ping_cmd = ["ping", "-c", "1", "-W", "1"]     # Linux/macOS: -W is timeout in seconds
+            
+            # 记录开始时间
+            start_time = time.time()
+            
+            # 使用线程池并行执行ping命令以提高速度
+            def ping_host(ip):
+                try:
+                    cmd = ping_cmd + [str(ip)]
+                    result = subprocess.run(
+                        cmd,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=2
+                    )
+                    # 如果返回码为0，表示设备在线
+                    return str(ip) if result.returncode == 0 else None
+                except Exception:
+                    return None
+            
+            # 使用线程池并发执行ping，最大并发数为100
+            hosts = [str(ip) for ip in network_obj.hosts()]
+            with ThreadPoolExecutor(max_workers=100) as executor:
+                # 提交所有任务
+                future_to_ip = {executor.submit(ping_host, ip): ip for ip in hosts}
+                
+                # 收集结果
+                for future in as_completed(future_to_ip):
+                    result = future.result()
+                    if result:
+                        devices.append(result)
+            
+            elapsed_time = time.time() - start_time
+            print(f"Ping发现完成，耗时 {elapsed_time:.2f} 秒")
+            
+        except Exception as e:
+            print(f"Ping发现过程中出现错误: {e}")
+            # 返回已发现的设备，而不是空列表
+            pass
+        
+        print(f"Ping发现找到 {len(devices)} 个设备")
+        return devices
+    
+    async def snmp_scan_device(self, ip, version="v2c", community='public'):
+        """扫描单个设备的SNMP信息"""
+        try:
+            print(f"正在扫描设备 {ip}")
+            # 获取系统信息
+            connection_check, success = await self.monitor.get_data(ip, version, '1.3.6.1.2.1.1.1.0', community=community)
+            if success:
+                return ip
                     
         except Exception as e:
-            logger.error(f"扫描网络设备时出错: {e}")
+            logger.error(f"扫描设备 {ip} 时出错: {e}")
+            return None
+        
+        return None
+    
+    async def scan_network_devices(self, network="192.168.1.0/24", version="v2c", community='public', iface=None) -> List[Dict[str, Any]]:
+        """综合SNMP发现"""
+        # 使用ARP发现设备，支持指定网络接口
+        devices = SNMPManager.snmp_discovery_arp(network, iface=iface)
+        print(f"发现 {len(devices)} 个设备:\n {devices}")
+        
+        # 异步SNMP扫描，控制并发数
+        snmp_devices = []
+        
+        # 分批处理设备，每批最多30个设备以控制并发数
+        batch_size = 30
+        for i in range(0, len(devices), batch_size):
+            batch = devices[i:i+batch_size]
+            batch_results = []
             
-        return devices
+            # 对每批设备进行扫描
+            for ip in batch:
+                try:
+                    result = await self.snmp_scan_device(ip, version, community)
+                    batch_results.append(result)
+                except Exception as e:
+                    logger.error(f"扫描设备 {ip} 时出错: {e}")
+                    batch_results.append(None)
+            
+            # 处理批次结果
+            for result in batch_results:
+                if result:
+                    snmp_devices.append(result)
+        print(f"发现 {len(snmp_devices)} 个SNMP设备:\n {snmp_devices}")
+        return snmp_devices
 
 # 导出公共接口
 __all__ = ['SNMPManager']
-
-# 示例用法
-if __name__ == "__main__":
-    # 这里可以添加示例代码
-    pass

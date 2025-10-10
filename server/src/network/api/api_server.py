@@ -30,6 +30,7 @@ from src.network.api.handlers.switches_handlers import (
     SwitchHandler,
     SwitchesHandler,
 )
+from src.network.api.handlers.snmp_scan_handler import SNMPScanHandler
 from src.network.api.handlers.health_handler import HealthHandler
 
 class APIServer:
@@ -65,6 +66,7 @@ class APIServer:
             (r"/api/switches/create", SwitchCreateHandler, dict(db_manager=self.db_manager)),
             (r"/api/switches/update", SwitchUpdateHandler, dict(db_manager=self.db_manager)),
             (r"/api/switches/delete", SwitchDeleteHandler, dict(db_manager=self.db_manager)),
+            (r"/api/switches/scan", SNMPScanHandler, dict(db_manager=self.db_manager)),
             (r"/api/switches/([^/]+)", SwitchHandler, dict(db_manager=self.db_manager)),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
