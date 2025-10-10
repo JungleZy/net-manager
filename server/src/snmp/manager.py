@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
 from .snmp_monitor import SNMPMonitor
 from .oid_classifier import OIDClassifier
-from pysnmp.hlapi import *
+# 注意：SNMPMonitor已经处理了pysnmp的导入，这里不需要重复导入
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -423,21 +423,23 @@ class SNMPManager:
         batch_size = 30
         for i in range(0, len(devices), batch_size):
             batch = devices[i:i+batch_size]
-            batch_results = []
             
-            # 对每批设备进行扫描
+            # 对每批设备进行并发扫描
+            batch_tasks = []
             for ip in batch:
-                try:
-                    result = await self.snmp_scan_device(ip, version, community)
-                    batch_results.append(result)
-                except Exception as e:
-                    logger.error(f"扫描设备 {ip} 时出错: {e}")
-                    batch_results.append(None)
+                task = asyncio.create_task(self.snmp_scan_device(ip, version, community))
+                batch_tasks.append(task)
+            
+            # 等待批次内所有任务完成
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
             
             # 处理批次结果
             for result in batch_results:
-                if result:
+                if isinstance(result, Exception):
+                    logger.error(f"扫描设备时出错: {result}")
+                elif result:
                     snmp_devices.append(result)
+                    
         print(f"发现 {len(snmp_devices)} 个SNMP设备:\n {snmp_devices}")
         return snmp_devices
 
