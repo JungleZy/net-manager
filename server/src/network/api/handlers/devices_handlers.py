@@ -266,26 +266,9 @@ class DevicesHandler(BaseHandler):
         self.db_manager = db_manager
         self.get_tcp_server_func = get_tcp_server_func
     
-    def get_online_status(self, mac_address):
+    def get_online_status(self, client_id):
         """根据client_id判断客户端是否在线"""
-        # 首先通过MAC地址获取client_id
-        try:
-            conn = sqlite3.connect(self.db_manager.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT client_id FROM devices_info WHERE mac_address = ? ORDER BY timestamp DESC LIMIT 1
-            ''', (mac_address,))
-            row = cursor.fetchone()
-            conn.close()
-            
-            if not row or not row[0]:
-                return False
-                
-            client_id = row[0]
-        except Exception:
-            return False
-        
-        # 然后通过TCP服务器检查client_id是否在线
+        # 通过TCP服务器检查client_id是否在线
         if not self.get_tcp_server_func:
             return False
             
@@ -312,7 +295,7 @@ class DevicesHandler(BaseHandler):
                     'netmask': system['netmask'],
                     'services_count': len(system['services']),
                     'processes_count': len(system['processes']),
-                    'online': self.get_online_status(system['mac_address']),
+                    'online': self.get_online_status(system['client_id']),
                     'os_name': system['os_name'],
                     'os_version': system['os_version'],
                     'os_architecture': system['os_architecture'],

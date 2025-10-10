@@ -150,14 +150,36 @@ class DeviceManager(BaseDatabaseManager):
                 # 转换为字典列表
                 result = []
                 for row in rows:
+                    # 处理services字段
+                    services_data = row[5]
+                    if services_data:
+                        try:
+                            services = json.loads(services_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"无法解析services数据，使用空列表: {services_data}")
+                            services = []
+                    else:
+                        services = []
+                    
+                    # 处理processes字段
+                    processes_data = row[6]
+                    if processes_data:
+                        try:
+                            processes = json.loads(processes_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"无法解析processes数据，使用空列表: {processes_data}")
+                            processes = []
+                    else:
+                        processes = []
+                    
                     result.append({
                         'mac_address': row[0],
                         'hostname': row[1],
                         'ip_address': row[2],
                         'gateway': row[3],
                         'netmask': row[4],
-                        'services': json.loads(row[5]) if row[5] else [],
-                        'processes': json.loads(row[6]) if row[6] else [],
+                        'services': services,
+                        'processes': processes,
                         'client_id': row[7],
                         'os_name': row[8],
                         'os_version': row[9],
@@ -199,14 +221,36 @@ class DeviceManager(BaseDatabaseManager):
                 row = cursor.fetchone()
                 
                 if row:
+                    # 处理services字段
+                    services_data = row[5]
+                    if services_data:
+                        try:
+                            services = json.loads(services_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"无法解析services数据，使用空列表: {services_data}")
+                            services = []
+                    else:
+                        services = []
+                    
+                    # 处理processes字段
+                    processes_data = row[6]
+                    if processes_data:
+                        try:
+                            processes = json.loads(processes_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"无法解析processes数据，使用空列表: {processes_data}")
+                            processes = []
+                    else:
+                        processes = []
+                    
                     return {
                         'mac_address': row[0],
                         'hostname': row[1],
                         'ip_address': row[2],
                         'gateway': row[3],
                         'netmask': row[4],
-                        'services': json.loads(row[5]) if row[5] else [],
-                        'processes': json.loads(row[6]) if row[6] else [],
+                        'services': services,
+                        'processes': processes,
                         'client_id': row[7],
                         'os_name': row[8],
                         'os_version': row[9],

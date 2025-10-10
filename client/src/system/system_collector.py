@@ -32,8 +32,8 @@ class SystemInfo:
     mac_address: str
     gateway: str
     netmask: str
-    services: str
-    processes: str
+    services: List[Dict[str, Any]]
+    processes: List[Dict[str, Any]]
     timestamp: str
     client_id: str = ""
     os_name: str = ""
@@ -508,20 +508,14 @@ class SystemCollector:
             from src.core.state_manager import StateManager
             client_id = StateManager().get_client_id()
 
-             # 将服务信息转换为JSON字符串存储
-            services_json = json.dumps(services, ensure_ascii=False)
-            
-            # 将进程信息转换为JSON字符串存储
-            processes_json = json.dumps(processes, ensure_ascii=False)
-
             system_info = SystemInfo(
                 hostname=self.get_hostname(),
                 ip_address=self.get_ip_address(),
                 mac_address=self.get_mac_address(),
                 gateway=gateway,
                 netmask=netmask,
-                processes=processes_json,
-                services=services_json,
+                processes=processes,
+                services=services,
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
                 client_id=client_id or "", 
                 os_name=os_name, 

@@ -138,21 +138,22 @@ class TCPServer:
     
     def _create_system_info(self, info):
         """创建系统信息对象"""
+        # services和processes是从客户端发送的JSON字符串，直接使用即可
+        
         return SystemInfo(
             hostname=info.get('hostname', 'N/A'),
             ip_address=info.get('ip_address', 'N/A'),
             mac_address=info.get('mac_address', 'N/A'),
             gateway=info.get('gateway', 'N/A'),
             netmask=info.get('netmask', 'N/A'),
-            services=info.get('services', '[]'),
-            processes=info.get('processes', '[]'),
+            services=info.get('services', '[]'),  # 直接使用客户端发送的JSON字符串
+            processes=info.get('processes', '[]'),  # 直接使用客户端发送的JSON字符串
             timestamp=info.get('timestamp', 'N/A'),
             client_id=info.get('client_id', ''),  # 客户端唯一标识符
             os_name=info.get('os_name', ''),  # 操作系统名称
             os_version=info.get('os_version', ''),  # 操作系统版本
             os_architecture=info.get('os_architecture', ''),  # 操作系统架构
             machine_type=info.get('machine_type', ''),  # 机器类型
-            type=''  # 设备类型（计算机、交换机、服务器等）- 默认为空，通过API手动设置
         )
     
     def _process_services_info(self, info):

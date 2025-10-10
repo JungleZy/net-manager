@@ -49,10 +49,10 @@ class APIServer:
             (r"/", MainHandler),
             (r"/api/devices", DevicesHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
             (r"/api/devices/([^/]+)/type", DeviceTypeHandler, dict(db_manager=self.db_manager)),
-            (r"/api/devices/([^/]+)", DeviceHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
             (r"/api/devices/create", DeviceCreateHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/update", DeviceUpdateHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/delete", DeviceDeleteHandler, dict(db_manager=self.db_manager)),
+            (r"/api/devices/([^/]+)", DeviceHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ], debug=False)

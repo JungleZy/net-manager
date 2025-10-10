@@ -13,7 +13,7 @@ class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         """设置默认响应头，支持CORS"""
         self.set_header("Access-Control-Allow-Origin", "*")
-        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with, Content-Type")
         self.set_header("Access-Control-Max-Age", "86400")  # 24小时
     
