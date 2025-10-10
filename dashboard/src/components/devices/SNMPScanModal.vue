@@ -224,7 +224,7 @@ const handleOk = () => {
         )
 
         // 调用后端SNMP扫描接口
-        const response = await SwitchApi.scanNetworkDevices(filteredParams)
+        const response = await SwitchApi.scanNetworkDevicesSimple(filteredParams)
 
         confirmLoading.value = false
         message.success(

@@ -71,6 +71,19 @@ const SwitchApi = {
   scanNetworkDevices(scanParams) {
     return axios({
       method: 'post',
+      url: '/api/switches/scan',
+      data: scanParams
+    })
+  },
+
+  /**
+   * 扫描网络中的SNMP设备
+   * @param {Object} scanParams - 扫描参数
+   * @returns {Promise}
+   */
+  scanNetworkDevicesSimple(scanParams) {
+    return axios({
+      method: 'post',
       url: '/api/switches/scan/simple',
       data: scanParams
     })
