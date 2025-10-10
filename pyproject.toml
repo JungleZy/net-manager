@@ -1,0 +1,3 @@
+[tool.ruff.lint]
+select = ["F", "E", "DEP"]  # DEP为依赖管理检查规则集
+extend-exclude = ["venv/", ".env/"]

@@ -75,3 +75,40 @@ class SNMPScanHandler(BaseHandler):
                 "status": "error",
                 "message": f"内部服务器错误: {str(e)}"
             })
+
+class SNMPScanHandlerSimple(BaseHandler):
+    """SNMP扫描处理器 - 扫描网络中的SNMP设备"""
+    
+    def initialize(self, db_manager):
+        self.db_manager = db_manager
+        self.snmp_manager = SNMPManager()
+    
+    def post(self):
+        try:
+            # 解析请求体中的JSON数据
+            data = tornado.escape.json_decode(self.request.body)
+            
+            # 获取扫描参数
+            network = data.get('network', '192.168.1.0/24')
+            # 调用扫描方法
+            snmp_devices = self.snmp_manager.scan_snmp_devices(network)
+            
+            
+            self.write({
+                "status": "success",
+                "data": snmp_devices,
+                "count": len(snmp_devices)
+            })
+            
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({
+                "status": "error",
+                "message": "无效的JSON格式"
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "status": "error",
+                "message": f"内部服务器错误: {str(e)}"
+            })

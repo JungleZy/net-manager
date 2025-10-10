@@ -71,7 +71,7 @@ const SwitchApi = {
   scanNetworkDevices(scanParams) {
     return axios({
       method: 'post',
-      url: '/api/switches/scan',
+      url: '/api/switches/scan/simple',
       data: scanParams
     })
   }

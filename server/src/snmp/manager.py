@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import nmap
 
 from typing import Dict, List, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
@@ -442,6 +443,19 @@ class SNMPManager:
                     
         print(f"发现 {len(snmp_devices)} 个SNMP设备:\n {snmp_devices}")
         return snmp_devices
+
+    def scan_snmp_devices(self, network="192.168.1.0/24") -> List[str]:
+        nm = nmap.PortScanner()
+        nm.scan(hosts=network, arguments='-p 161 -sU --open')
+        snmp_hosts=[]
+        for host in nm.all_hosts():
+            if 'udp' in nm[host] and '161' in nm[host]['udp']:
+                state = nm[host]['udp']['161']['state']
+                if state == 'open':
+                    snmp_hosts.append(host)
+
+        print(f"发现 {len(snmp_hosts)} 个SNMP设备:\n {snmp_hosts}")
+        return snmp_hosts
 
 # 导出公共接口
 __all__ = ['SNMPManager']
