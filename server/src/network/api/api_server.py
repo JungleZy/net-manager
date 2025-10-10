@@ -9,7 +9,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-from src.core.config import API_PORT
+from src.core.config import API_PORT, API_HOST
 from src.core.logger import logger
 from src.database import DatabaseManager
 
@@ -23,12 +23,20 @@ from src.network.api.handlers.devices_handlers import (
     DeviceTypeHandler,
     DevicesHandler,
 )
+from src.network.api.handlers.switches_handlers import (
+    SwitchCreateHandler,
+    SwitchUpdateHandler,
+    SwitchDeleteHandler,
+    SwitchHandler,
+    SwitchesHandler,
+)
 from src.network.api.handlers.health_handler import HealthHandler
 
 class APIServer:
     """API服务器类"""
-    def __init__(self, db_manager=None, port=API_PORT):
+    def __init__(self, db_manager=None, port=API_PORT, host=API_HOST):
         self.port = port
+        self.host = host
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
         self.db_manager = db_manager if db_manager else DatabaseManager()
         self.tcp_server = None
@@ -53,6 +61,11 @@ class APIServer:
             (r"/api/devices/update", DeviceUpdateHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/delete", DeviceDeleteHandler, dict(db_manager=self.db_manager)),
             (r"/api/devices/([^/]+)", DeviceHandler, dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server)),
+            (r"/api/switches", SwitchesHandler, dict(db_manager=self.db_manager)),
+            (r"/api/switches/create", SwitchCreateHandler, dict(db_manager=self.db_manager)),
+            (r"/api/switches/update", SwitchUpdateHandler, dict(db_manager=self.db_manager)),
+            (r"/api/switches/delete", SwitchDeleteHandler, dict(db_manager=self.db_manager)),
+            (r"/api/switches/([^/]+)", SwitchHandler, dict(db_manager=self.db_manager)),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ], debug=False)
@@ -64,7 +77,24 @@ class APIServer:
             xheaders= True,
             max_buffer_size=10485760,  # 10MB buffer size
         )
-        self.server.listen(self.port)
+        
+        try:
+            # 根据操作系统决定是否使用reuse_port选项
+            import platform
+
+            is_windows = platform.system() == "Windows"
+
+            # 设置socket选项，Windows不支持reuse_port
+            sockets = tornado.netutil.bind_sockets(
+                self.port,
+                address=self.host,
+                reuse_port=not is_windows,  # Windows不支持reuse_port
+            )
+            self.server.add_sockets(sockets)
+        except OSError as e:
+            logger.error(f"无法绑定到端口 {self.host}: {str(e)}")
+            return False, f"无法绑定到端口 {self.host}: {str(e)}"
+        
         logger.info(f"API服务端启动，监听端口 {self.port}")
         tornado.ioloop.IOLoop.current().start()
         

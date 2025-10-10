@@ -82,9 +82,12 @@ python src/main.py
 
 ### 交换机管理
 - `GET /api/switches` - 获取所有交换机配置
-- `POST /api/switches` - 添加交换机配置
-- `PUT /api/switches/{id}` - 更新交换机配置
-- `DELETE /api/switches/{id}` - 删除交换机配置
+- `GET /api/switches/{id}` - 获取特定交换机配置
+- `POST /api/switches/create` - 添加交换机配置
+- `POST /api/switches/update` - 更新交换机配置
+- `POST /api/switches/delete` - 删除交换机配置
+
+详细API文档请参见 [交换机API文档](docs/SWITCH_API.md)
 
 ## 技术栈
 
@@ -104,6 +107,7 @@ python src/main.py
 - [数据库模块重构说明](docs/DATABASE_MIGRATION_GUIDE.md)
 - [变更日志](docs/CHANGELOG.md)
 - [API文档](docs/API_DOCUMENTATION.md)
+- [交换机API文档](docs/SWITCH_API.md)
 - [仪表盘说明](docs/DASHBOARD_README.md)
 - [SHA认证支持](docs/SHA_AUTH_SUPPORT.md)
 - [状态管理器](docs/STATE_MANAGER.md)

@@ -11,7 +11,8 @@
       <a-form-item label="设备类型">
         <a-select v-model:value="form.type" placeholder="请选择设备类型">
           <a-select-option value="">请选择设备类型</a-select-option>
-          <a-select-option value="计算机">计算机</a-select-option>
+          <a-select-option value="台式机">台式机</a-select-option>
+          <a-select-option value="笔记本">笔记本</a-select-option>
           <a-select-option value="服务器">服务器</a-select-option>
           <a-select-option value="其他">其他</a-select-option>
         </a-select>
@@ -101,6 +102,7 @@ const handleOk = async () => {
 
     // 发送事件给父组件处理保存逻辑
     emit('ok', { ...form })
+    confirmLoading.value = false
   } catch (error) {
     console.error('保存设备失败:', error)
     message.error('保存设备失败: ' + error.message)

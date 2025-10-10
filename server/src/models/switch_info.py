@@ -13,7 +13,7 @@ class SwitchInfo:
     
     def __init__(self, ip: str, snmp_version: str, community: str = "", user: str = "",
                  auth_key: str = "", auth_protocol: str = "", priv_key: str = "",
-                 priv_protocol: str = "", description: str = "", 
+                 priv_protocol: str = "", description: str = "", device_name: str = "",
                  created_at: str = None, updated_at: str = None, id: int = None):
         """
         初始化交换机信息对象
@@ -29,6 +29,7 @@ class SwitchInfo:
             priv_key: SNMPv3隐私密钥
             priv_protocol: SNMPv3隐私协议（如'DES', 'AES'）
             description: 交换机描述信息
+            device_name: 设备名称
             created_at: 创建时间（可选）
             updated_at: 更新时间（可选）
         """
@@ -42,6 +43,7 @@ class SwitchInfo:
         self.priv_key = priv_key
         self.priv_protocol = priv_protocol
         self.description = description
+        self.device_name = device_name
         self.created_at = created_at or datetime.now().isoformat()
         self.updated_at = updated_at or datetime.now().isoformat()
 
@@ -63,6 +65,7 @@ class SwitchInfo:
             'priv_key': self.priv_key,
             'priv_protocol': self.priv_protocol,
             'description': self.description,
+            'device_name': self.device_name,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
@@ -89,13 +92,14 @@ class SwitchInfo:
             priv_key=data.get('priv_key', ''),
             priv_protocol=data.get('priv_protocol', ''),
             description=data.get('description', ''),
+            device_name=data.get('device_name', ''),
             created_at=data.get('created_at'),
             updated_at=data.get('updated_at')
         )
 
     def __str__(self) -> str:
         """返回交换机信息的字符串表示"""
-        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description})"
+        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description}, device_name={self.device_name})"
 
     def __repr__(self) -> str:
         """返回交换机信息的详细字符串表示"""

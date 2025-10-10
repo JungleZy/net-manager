@@ -118,6 +118,7 @@ class SNMPMonitor:
             (值, 是否成功)
         """
         try:
+            
             transport_target = await UdpTransportTarget.create((ip, port))
             error_indication, error_status, error_index, var_binds = await get_cmd(
                 SnmpEngine(),
