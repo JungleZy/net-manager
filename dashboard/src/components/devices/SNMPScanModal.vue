@@ -191,6 +191,11 @@ const handleSnmpVersionChange = (value) => {
 
 // 确定按钮处理
 const handleOk = () => {
+  message.loading({
+    content: '扫描中...',
+    duration: 0,
+    key: 'scanLoading'
+  })
   formRef.value
     .validate()
     .then(async () => {
@@ -227,21 +232,26 @@ const handleOk = () => {
         const response = await SwitchApi.scanNetworkDevicesSimple(filteredParams)
 
         confirmLoading.value = false
-        message.success(
-          `扫描完成，发现 ${response.data.length} 个支持SNMP的设备`
-        )
+        message.success({
+          content: `扫描完成，发现 ${response.data.length} 个支持SNMP的设备`,
+          key: 'scanLoading'
+        })
         emit('ok', response.data)
       } catch (error) {
         confirmLoading.value = false
         console.error('SNMP扫描失败:', error)
-        message.error(
-          'SNMP扫描失败: ' + (error.response?.data?.message || error.message)
-        )
+        message.error({
+          content: 'SNMP扫描失败: ' + (error.response?.data?.message || error.message),
+          key: 'scanLoading'
+        })
       }
     })
     .catch((error) => {
       console.error('表单验证失败:', error)
-      message.error('请检查表单填写是否正确')
+      message.error({
+          content: '请检查表单填写是否正确',
+          key: 'scanLoading'
+        })
     })
 }
 
