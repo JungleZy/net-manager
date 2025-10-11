@@ -119,7 +119,7 @@ class SNMPMonitor:
         """
         try:
             
-            transport_target = await UdpTransportTarget.create((ip, port))
+            transport_target = await UdpTransportTarget.create((ip, port), timeout=2.0, retries=3)
             error_indication, error_status, error_index, var_binds = await get_cmd(
                 SnmpEngine(),
                 CommunityData(community),

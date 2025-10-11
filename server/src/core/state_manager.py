@@ -38,6 +38,8 @@ class StateManager:
 
             # 基础状态数据结构
             self.connected_clients: Set = set()
+            self.scan_task_id: Optional[str] = None
+            
             # 事件监听器存储
             self._event_listeners: Dict[str, List[Callable]] = defaultdict(list)
 
@@ -45,11 +47,18 @@ class StateManager:
             self._message_count = 0
             self._broadcast_errors = 0
 
+            # 主线程IOLoop引用
+            self._main_ioloop = None
+
             # 线程锁，提高细粒度控制
             self._clients_lock = threading.RLock()
             self._event_lock = threading.RLock()
 
     # -------- WebSocket客户端管理 --------
+    def set_main_ioloop(self, ioloop) -> None:
+        """设置主线程IOLoop引用"""
+        self._main_ioloop = ioloop
+
     def add_client(self, client) -> None:
         """线程安全地添加WebSocket客户端连接"""
         with self._clients_lock:
@@ -145,17 +154,22 @@ class StateManager:
                 self._send_message_in_main_thread(enriched_message)
             else:
                 # 不在主线程中，需要通过IOLoop的add_callback方法在主线程中执行
-
-                # 获取主IOLoop实例
+                
+                # 使用保存的主线程IOLoop引用
                 try:
-                    # 尝试获取正在运行的IOLoop实例
-                    main_ioloop = tornado.ioloop.IOLoop.instance()
-
-                    # 将消息发送任务添加到主线程的事件循环中
-                    main_ioloop.add_callback(
-                        self._send_message_in_main_thread, enriched_message
-                    )
-                    logger.debug("已将消息发送任务添加到主线程事件循环")
+                    if self._main_ioloop is not None:
+                        # 将消息发送任务添加到主线程的事件循环中
+                        self._main_ioloop.add_callback(
+                            self._send_message_in_main_thread, enriched_message
+                        )
+                        logger.debug("已将消息发送任务添加到主线程事件循环")
+                    else:
+                        # 如果没有保存的引用，尝试获取正在运行的IOLoop实例
+                        main_ioloop = tornado.ioloop.IOLoop.instance()
+                        main_ioloop.add_callback(
+                            self._send_message_in_main_thread, enriched_message
+                        )
+                        logger.debug("已将消息发送任务添加到主线程事件循环")
 
                 except Exception as e:
                     logger.error(f"无法获取主IOLoop实例: {str(e)}")

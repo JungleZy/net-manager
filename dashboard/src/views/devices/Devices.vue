@@ -110,27 +110,29 @@
         <a-tab-pane key="2" tab="交换设备" force-render>
           <div class="mb-[12px] layout-side">
             <div></div>
-            <div>
-              <a-button
-                class="layout-center mr-2"
-                type="primary"
-                @click="openDiscoverSwitchModal"
-              >
-                <template #icon>
-                  <SearchOutlined />
-                </template>
-                发现交换机
-              </a-button>
-              <a-button
-                class="layout-center"
-                type="primary"
-                @click="openCreateSwitchModal"
-              >
-                <template #icon>
-                  <PlusOutlined />
-                </template>
-                添加交换机
-              </a-button>
+            <div class="layout-right-center">
+              <a-space-compact block>
+                <a-button
+                  class="layout-center mr-2"
+                  type="primary"
+                  @click="openDiscoverSwitchModal"
+                >
+                  <template #icon>
+                    <SearchOutlined />
+                  </template>
+                  自动发现
+                </a-button>
+                <a-button
+                  class="layout-center"
+                  type="primary"
+                  @click="openCreateSwitchModal"
+                >
+                  <template #icon>
+                    <PlusOutlined />
+                  </template>
+                  手动添加
+                </a-button>
+              </a-space-compact>
             </div>
           </div>
           <!-- 交换机列表 -->
@@ -200,7 +202,7 @@
         @ok="saveSwitch"
         @cancel="closeSwitchModal"
       />
-      
+
       <!-- SNMP扫描模态框 -->
       <SNMPScanModal
         v-model:visible="showDiscoverSwitchModal"

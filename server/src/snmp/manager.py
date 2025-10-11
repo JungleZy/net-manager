@@ -396,14 +396,20 @@ class SNMPManager:
         print(f"Ping发现找到 {len(devices)} 个设备")
         return devices
     
-    async def snmp_scan_device(self, ip, version="v2c", community='public'):
+    async def snmp_scan_device(self, ip, version="v2c", communities=['public']):
         """扫描单个设备的SNMP信息"""
         try:
-            print(f"正在扫描设备 {ip}")
             # 获取系统信息
-            connection_check, success = await self.monitor.get_data(ip, version, '1.3.6.1.2.1.1.1.0', community=community)
-            if success:
-                return ip
+            for community in communities:
+                logger.debug(f"版本 {version} 尝试使用 {community} 社区扫描 {ip}")
+                value, success = await self.monitor.get_data(ip, version, '1.3.6.1.2.1.1.1.0', community=community)
+                if success:
+                    # 返回包含IP、community和value的JSON对象
+                    return {
+                        "ip": ip,
+                        "community": community,
+                        "description": str(value) if value else ""
+                    }
                     
         except Exception as e:
             logger.error(f"扫描设备 {ip} 时出错: {e}")
@@ -411,11 +417,10 @@ class SNMPManager:
         
         return None
     
-    async def scan_network_devices(self, network="192.168.1.0/24", version="v2c", community='public', iface=None) -> List[Dict[str, Any]]:
+    async def scan_network_devices(self, network="192.168.1.0/24", version="v2c", communities=['public'], iface=None) -> List[Dict[str, Any]]:
         """综合SNMP发现"""
         # 使用ARP发现设备，支持指定网络接口
         devices = SNMPManager.snmp_discovery_arp(network, iface=iface)
-        print(f"发现 {len(devices)} 个设备:\n {devices}")
         
         # 异步SNMP扫描，控制并发数
         snmp_devices = []
@@ -428,7 +433,7 @@ class SNMPManager:
             # 对每批设备进行并发扫描
             batch_tasks = []
             for ip in batch:
-                task = asyncio.create_task(self.snmp_scan_device(ip, version, community))
+                task = asyncio.create_task(self.snmp_scan_device(ip, version, communities))
                 batch_tasks.append(task)
             
             # 等待批次内所有任务完成
@@ -441,18 +446,20 @@ class SNMPManager:
                 elif result:
                     snmp_devices.append(result)
                     
-        print(f"发现 {len(snmp_devices)} 个SNMP设备:\n {snmp_devices}")
+        logger.info(f"发现 {len(snmp_devices)} 个SNMP设备:\n {snmp_devices}")
         return snmp_devices
-
+    
     def scan_snmp_devices(self, network="192.168.1.0/24") -> List[str]:
+        print(network)
         nm = nmap.PortScanner()
-        nm.scan(hosts=network, arguments='-p 161 -sU --open')
+        nm.scan(hosts=network, arguments='-sU -p 161 --open --script snmp-brute')
         snmp_hosts=[]
         for host in nm.all_hosts():
-            if 'udp' in nm[host] and '161' in nm[host]['udp']:
-                state = nm[host]['udp']['161']['state']
-                if state == 'open':
-                    snmp_hosts.append(host)
+            print(host)
+            if 'udp' in nm[host]:
+                # state = nm[host]['udp']['161']['state']
+                # if state == 'open':
+                snmp_hosts.append(nm[host])
 
         print(f"发现 {len(snmp_hosts)} 个SNMP设备:\n {snmp_hosts}")
         return snmp_hosts

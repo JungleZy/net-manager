@@ -6,13 +6,15 @@
     @ok="handleOk"
     @cancel="handleCancel"
     :width="600"
+    centered
+    :body-style="{ height: height - 120 + 'px' }"
   >
     <a-form
       ref="formRef"
       :model="formState"
       :rules="rules"
-      :label-col="{ span: 6 }"
-      :wrapper-col="{ span: 16 }"
+      :label-col="{ span: 4 }"
+      :wrapper-col="{ span: 20 }"
     >
       <a-form-item label="IP段" name="network">
         <a-input
@@ -101,6 +103,9 @@
 import { ref, reactive, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import SwitchApi from '@/common/api/switch.js'
+import { useWindowSize } from '@vueuse/core'
+
+const { height } = useWindowSize()
 
 const props = defineProps({
   visible: {
@@ -208,7 +213,7 @@ const handleOk = () => {
             formState.snmp_version === '2c' ? 'v2c' : formState.snmp_version,
           communities:
             formState.snmp_version === '2c' || formState.snmp_version === '1'
-              ? [formState.community]
+              ? formState.community.split(',')
               : undefined,
           user: formState.snmp_version === '3' ? formState.user : undefined,
           auth_key:
@@ -229,7 +234,7 @@ const handleOk = () => {
         )
 
         // 调用后端SNMP扫描接口
-        const response = await SwitchApi.scanNetworkDevicesSimple(filteredParams)
+        const response = await SwitchApi.scanNetworkDevices(filteredParams)
 
         confirmLoading.value = false
         message.success({
@@ -241,7 +246,8 @@ const handleOk = () => {
         confirmLoading.value = false
         console.error('SNMP扫描失败:', error)
         message.error({
-          content: 'SNMP扫描失败: ' + (error.response?.data?.message || error.message),
+          content:
+            'SNMP扫描失败: ' + (error.response?.data?.message || error.message),
           key: 'scanLoading'
         })
       }
@@ -249,9 +255,9 @@ const handleOk = () => {
     .catch((error) => {
       console.error('表单验证失败:', error)
       message.error({
-          content: '请检查表单填写是否正确',
-          key: 'scanLoading'
-        })
+        content: '请检查表单填写是否正确',
+        key: 'scanLoading'
+      })
     })
 }
 

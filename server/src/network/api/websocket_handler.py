@@ -26,6 +26,13 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         """新的WebSocket连接建立"""
         state_manager.add_client(self)
+        self.send_message({
+            "type": "scanTask", 
+            "data": {
+                "task_id": state_manager.scan_task_id,
+                "event": "scan_push",
+            }
+        })
         print(f"WebSocket客户端已连接")
 
     def on_message(self, message):

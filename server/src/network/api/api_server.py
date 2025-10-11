@@ -35,6 +35,7 @@ from src.network.api.handlers.snmp_scan_handler import (
     SNMPScanHandlerSimple,
 )
 from src.network.api.handlers.health_handler import HealthHandler
+from src.network.api.websocket_handler import WebSocketHandler
 
 class APIServer:
     """API服务器类"""
@@ -72,6 +73,7 @@ class APIServer:
             (r"/api/switches/scan", SNMPScanHandler, dict(db_manager=self.db_manager)),
             (r"/api/switches/scan/simple", SNMPScanHandlerSimple, dict(db_manager=self.db_manager)),
             (r"/api/switches/([^/]+)", SwitchHandler, dict(db_manager=self.db_manager)),
+            (r"/ws", WebSocketHandler),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ], debug=False)
@@ -97,6 +99,10 @@ class APIServer:
                 reuse_port=not is_windows,  # Windows不支持reuse_port
             )
             self.server.add_sockets(sockets)
+            
+            # 设置StateManager的主线程IOLoop引用
+            from src.core.state_manager import state_manager
+            state_manager.set_main_ioloop(tornado.ioloop.IOLoop.current())
         except OSError as e:
             logger.error(f"无法绑定到端口 {self.host}: {str(e)}")
             return False, f"无法绑定到端口 {self.host}: {str(e)}"
