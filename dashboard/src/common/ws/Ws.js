@@ -36,7 +36,9 @@ export class Ws {
       console.log(data);
       switch (data.type) {
         case "scanTask":
-          PubSub.publish(wsCode.SCAN_TASK, data.data);
+          if (data.data.event === "scan_push") {
+            PubSub.publish(wsCode.SCAN_TASK, data.data);
+          }
           break;
         default:
           break;
