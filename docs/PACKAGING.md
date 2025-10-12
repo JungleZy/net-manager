@@ -4,9 +4,10 @@
 
 本文档说明如何使用Nuitka将Net Manager客户端和服务端打包成独立的可执行文件，以便在没有Python环境的系统上运行。
 
-项目提供了两种打包方式：
+项目提供了三种打包方式：
 1. 手动命令行打包
 2. 自动化打包脚本（推荐）
+3. GitHub Actions 自动化打包（CI/CD）
 
 ## 打包工具
 
@@ -87,6 +88,49 @@ python build.py --clean
 - `run_client.bat` / `run_server.bat`: 运行脚本
 - `logs/`: 日志目录
 - 相关说明文档
+
+## 方法三：GitHub Actions 自动化打包（CI/CD）
+
+项目使用 GitHub Actions 实现自动化打包，采用"先测试后构建"的策略，确保代码质量和跨平台兼容性。
+
+### 1. 工作流程
+
+GitHub Actions 工作流程包含以下步骤：
+
+1. **测试阶段**：
+   - 在多个平台上运行跨平台兼容性测试
+   - 确保所有测试通过后再进行构建
+
+2. **构建阶段**：
+   - 在不同操作系统和架构上并行构建客户端可执行文件
+   - 支持 Windows (x86, x64) 和 Linux (x86, x64)
+
+3. **发布阶段**：
+   - 自动创建 GitHub Release 并上传构建产物
+
+### 2. 触发条件
+
+GitHub Actions 工作流程会在以下情况下自动触发：
+- 推送代码到 `main` 或 `develop` 分支
+- 创建指向 `main` 分支的 Pull Request
+- 手动手动触发工作流程
+
+### 3. 构建产物
+
+构建完成后，会生成以下可执行文件：
+- Windows:
+  - `net-manager-client-win-x86.exe`
+  - `net-manager-client-win-x64.exe`
+- Linux:
+  - `net-manager-client-linux-x86`
+  - `net-manager-client-linux-x64`
+
+### 4. 工作流程文件
+
+相关的 GitHub Actions 工作流程定义在 `.github/workflows/` 目录中：
+- `test-then-build.yml`: 主要工作流程，实现先测试后构建策略
+- `build-client.yml`: 已弃用的旧工作流程
+- `cross-platform-test.yml`: 已弃用的旧测试工作流程
 
 ## 打包结果
 

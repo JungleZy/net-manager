@@ -10,6 +10,11 @@ net-manager/
 ├── net_manager.db            # SQLite数据库文件
 ├── logs/                     # 日志目录
 │   └── net_manager.log       # 日志文件
+├── .github/
+│   └── workflows/            # GitHub Actions 工作流程
+│       ├── build-client.yml  # 客户端打包工作流程（已弃用）
+│       ├── cross-platform-test.yml  # 跨平台测试工作流程（已弃用）
+│       └── test-then-build.yml  # 新的"先测试后构建"工作流程
 ├── client/                   # 客户端代码
 │   ├── client_state.json     # 客户端状态文件，包含客户端唯一标识和其他状态信息
 │   ├── main.py               # 客户端主程序入口
@@ -143,6 +148,19 @@ net-manager/
 
 - **client/src/start_net_manager.py** - 启动脚本
 - **client/src/setup_dev_env.py** - 开发环境设置脚本
+
+## GitHub Actions 工作流程
+
+项目使用 GitHub Actions 进行持续集成和持续部署，包含以下工作流程：
+
+1. **test-then-build.yml** - 主要工作流程，采用"先测试后构建"策略：
+   - 在多个平台（Windows/Linux）上并行运行测试
+   - 只有在所有测试通过后才执行打包操作
+   - 在 `main` 分支上自动创建 Release 并上传构建产物
+
+2. **build-client.yml** - 旧的打包工作流程（已弃用）
+
+3. **cross-platform-test.yml** - 旧的测试工作流程（已弃用）
 
 ## 数据流
 

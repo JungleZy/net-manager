@@ -21,7 +21,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        architecture: [x64]
+        architecture: [x64, x86, arm]
         python-version: ['3.13']
     steps:
       - name: Checkout code
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        architecture: [x64]
+        architecture: [x64, x86, arm]
         python-version: ['3.13']
     steps:
       - name: Checkout code

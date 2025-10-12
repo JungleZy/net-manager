@@ -6,19 +6,29 @@
 
 - Windows x86
 - Windows x64
+- Windows ARM
 - Linux x86
+- Linux x64
 - Linux ARM
 
 ## 工作流触发条件
 
 1. 推送到 `main` 或 `develop` 分支，且修改了以下文件：
    - `client/**`
+   - `server/**`
    - `requirements.txt`
-   - `.github/workflows/build-client.yml`
+   - `.github/workflows/test-then-build.yml`
 
 2. 在 `main` 分支上创建 Pull Request，且修改了上述文件
 
 3. 手动触发（workflow_dispatch）
+
+## 工作流程说明
+
+GitHub Actions 工作流程现在采用"先测试后构建"的策略：
+1. 首先在 Windows 和 Linux 平台上运行跨平台测试
+2. 只有在所有测试都通过后，才会执行打包操作
+3. 最后，在 `main` 分支上会自动创建 Release 并上传构建产物
 
 ## 构建流程
 
@@ -30,7 +40,7 @@
 
 ### Linux 构建
 - 运行环境：`ubuntu-latest`
-- 架构：x86, arm
+- 架构：x86, x64, arm
 - 使用 Nuitka 进行打包
 - 生成独立的单文件可执行程序
 
@@ -76,6 +86,12 @@ act push -j build-linux
    ```
 
 ## 故障排除
+
+### 测试失败
+1. 检查测试代码是否与最新代码兼容
+2. 确认测试环境配置是否正确
+3. 查看测试日志中的具体错误信息
+4. 验证依赖库是否正确安装
 
 ### 构建失败
 1. 检查依赖安装是否正确

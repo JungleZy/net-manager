@@ -1,5 +1,19 @@
 # 变更日志 (Changelog)
 
+## [1.1.0] - 2025-10-10
+
+### GitHub Actions 工流程优化
+- 创建 `test-then-build.yml` 工作流程文件，实现先测试后构建的策略
+- 更新跨平台构建支持，添加 Linux x64 平台支持
+- 修正工作流程配置，确保只构建支持的架构（Windows: x86, x64；Linux: x86, x64）
+- 添加对 ARM 架构的支持（Windows 和 Linux）
+- 修改版本格式为 x.x.x.yyyymmdd 格式
+- 相关文档更新：
+  - 更新 `GITHUB_ACTIONS_PACKAGING.md` 文档
+  - 更新 `README.md` 中的跨平台打包说明
+  - 更新 `PROJECT_STRUCTURE.md` 中的工作流程说明
+  - 创建 `PACKAGING.md` 文档，详细说明本地和自动化打包方法
+
 ## [1.0.0] - 2025-10-09
 
 ### 重构

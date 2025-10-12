@@ -70,12 +70,12 @@ python src/main.py
 
 ## 跨平台打包
 
-本项目支持使用 GitHub Actions 进行跨平台打包，可生成以下平台的可执行文件：
+本项目支持使用 GitHub Actions 进行跨平台打包，采用"先测试后构建"的策略，可生成以下平台的可执行文件：
 
 - Windows x86
 - Windows x64
 - Linux x86
-- Linux ARM
+- Linux x64
 
 详细说明请参见 [GitHub Actions 打包指南](docs/GITHUB_ACTIONS_PACKAGING.md)
 
