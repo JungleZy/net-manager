@@ -158,7 +158,7 @@ jobs:
         
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -168,7 +168,7 @@ jobs:
           prerelease: false
           
       - name: Upload Release Assets (Windows x86)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -178,7 +178,7 @@ jobs:
           asset_content_type: application/octet-stream
           
       - name: Upload Release Assets (Windows x64)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -188,7 +188,7 @@ jobs:
           asset_content_type: application/octet-stream
           
       - name: Upload Release Assets (Linux x86)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -198,7 +198,7 @@ jobs:
           asset_content_type: application/octet-stream
           
       - name: Upload Release Assets (Linux ARM)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
