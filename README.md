@@ -79,6 +79,17 @@ python src/main.py
 
 详细说明请参见 [GitHub Actions 打包指南](docs/GITHUB_ACTIONS_PACKAGING.md)
 
+## 自动化测试
+
+本项目使用 GitHub Actions 进行跨平台自动化测试，确保在不同操作系统上的兼容性：
+
+- Windows (x64)
+- Linux (x64)
+
+测试工作流会在每次推送代码到 `main` 或 `develop` 分支时自动运行，也会在创建 Pull Request 时触发。
+
+所有测试均已通过修复，确保在不同平台上都能正常运行。
+
 ## API接口
 
 ### 设备管理

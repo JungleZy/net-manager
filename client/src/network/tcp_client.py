@@ -15,6 +15,10 @@ import threading
 import logging
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List, Callable
+
+# 导入自定义异常类
+from src.exceptions.exceptions import NetworkDiscoveryError
+
 from src.utils.logger import get_logger
 from src.system.system_collector import SystemCollector
 from datetime import datetime

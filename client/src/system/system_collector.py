@@ -464,7 +464,7 @@ class SystemCollector:
                     # 获取进程占用的端口信息
                     try:
                         process = psutil.Process(proc.info['pid'])
-                        connections = process.connections()
+                        connections = process.net_connections()
                         for conn in connections:
                             # 只收集监听状态的连接
                             if conn.status == psutil.CONN_LISTEN:

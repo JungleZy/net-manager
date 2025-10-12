@@ -85,12 +85,10 @@ class TestSystemCollector(unittest.TestCase):
         self.assertIsInstance(info.mac_address, str)
         self.assertGreater(len(info.mac_address), 0)
         
-        # 检查服务信息是否为字符串（JSON格式）
-        self.assertIsInstance(info.services, str)
-        # 尝试解析JSON
-        services = json.loads(info.services)
-        self.assertIsInstance(services, list)
-        self.assertGreater(len(services), 0)
+        # 检查服务信息是否为列表类型
+        self.assertIsInstance(info.services, list)
+        # 应该至少有一些服务在运行
+        self.assertGreater(len(info.services), 0)
         
         # 检查时间戳
         self.assertIsNotNone(info.timestamp)
@@ -106,7 +104,7 @@ class TestSystemCollector(unittest.TestCase):
         print(f"  主机名: {info.hostname}")
         print(f"  IP地址: {info.ip_address}")
         print(f"  MAC地址: {info.mac_address}")
-        print(f"  服务数量: {len(services)}")
+        print(f"  服务数量: {len(info.services)}")
         print(f"  时间戳: {info.timestamp}")
         print(f"  操作系统名称: {info.os_name}")
         print(f"  操作系统版本: {info.os_version}")

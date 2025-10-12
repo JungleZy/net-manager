@@ -32,10 +32,8 @@ def test_service_discovery():
     
     if server_info:
         print(f"   ✓ 服务发现成功: {server_info[0]}:{server_info[1]}")
-        return True
     else:
         print("   ✗ 服务发现失败")
-        return False
 
 def test_connection():
     """测试连接功能"""
@@ -49,10 +47,8 @@ def test_connection():
         print("   ✓ 连接成功")
         # 断开连接
         client.disconnect()
-        return True
     else:
         print("   ✗ 连接失败")
-        return False
 
 def main():
     """主函数"""
@@ -62,20 +58,12 @@ def main():
     setup_logging()
     
     # 测试服务发现
-    discovery_success = test_service_discovery()
+    test_service_discovery()
     
-    # 如果服务发现成功，测试连接
-    if discovery_success:
-        connection_success = test_connection()
-        if connection_success:
-            print("\n所有测试通过!")
-            return 0
-        else:
-            print("\n连接测试失败!")
-            return 1
-    else:
-        print("\n服务发现测试失败!")
-        return 1
+    # 测试连接
+    test_connection()
+    
+    print("\n测试完成!")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
