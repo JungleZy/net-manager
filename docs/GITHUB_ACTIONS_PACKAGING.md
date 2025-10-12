@@ -81,11 +81,16 @@ act push -j build-linux
 1. 检查依赖安装是否正确
 2. 确认 Nuitka 版本是否兼容
 3. 查看构建日志中的具体错误信息
+4. 确保平台特定的依赖正确安装（如Windows上的pywin32，Linux上的python-daemon）
 
 ### 构建产物未生成
 1. 确认 Nuitka 命令是否正确执行
 2. 检查输出路径是否正确
 3. 验证文件权限设置
+
+### 平台特定问题
+1. Windows构建：确保PowerShell环境正确配置
+2. Linux构建：确保gcc-multilib和g++-multilib已正确安装用于x86构建
 
 ## 注意事项
 
