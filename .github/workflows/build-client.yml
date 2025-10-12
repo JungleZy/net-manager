@@ -49,10 +49,7 @@ jobs:
             $outputName = "net-manager-client-win-x64.exe"
           }
           
-          # 自动同意下载Dependency Walker
-          $env:NUITKA_DOWNLOADS_CONFIRMATION = "yes"
-          
-          # 使用Nuitka打包
+          # 使用Nuitka打包，添加--assume-yes-for-downloads参数避免交互式询问
           python -m nuitka `
             --standalone `
             --onefile `
@@ -68,6 +65,7 @@ jobs:
             --python-flag=-O `
             --lto=yes `
             --remove-output `
+            --assume-yes-for-downloads `
             main.py
             
           # 设置输出变量供后续步骤使用
