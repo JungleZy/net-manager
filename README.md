@@ -20,6 +20,7 @@ net-manager/
 │   ├── tests/                 # 测试代码
 │   └── requirements.txt       # 服务器依赖
 ├── docs/                      # 文档
+├── .github/workflows/         # GitHub Actions 工作流
 └── README.md                  # 项目说明
 ```
 
@@ -67,6 +68,17 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
+## 跨平台打包
+
+本项目支持使用 GitHub Actions 进行跨平台打包，可生成以下平台的可执行文件：
+
+- Windows x86
+- Windows x64
+- Linux x86
+- Linux ARM
+
+详细说明请参见 [GitHub Actions 打包指南](docs/GITHUB_ACTIONS_PACKAGING.md)
+
 ## API接口
 
 ### 设备管理
@@ -113,6 +125,7 @@ python src/main.py
 - [状态管理器](docs/STATE_MANAGER.md)
 - [路由器配置指南](docs/ROUTER_CONFIG_GUIDE.md)
 - [打包说明](docs/PACKAGING.md)
+- [GitHub Actions 打包指南](docs/GITHUB_ACTIONS_PACKAGING.md)
 
 ## 许可证
 
