@@ -156,53 +156,17 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R dist/
         
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
-          
-      - name: Upload Release Assets (Windows x86)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
-          asset_name: net-manager-client-windows-x86.exe
-          asset_content_type: application/octet-stream
-          
-      - name: Upload Release Assets (Windows x64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
-          asset_name: net-manager-client-windows-x64.exe
-          asset_content_type: application/octet-stream
-          
-      - name: Upload Release Assets (Linux x86)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/net-manager-client-linux-x86/net-manager-client-linux-x86
-          asset_name: net-manager-client-linux-x86
-          asset_content_type: application/octet-stream
-          
-      - name: Upload Release Assets (Linux ARM)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/net-manager-client-linux-arm/net-manager-client-linux-arm
-          asset_name: net-manager-client-linux-arm
-          asset_content_type: application/octet-stream
+          files: |
+            dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
+            dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
+            dist/net-manager-client-linux-x86/net-manager-client-linux-x86
+            dist/net-manager-client-linux-arm/net-manager-client-linux-arm
