@@ -128,7 +128,7 @@ class SNMPScanHandler(BaseHandler):
                 state_manager.broadcast_message({
                     "type": "scanTask", 
                     "data": {
-                        "task_id": task_id,
+                        "task_id": None,
                         "event": "scan_error",
                         "message": f"不支持的SNMP版本: {version}"
                     }
@@ -143,7 +143,7 @@ class SNMPScanHandler(BaseHandler):
             state_manager.broadcast_message({
                 "type": "scanTask", 
                 "data": {
-                    "task_id": task_id,
+                    "task_id": None,
                     "event": "scan_completed",
                     "data": snmp_devices,
                     "count": len(snmp_devices)
@@ -157,7 +157,7 @@ class SNMPScanHandler(BaseHandler):
             state_manager.broadcast_message({
                 "type": "scanTask", 
                 "data": {
-                    "task_id": task_id,
+                    "task_id": None,
                     "event": "scan_error",
                     "message": f"扫描过程中发生错误: {str(e)}"
                 }

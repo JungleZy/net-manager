@@ -1,3 +1,6 @@
+import localforage from "localforage";
+import { PubSub } from "@/common/utils/PubSub";
+
 export const wsCode = {
   SCAN_TASK: "scanTask",
 }
@@ -33,12 +36,10 @@ export class Ws {
     };
     this.socket.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      console.log(data);
       switch (data.type) {
         case "scanTask":
-          if (data.data.event === "scan_push") {
-            PubSub.publish(wsCode.SCAN_TASK, data.data);
-          }
+          localforage.setItem("scanTaskId", data.data.task_id);
+          PubSub.publish(wsCode.SCAN_TASK, data.data);
           break;
         default:
           break;
