@@ -155,13 +155,19 @@ jobs:
             --product-version="1.0.0" `
             --file-version="1.0.0" `
             --windows-console-mode=hide `
+            --windows-uac-admin `
             --enable-plugin=multiprocessing `
             --follow-imports `
+            --follow-stdlib `
             --include-package=src `
             --python-flag=-O `
             --lto=yes `
-            --remove-output `
             --assume-yes-for-downloads `
+            --static-libpython=no `
+            --noinclude-unittest-mode=allow `
+            --disable-ccache `
+            --no-pyi-file `
+            --remove-output `
             main.py
             
           # 设置输出变量供后续步骤使用
