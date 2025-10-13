@@ -364,6 +364,34 @@ class SwitchManager(BaseDatabaseManager):
             logger.error(f"查询所有交换机配置失败: {e}")
             raise DatabaseQueryError(f"查询所有交换机配置失败: {e}") from e
 
+    def switch_exists(self, ip: str, snmp_version: str) -> bool:
+        """
+        检查交换机是否已存在（基于IP地址和SNMP版本）
+        
+        Args:
+            ip: 交换机IP地址
+            snmp_version: SNMP版本
+            
+        Returns:
+            如果交换机已存在返回True，否则返回False
+            
+        Raises:
+            DatabaseQueryError: 查询失败时抛出
+        """
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT COUNT(*) FROM switches_info WHERE ip = ? AND snmp_version = ?
+                ''', (ip, snmp_version))
+                
+                count = cursor.fetchone()[0]
+                return count > 0
+        except Exception as e:
+            logger.error(f"检查交换机是否存在失败: {e}")
+            raise DatabaseQueryError(f"检查交换机是否存在失败: {e}") from e
+
     def get_switch_count(self) -> int:
         """
         获取交换机总数

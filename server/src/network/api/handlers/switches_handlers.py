@@ -32,6 +32,17 @@ class SwitchCreateHandler(BaseHandler):
                     })
                     return
             
+            # 检查交换机是否已存在（基于IP地址和SNMP版本）
+            ip = data['ip']
+            snmp_version = data['snmp_version']
+            if self.db_manager.switch_exists(ip, snmp_version):
+                self.set_status(400)
+                self.write({
+                    "status": "error",
+                    "message": f"具有相同IP地址({ip})和SNMP版本({snmp_version})的交换机已存在"
+                })
+                return
+            
             # 创建SwitchInfo对象
             switch_info = SwitchInfo(
                 ip=data['ip'],

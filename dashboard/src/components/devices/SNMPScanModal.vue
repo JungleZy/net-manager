@@ -256,24 +256,28 @@ const columns = [
     title: 'IP地址',
     dataIndex: 'ip',
     key: 'ip',
+    align: 'center',
     width: 120
   },
   {
     title: '团体名',
     dataIndex: 'community',
     key: 'community',
+    align: 'center',
     width: 120
   },
   {
     title: '设备描述',
     dataIndex: 'description',
-    key: 'description'
+    key: 'description',
+    align: 'center'
   },
   {
     title: '操作',
     dataIndex: 'action',
     key: 'action',
-    width: 120
+    align: 'center',
+    width: 80
   }
 ]
 // 重置表单
@@ -305,6 +309,7 @@ const handleSnmpVersionChange = (value) => {
 // 确定按钮处理
 const handleOk = () => {
   okText.value = '扫描中'
+  scanTaskData.value = []
   message.loading({
     content: '扫描中...',
     duration: 0,

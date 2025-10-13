@@ -286,3 +286,19 @@ class DatabaseManager:
             DatabaseQueryError: 查询失败时抛出
         """
         return self.switch_manager.get_switch_count()
+
+    def switch_exists(self, ip: str, snmp_version: str) -> bool:
+        """
+        检查交换机是否已存在（基于IP地址和SNMP版本）
+        
+        Args:
+            ip: 交换机IP地址
+            snmp_version: SNMP版本
+            
+        Returns:
+            如果交换机已存在返回True，否则返回False
+            
+        Raises:
+            DatabaseQueryError: 查询失败时抛出
+        """
+        return self.switch_manager.switch_exists(ip, snmp_version)
