@@ -78,10 +78,11 @@ class SNMPMonitor:
         Returns:
             (值, 是否成功)
         """
+        snmp_engine = SnmpEngine()
         try:
             transport_target = await UdpTransportTarget.create((ip, port))
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                SnmpEngine(),
+                snmp_engine,
                 CommunityData(community, mpModel=0),  # mpModel=0表示SNMPv1
                 transport_target,
                 ContextData(),
@@ -101,6 +102,9 @@ class SNMPMonitor:
         except Exception as e:
             logger.error(f"SNMP v1异常: {str(e)}")
             return None, False
+        finally:
+            # 确保关闭引擎
+            snmp_engine.transportDispatcher.closeDispatcher()
             
         return None, False
     
@@ -117,17 +121,16 @@ class SNMPMonitor:
         Returns:
             (值, 是否成功)
         """
+        snmp_engine = SnmpEngine()
         try:
-            
             transport_target = await UdpTransportTarget.create((ip, port), timeout=2.0, retries=3)
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                SnmpEngine(),
+                snmp_engine,
                 CommunityData(community),
                 transport_target,
                 ContextData(),
                 ObjectType(ObjectIdentity(oid))
             )
-            
             if error_indication:
                 logger.error(f"SNMP v2c错误: {error_indication}")
                 return None, False
@@ -141,6 +144,9 @@ class SNMPMonitor:
         except Exception as e:
             logger.error(f"SNMP v2c异常: {str(e)}")
             return None, False
+        finally:
+            # 确保关闭引擎
+            snmp_engine.transportDispatcher.closeDispatcher()
             
         return None, False
     
@@ -157,10 +163,11 @@ class SNMPMonitor:
         Returns:
             (值, 是否成功)
         """
+        snmp_engine = SnmpEngine()
         try:
             transport_target = await UdpTransportTarget.create((ip, port))
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                SnmpEngine(),
+                snmp_engine,
                 UsmUserData(user, authProtocol=usmNoAuthProtocol, privProtocol=usmNoPrivProtocol),
                 transport_target,
                 ContextData(),
@@ -180,6 +187,9 @@ class SNMPMonitor:
         except Exception as e:
             logger.error(f"SNMP v3无认证异常: {str(e)}")
             return None, False
+        finally:
+            # 确保关闭引擎
+            snmp_engine.transportDispatcher.closeDispatcher()
             
         return None, False
     
@@ -204,10 +214,11 @@ class SNMPMonitor:
         else:
             auth_proto = usmHMACMD5AuthProtocol
             
+        snmp_engine = SnmpEngine()
         try:
             transport_target = await UdpTransportTarget.create((ip, port))
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                SnmpEngine(),
+                snmp_engine,
                 UsmUserData(user, authKey=auth_key, authProtocol=auth_proto, privProtocol=usmNoPrivProtocol),
                 transport_target,
                 ContextData(),
@@ -227,6 +238,9 @@ class SNMPMonitor:
         except Exception as e:
             logger.error(f"SNMP v3认证异常: {str(e)}")
             return None, False
+        finally:
+            # 确保关闭引擎
+            snmp_engine.transportDispatcher.closeDispatcher()
             
         return None, False
     
@@ -252,10 +266,11 @@ class SNMPMonitor:
         else:
             auth_proto = usmHMACMD5AuthProtocol
             
+        snmp_engine = SnmpEngine()
         try:
             transport_target = await UdpTransportTarget.create((ip, port))
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                SnmpEngine(),
+                snmp_engine,
                 UsmUserData(user, authKey=auth_key, privKey=priv_key, authProtocol=auth_proto, privProtocol=usmDESPrivProtocol),
                 transport_target,
                 ContextData(),
@@ -275,6 +290,9 @@ class SNMPMonitor:
         except Exception as e:
             logger.error(f"SNMP v3隐私异常: {str(e)}")
             return None, False
+        finally:
+            # 确保关闭引擎
+            snmp_engine.transportDispatcher.closeDispatcher()
             
         return None, False
     
