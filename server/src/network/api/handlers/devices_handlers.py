@@ -301,6 +301,7 @@ class DevicesHandler(BaseHandler):
                     'os_architecture': system['os_architecture'],
                     'machine_type': system['machine_type'],
                     'type': system['type'],
+                    'client_id': system['client_id'],
                     'timestamp': system['timestamp']
                 }
                 processed_systems.append(processed_system)
