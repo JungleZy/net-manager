@@ -2,7 +2,7 @@
   <div class="p-[12px] size-full">
     <div class="size-full bg-white rounded-lg shadow p-[12px] pt-[0]">
       <a-tabs class="size-full" v-model:activeKey="activeKey">
-        <a-tab-pane class="size-full" key="1" tab="普通设备">
+        <a-tab-pane class="size-full" key="1" tab="探针设备">
           <div class="mb-[12px] layout-side">
             <div>
               <span class="mr-2 font-medium">设备类型:</span>
@@ -107,7 +107,7 @@
             </a-table>
           </div>
         </a-tab-pane>
-        <a-tab-pane key="2" tab="交换设备" force-render>
+        <a-tab-pane key="2" tab="SNMP设备" force-render>
           <div class="mb-[12px] layout-side">
             <div></div>
             <div class="layout-right-center">
