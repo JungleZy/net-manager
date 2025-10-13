@@ -142,8 +142,6 @@ jobs:
           # 根据架构设置环境变量
           if ("${{ matrix.architecture }}" -eq "x86") {
             $outputName = "net-manager-client-win-x86.exe"
-          } elseif ("${{ matrix.architecture }}" -eq "arm") {
-            $outputName = "net-manager-client-win-arm.exe"
           } else {
             $outputName = "net-manager-client-win-x64.exe"
           }
@@ -155,8 +153,8 @@ jobs:
             --output-filename="$outputName" `
             --windows-product-name="NetManager Client" `
             --windows-company-name="NetManager" `
-            --product-version="1.0.0.${{ steps.date.outputs.date }}" `
-            --file-version="1.0.0.${{ steps.date.outputs.date }}" `
+            --product-version="1.0.0" `
+            --file-version="1.0.0" `
             --windows-console-mode=hide `
             --enable-plugin=multiprocessing `
             --follow-imports `
@@ -210,11 +208,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib
           
-      - name: Install system dependencies (Linux ARM)
-        if: matrix.architecture == 'arm'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+      
           
       - name: Build client for Linux (${{ matrix.architecture }})
         id: build
@@ -224,16 +218,8 @@ jobs:
           # 根据架构设置编译选项
           if [ "${{ matrix.architecture }}" = "x86" ]; then
             export OUTPUT_NAME="net-manager-client-linux-x86"
-            export CC="gcc"
-            export CXX="g++"
-          elif [ "${{ matrix.architecture }}" = "arm" ]; then
-            export OUTPUT_NAME="net-manager-client-linux-arm"
-            export CC="arm-linux-gnueabihf-gcc"
-            export CXX="arm-linux-gnueabihf-g++"
           else
-            export OUTPUT_NAME="net-manager-client-linux-x64"
-            export CC="gcc"
-            export CXX="g++"
+            export OUTPUT_NAME="net-manager-client-linux-arm"
           fi
           
           # 设置输出变量供后续步骤使用
@@ -244,8 +230,8 @@ jobs:
             --standalone \
             --onefile \
             --output-filename="$OUTPUT_NAME" \
-            --product-version="1.0.0.${{ steps.date.outputs.date }}" \
-            --file-version="1.0.0.${{ steps.date.outputs.date }}" \
+            --product-version="1.0.0" \
+            --file-version="1.0.0" \
             --enable-plugin=multiprocessing \
             --follow-imports \
             --include-package=src \
@@ -287,14 +273,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v1.0.0.${{ steps.date.outputs.date }}
-          name: Release 1.0.0.${{ steps.date.outputs.date }}
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
           files: |
             dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
             dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
-            dist/net-manager-client-windows-arm/net-manager-client-win-arm.exe
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
-            dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-arm/net-manager-client-linux-arm
