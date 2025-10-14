@@ -437,39 +437,30 @@ class SystemCollector:
         获取操作系统信息
         
         Returns:
-            dict: 操作系统信息字典
+            tuple: (os_name, os_version, os_architecture, machine_type) 操作系统信息元组
             
         Raises:
             SystemInfoCollectionError: 获取操作系统信息失败
         """
         try:
             # 获取基本操作系统信息
-            os_info = {
-                "system": platform.system() or "unknown",
-                "release": platform.release() or "unknown",
-                "version": platform.version() or "unknown",
-                "machine": platform.machine() or "unknown",
-                "processor": platform.processor() or "unknown"
-            }
+            os_name = platform.system() or "unknown"
+            os_version = platform.release() or "unknown"
+            machine_type = platform.machine() or "unknown"
             
-            # 获取更详细的系统信息
+            # 获取系统架构
+            os_architecture = "unknown"
             try:
-                # 获取系统架构
-                architecture = platform.architecture()[0] if platform.architecture() else "unknown"
-                os_info["architecture"] = architecture
-                
-                # 获取平台详细信息
-                platform_info = platform.platform()
-                if platform_info:
-                    os_info["platform"] = platform_info
+                architecture_info = platform.architecture()
+                if architecture_info:
+                    os_architecture = architecture_info[0]
             except Exception as e:
-                self.logger.warning(f"获取详细操作系统信息失败: {e}")
+                self.logger.warning(f"获取系统架构信息失败: {e}")
             
-            self.logger.debug(f"获取到操作系统信息: {os_info}")
-            return os_info
+            return os_name, os_version, os_architecture, machine_type
         except Exception as e:
             self.logger.error(f"获取操作系统信息失败: {e}")
-            return {"system": "unknown", "release": "unknown", "version": "unknown", "machine": "unknown", "processor": "unknown"}
+            return "unknown", "unknown", "unknown", "unknown"
     
     def get_services(self) -> List[Dict[str, Any]]:
         """
@@ -956,11 +947,7 @@ class SystemCollector:
                 self.logger.warning(f"获取主机名失败: {e}")
                 
             try:
-                os_info = self.get_os_info()
-                os_name = os_info.get("system", "")
-                os_version = os_info.get("release", "")
-                os_architecture = os_info.get("architecture", "")
-                machine_type = os_info.get("machine", "")
+                os_name, os_version, os_architecture, machine_type = self.get_os_info()
             except Exception as e:
                 self.logger.warning(f"获取操作系统信息失败: {e}")
                 
