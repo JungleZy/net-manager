@@ -2,10 +2,16 @@
   <div class="size-full">
     <div class="mb-[12px] layout-side">
       <div>
+        <span class="mr-2 font-medium">IP地址:</span>
+        <a-input
+          v-model:value="filterIP"
+          placeholder="请输入IP地址"
+          style="width: 200px; margin-right: 12px"
+        />
         <span class="mr-2 font-medium">设备类型:</span>
         <a-select
           v-model:value="filterType"
-          style="width: 200px; margin-right: 12px"
+          style="width: 110px; margin-right: 12px"
           allow-clear
         >
           <a-select-option value="">全部类型</a-select-option>
@@ -14,6 +20,17 @@
           <a-select-option value="笔记本">笔记本</a-select-option>
           <a-select-option value="服务器">服务器</a-select-option>
           <a-select-option value="其他">其他</a-select-option>
+        </a-select>
+
+        <span class="mr-2 font-medium">操作系统:</span>
+        <a-select
+          v-model:value="filterOS"
+          style="width: 110px; margin-right: 12px"
+          allow-clear
+        >
+          <a-select-option value="">全部系统</a-select-option>
+          <a-select-option value="Windows">Windows</a-select-option>
+          <a-select-option value="Linux">Linux</a-select-option>
         </a-select>
         <a-button @click="clearFilter">重置</a-button>
       </div>
@@ -85,6 +102,7 @@
               class="cursor-pointer"
             />
             <a-popconfirm
+              placement="topRight"
               title="确定要删除这个设备吗？"
               @confirm="deleteDevice(record.id)"
               ok-text="确定"
@@ -154,7 +172,7 @@ import {
   EditOutlined
 } from '@ant-design/icons-vue'
 import { formatMachineType } from '@/common/utils/Utils.js'
-import { message, Tooltip } from 'ant-design-vue'
+import { message, Tooltip, Input } from 'ant-design-vue'
 import { h } from 'vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import ServiceDetailModal from '@/components/devices/ServiceDetailModal.vue'
@@ -288,19 +306,63 @@ const formatNetworkRate = (rate) => {
   return `${(rate / 1000000).toFixed(2)} Gbps`
 }
 
-// 筛选类型
+// 筛选状态
 const filterType = ref('')
+const filterIP = ref('')
+const filterOS = ref('')
 
 // 计算筛选后的设备列表
 const filteredDevices = computed(() => {
-  if (!filterType.value) {
-    return props.devices
+  let filtered = props.devices
+
+  // 设备类型筛选
+  if (filterType.value) {
+    // 特殊处理"未设置"类型
+    if (filterType.value === '__unset__') {
+      filtered = filtered.filter((device) => !device.type)
+    } else {
+      filtered = filtered.filter((device) => device.type === filterType.value)
+    }
   }
-  // 特殊处理"未设置"类型
-  if (filterType.value === '__unset__') {
-    return props.devices.filter((device) => !device.type)
+
+  // IP地址模糊匹配筛选
+  if (filterIP.value) {
+    filtered = filtered.filter((device) => {
+      if (!device.ips || !Array.isArray(device.ips)) {
+        return false
+      }
+      // 检查所有IP地址是否包含输入的IP片段
+      return device.ips.some((ip) => {
+        // ip格式为 "接口名: IP地址"，我们只检查IP地址部分
+        const ipAddress = ip.split(': ')[1] || ip
+        return ipAddress && ipAddress.includes(filterIP.value)
+      })
+    })
   }
-  return props.devices.filter((device) => device.type === filterType.value)
+
+  // 操作系统筛选
+  if (filterOS.value) {
+    if (filterOS.value === '__unset__') {
+      // 筛选未设置操作系统的设备
+      filtered = filtered.filter(
+        (device) =>
+          !device.os_name ||
+          device.os_name === 'N/A' ||
+          device.os_name === '未知'
+      )
+    } else {
+      // 筛选指定操作系统的设备
+      filtered = filtered.filter((device) => {
+        if (!device.os_name) return false
+        // 不区分大小写匹配
+        return device.os_name
+          .toLowerCase()
+          .includes(filterOS.value.toLowerCase())
+      })
+    }
+  }
+
+  return filtered
 })
 
 // 表格列定义
@@ -557,6 +619,8 @@ const columns = [
 // 清除筛选
 const clearFilter = () => {
   filterType.value = ''
+  filterIP.value = ''
+  filterOS.value = ''
   emit('clearFilter')
 }
 
