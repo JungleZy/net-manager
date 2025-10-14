@@ -53,240 +53,240 @@ const isSaving = ref(false) // 保存状态
 const leftMenus = ref([])
 
 const data = ref({
-  nodes: [
-    {
-      id: '3',
-      type: 'firewall',
-      x: 200,
-      y: 300,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 200, y: 300, value: '防火墙防火墙防火墙' }
-    },
-    {
-      id: '31',
-      type: 'firewall',
-      x: 652,
-      y: 658,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 652, y: 658, value: '防火墙防火墙防火墙' }
-    },
-    {
-      id: '4',
-      type: 'laptop',
-      x: 350,
-      y: 300,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 350, y: 300, value: '笔记本防火墙台式机路由器' }
-    },
-    {
-      id: '41',
-      type: 'laptop',
-      x: 451,
-      y: 173,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 451, y: 173, value: '笔记本防火墙台式机路由器' }
-    },
-    {
-      id: '5',
-      type: 'pc',
-      x: 500,
-      y: 300,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 500, y: 300, value: '台式机' }
-    },
-    {
-      id: '51',
-      type: 'pc',
-      x: 767,
-      y: 201,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 767, y: 201, value: '台式机' }
-    },
-    {
-      id: '6',
-      type: 'router',
-      x: 656,
-      y: 536,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 656, y: 536, value: '路由器' }
-    },
-    {
-      id: '61',
-      type: 'router',
-      x: 282,
-      y: 604,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 282, y: 604, value: '路由器' }
-    },
-    {
-      id: '7',
-      type: 'server',
-      x: 654,
-      y: 824,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 654, y: 824, value: '服务器' }
-    },
-    {
-      id: '71',
-      type: 'server',
-      x: 432,
-      y: 643,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 432, y: 643, value: '服务器' }
-    },
-    {
-      id: '8',
-      type: 'switch',
-      x: 673,
-      y: 380,
-      properties: { width: 60, height: 60, status: 'offline' },
-      text: { x: 673, y: 380, value: '交换机' }
-    },
-    {
-      id: '81',
-      type: 'switch',
-      x: 473,
-      y: 417,
-      properties: { width: 60, height: 60, status: 'online' },
-      text: { x: 473, y: 417, value: '交换机' }
-    }
-  ],
-  edges: [
-    {
-      id: '5a93be03-4a83-4e0d-9f51-66dc35b91c69',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '41',
-      targetNodeId: '8',
-      sourceAnchorId: '41_1',
-      targetAnchorId: '8_0',
-      startPoint: { x: 481, y: 173 },
-      endPoint: { x: 673, y: 350 },
-      pointsList: [
-        { x: 481, y: 173 },
-        { x: 673, y: 173 },
-        { x: 673, y: 350 }
-      ]
-    },
-    {
-      id: '3927ff57-8721-4b14-93dc-614dc359f864',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '51',
-      targetNodeId: '8',
-      sourceAnchorId: '51_2',
-      targetAnchorId: '8_0',
-      startPoint: { x: 767, y: 231 },
-      endPoint: { x: 673, y: 350 },
-      pointsList: [
-        { x: 767, y: 231 },
-        { x: 767, y: 320 },
-        { x: 673, y: 320 },
-        { x: 673, y: 350 }
-      ]
-    },
-    {
-      id: '214ca0b3-1a1f-43f7-a00b-f1e01183b82a',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '5',
-      targetNodeId: '8',
-      sourceAnchorId: '5_1',
-      targetAnchorId: '8_0',
-      startPoint: { x: 530, y: 300 },
-      endPoint: { x: 673, y: 350 },
-      pointsList: [
-        { x: 530, y: 300 },
-        { x: 673, y: 300 },
-        { x: 673, y: 350 }
-      ]
-    },
-    {
-      id: '007d8b7b-f77b-4891-8e55-f2515bdb133a',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '4',
-      targetNodeId: '81',
-      sourceAnchorId: '4_2',
-      targetAnchorId: '81_0',
-      startPoint: { x: 350, y: 330 },
-      endPoint: { x: 473, y: 387 },
-      pointsList: [
-        { x: 350, y: 330 },
-        { x: 350, y: 357 },
-        { x: 473, y: 357 },
-        { x: 473, y: 387 }
-      ]
-    },
-    {
-      id: 'e440b0ea-f69a-4c3a-bdbf-778049faf7bc',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '81',
-      targetNodeId: '6',
-      sourceAnchorId: '81_2',
-      targetAnchorId: '6_0',
-      startPoint: { x: 473, y: 447 },
-      endPoint: { x: 656, y: 506 },
-      pointsList: [
-        { x: 473, y: 447 },
-        { x: 473, y: 476 },
-        { x: 656, y: 476 },
-        { x: 656, y: 506 }
-      ]
-    },
-    {
-      id: '7cfd444b-04ba-4383-b282-7da9726800cf',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '8',
-      targetNodeId: '6',
-      sourceAnchorId: '8_2',
-      targetAnchorId: '6_0',
-      startPoint: { x: 673, y: 410 },
-      endPoint: { x: 656, y: 506 },
-      pointsList: [
-        { x: 673, y: 410 },
-        { x: 673, y: 458 },
-        { x: 656, y: 458 },
-        { x: 656, y: 506 }
-      ]
-    },
-    {
-      id: '3d5c2846-9e14-4110-9952-d623541cc55f',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '6',
-      targetNodeId: '31',
-      sourceAnchorId: '6_2',
-      targetAnchorId: '31_0',
-      startPoint: { x: 656, y: 566 },
-      endPoint: { x: 652, y: 628 },
-      pointsList: [
-        { x: 656, y: 566 },
-        { x: 656, y: 597 },
-        { x: 652, y: 597 },
-        { x: 652, y: 628 }
-      ]
-    },
-    {
-      id: '15c820d6-2265-47ec-85e8-69ffd631f068',
-      type: 'polyline',
-      properties: {},
-      sourceNodeId: '31',
-      targetNodeId: '7',
-      sourceAnchorId: '31_2',
-      targetAnchorId: '7_0',
-      startPoint: { x: 652, y: 688 },
-      endPoint: { x: 654, y: 794 },
-      pointsList: [
-        { x: 652, y: 688 },
-        { x: 652, y: 741 },
-        { x: 654, y: 741 },
-        { x: 654, y: 794 }
-      ]
-    }
-  ]
+  // nodes: [
+  //   {
+  //     id: '3',
+  //     type: 'firewall',
+  //     x: 200,
+  //     y: 300,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 200, y: 300, value: '防火墙防火墙防火墙' }
+  //   },
+  //   {
+  //     id: '31',
+  //     type: 'firewall',
+  //     x: 652,
+  //     y: 658,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 652, y: 658, value: '防火墙防火墙防火墙' }
+  //   },
+  //   {
+  //     id: '4',
+  //     type: 'laptop',
+  //     x: 350,
+  //     y: 300,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 350, y: 300, value: '笔记本防火墙台式机路由器' }
+  //   },
+  //   {
+  //     id: '41',
+  //     type: 'laptop',
+  //     x: 451,
+  //     y: 173,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 451, y: 173, value: '笔记本防火墙台式机路由器' }
+  //   },
+  //   {
+  //     id: '5',
+  //     type: 'pc',
+  //     x: 500,
+  //     y: 300,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 500, y: 300, value: '台式机' }
+  //   },
+  //   {
+  //     id: '51',
+  //     type: 'pc',
+  //     x: 767,
+  //     y: 201,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 767, y: 201, value: '台式机' }
+  //   },
+  //   {
+  //     id: '6',
+  //     type: 'router',
+  //     x: 656,
+  //     y: 536,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 656, y: 536, value: '路由器' }
+  //   },
+  //   {
+  //     id: '61',
+  //     type: 'router',
+  //     x: 282,
+  //     y: 604,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 282, y: 604, value: '路由器' }
+  //   },
+  //   {
+  //     id: '7',
+  //     type: 'server',
+  //     x: 654,
+  //     y: 824,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 654, y: 824, value: '服务器' }
+  //   },
+  //   {
+  //     id: '71',
+  //     type: 'server',
+  //     x: 432,
+  //     y: 643,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 432, y: 643, value: '服务器' }
+  //   },
+  //   {
+  //     id: '8',
+  //     type: 'switch',
+  //     x: 673,
+  //     y: 380,
+  //     properties: { width: 60, height: 60, status: 'offline' },
+  //     text: { x: 673, y: 380, value: '交换机' }
+  //   },
+  //   {
+  //     id: '81',
+  //     type: 'switch',
+  //     x: 473,
+  //     y: 417,
+  //     properties: { width: 60, height: 60, status: 'online' },
+  //     text: { x: 473, y: 417, value: '交换机' }
+  //   }
+  // ],
+  // edges: [
+  //   {
+  //     id: '5a93be03-4a83-4e0d-9f51-66dc35b91c69',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '41',
+  //     targetNodeId: '8',
+  //     sourceAnchorId: '41_1',
+  //     targetAnchorId: '8_0',
+  //     startPoint: { x: 481, y: 173 },
+  //     endPoint: { x: 673, y: 350 },
+  //     pointsList: [
+  //       { x: 481, y: 173 },
+  //       { x: 673, y: 173 },
+  //       { x: 673, y: 350 }
+  //     ]
+  //   },
+  //   {
+  //     id: '3927ff57-8721-4b14-93dc-614dc359f864',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '51',
+  //     targetNodeId: '8',
+  //     sourceAnchorId: '51_2',
+  //     targetAnchorId: '8_0',
+  //     startPoint: { x: 767, y: 231 },
+  //     endPoint: { x: 673, y: 350 },
+  //     pointsList: [
+  //       { x: 767, y: 231 },
+  //       { x: 767, y: 320 },
+  //       { x: 673, y: 320 },
+  //       { x: 673, y: 350 }
+  //     ]
+  //   },
+  //   {
+  //     id: '214ca0b3-1a1f-43f7-a00b-f1e01183b82a',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '5',
+  //     targetNodeId: '8',
+  //     sourceAnchorId: '5_1',
+  //     targetAnchorId: '8_0',
+  //     startPoint: { x: 530, y: 300 },
+  //     endPoint: { x: 673, y: 350 },
+  //     pointsList: [
+  //       { x: 530, y: 300 },
+  //       { x: 673, y: 300 },
+  //       { x: 673, y: 350 }
+  //     ]
+  //   },
+  //   {
+  //     id: '007d8b7b-f77b-4891-8e55-f2515bdb133a',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '4',
+  //     targetNodeId: '81',
+  //     sourceAnchorId: '4_2',
+  //     targetAnchorId: '81_0',
+  //     startPoint: { x: 350, y: 330 },
+  //     endPoint: { x: 473, y: 387 },
+  //     pointsList: [
+  //       { x: 350, y: 330 },
+  //       { x: 350, y: 357 },
+  //       { x: 473, y: 357 },
+  //       { x: 473, y: 387 }
+  //     ]
+  //   },
+  //   {
+  //     id: 'e440b0ea-f69a-4c3a-bdbf-778049faf7bc',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '81',
+  //     targetNodeId: '6',
+  //     sourceAnchorId: '81_2',
+  //     targetAnchorId: '6_0',
+  //     startPoint: { x: 473, y: 447 },
+  //     endPoint: { x: 656, y: 506 },
+  //     pointsList: [
+  //       { x: 473, y: 447 },
+  //       { x: 473, y: 476 },
+  //       { x: 656, y: 476 },
+  //       { x: 656, y: 506 }
+  //     ]
+  //   },
+  //   {
+  //     id: '7cfd444b-04ba-4383-b282-7da9726800cf',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '8',
+  //     targetNodeId: '6',
+  //     sourceAnchorId: '8_2',
+  //     targetAnchorId: '6_0',
+  //     startPoint: { x: 673, y: 410 },
+  //     endPoint: { x: 656, y: 506 },
+  //     pointsList: [
+  //       { x: 673, y: 410 },
+  //       { x: 673, y: 458 },
+  //       { x: 656, y: 458 },
+  //       { x: 656, y: 506 }
+  //     ]
+  //   },
+  //   {
+  //     id: '3d5c2846-9e14-4110-9952-d623541cc55f',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '6',
+  //     targetNodeId: '31',
+  //     sourceAnchorId: '6_2',
+  //     targetAnchorId: '31_0',
+  //     startPoint: { x: 656, y: 566 },
+  //     endPoint: { x: 652, y: 628 },
+  //     pointsList: [
+  //       { x: 656, y: 566 },
+  //       { x: 656, y: 597 },
+  //       { x: 652, y: 597 },
+  //       { x: 652, y: 628 }
+  //     ]
+  //   },
+  //   {
+  //     id: '15c820d6-2265-47ec-85e8-69ffd631f068',
+  //     type: 'polyline',
+  //     properties: {},
+  //     sourceNodeId: '31',
+  //     targetNodeId: '7',
+  //     sourceAnchorId: '31_2',
+  //     targetAnchorId: '7_0',
+  //     startPoint: { x: 652, y: 688 },
+  //     endPoint: { x: 654, y: 794 },
+  //     pointsList: [
+  //       { x: 652, y: 688 },
+  //       { x: 652, y: 741 },
+  //       { x: 654, y: 741 },
+  //       { x: 654, y: 794 }
+  //     ]
+  //   }
+  // ]
 })
 const isComponentMounted = ref(false)
 
@@ -332,6 +332,20 @@ const initTopology = () => {
     keyboard: {
       enabled: true
     },
+    // 边的默认样式配置
+    edgeType: 'polyline',
+    style: {
+      // 取消边的箭头
+      edge: {
+        stroke: '#afafaf',
+        strokeWidth: 2
+      },
+      // 取消箭头
+      arrow: {
+        offset: 0,
+        verticalLength: 0
+      }
+    },
     plugins: [Control, DndPanel, SelectionSelect, MiniMap, Highlight],
     pluginsOptions: pluginsOptions(),
     adjustEdgeStartAndEnd: true
@@ -352,6 +366,17 @@ const initTopology = () => {
     text: '美化',
     onClick: (lf) => {
       handleBeautifyAction(lf)
+    }
+  })
+
+  // 添加居中按钮
+  lf.extension.control.addItem({
+    key: 'center',
+    iconClass: 'lf-control-center',
+    title: '居中显示',
+    text: '居中',
+    onClick: (lf) => {
+      handleCenterView(lf)
     }
   })
 
@@ -399,6 +424,7 @@ const loadLatestTopology = async () => {
       // 没有保存的拓扑图，使用默认数据
       lf.render(data.value)
     }
+    handleCenterView(lf)
   } catch (error) {
     // 如果是404错误（没有拓扑图），使用默认数据
     if (error.response?.status === 404) {
@@ -419,7 +445,10 @@ const handleAddNode = async () => {
     isSaving.value = true
 
     // 获取当前拓扑图数据
-    const graphData = lf.getGraphData()
+    let graphData = lf.getGraphData()
+
+    // 格式化坐标，保留2位小数
+    graphData = formatGraphData(graphData)
 
     // 如果当前已有拓扑图ID，则更新；否则创建新的
     const response = await TopologyApi.createTopology(graphData)
@@ -455,6 +484,67 @@ const fetchSwitches = async () => {
   } catch (error) {
     console.error('获取交换机列表失败:', error)
   }
+}
+
+/**
+ * 格式化图数据，将所有坐标保留2位小数
+ */
+const formatGraphData = (graphData) => {
+  if (!graphData) return graphData
+
+  // 格式化节点坐标
+  if (graphData.nodes) {
+    graphData.nodes.forEach((node) => {
+      if (typeof node.x === 'number') {
+        node.x = Number(node.x.toFixed(2))
+      }
+      if (typeof node.y === 'number') {
+        node.y = Number(node.y.toFixed(2))
+      }
+      // 格式化文本坐标
+      if (node.text && typeof node.text === 'object') {
+        if (typeof node.text.x === 'number') {
+          node.text.x = Number(node.text.x.toFixed(2))
+        }
+        if (typeof node.text.y === 'number') {
+          node.text.y = Number(node.text.y.toFixed(2))
+        }
+      }
+    })
+  }
+
+  // 格式化边的坐标点
+  if (graphData.edges) {
+    graphData.edges.forEach((edge) => {
+      // 格式化起点
+      if (edge.startPoint) {
+        if (typeof edge.startPoint.x === 'number') {
+          edge.startPoint.x = Number(edge.startPoint.x.toFixed(2))
+        }
+        if (typeof edge.startPoint.y === 'number') {
+          edge.startPoint.y = Number(edge.startPoint.y.toFixed(2))
+        }
+      }
+      // 格式化终点
+      if (edge.endPoint) {
+        if (typeof edge.endPoint.x === 'number') {
+          edge.endPoint.x = Number(edge.endPoint.x.toFixed(2))
+        }
+        if (typeof edge.endPoint.y === 'number') {
+          edge.endPoint.y = Number(edge.endPoint.y.toFixed(2))
+        }
+      }
+      // 格式化路径点列表
+      if (edge.pointsList && Array.isArray(edge.pointsList)) {
+        edge.pointsList = edge.pointsList.map((point) => ({
+          x: typeof point.x === 'number' ? Number(point.x.toFixed(2)) : point.x,
+          y: typeof point.y === 'number' ? Number(point.y.toFixed(2)) : point.y
+        }))
+      }
+    })
+  }
+
+  return graphData
 }
 
 // 一键美化功能（供 Control 插件调用）
@@ -501,12 +591,13 @@ const handleBeautifyAction = (lfInstance) => {
     graphData.nodes.forEach((node) => {
       const dagreNode = g.node(node.id)
       if (dagreNode) {
-        node.x = dagreNode.x
-        node.y = dagreNode.y
+        // 保留2位小数
+        node.x = Number(dagreNode.x.toFixed(2))
+        node.y = Number(dagreNode.y.toFixed(2))
         // 更新文本位置
         if (node.text && typeof node.text === 'object') {
-          node.text.x = dagreNode.x
-          node.text.y = dagreNode.y
+          node.text.x = Number(dagreNode.x.toFixed(2))
+          node.text.y = Number(dagreNode.y.toFixed(2))
         }
       }
     })
@@ -569,11 +660,89 @@ const handleBeautifyAction = (lfInstance) => {
         lfInstance.fitView(20)
       }
     })
-
+    handleCenterView(lf)
     message.success('布局美化完成')
   } catch (error) {
     console.error('美化失败:', error)
     message.error('美化失败，请确保已安装dagre库')
+  }
+}
+
+// 居中显示功能（供 Control 插件调用）
+const handleCenterView = (lfInstance) => {
+  if (!lfInstance) return
+  try {
+    const graphData = lfInstance.getGraphData()
+
+    if (!graphData.nodes || graphData.nodes.length === 0) {
+      message.warning('画布中没有节点')
+      return
+    }
+
+    // 计算所有节点的边界框
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    graphData.nodes.forEach((node) => {
+      const nodeWidth = node.properties?.width || 60
+      const nodeHeight = node.properties?.height || 60
+
+      minX = Math.min(minX, node.x - nodeWidth / 2)
+      minY = Math.min(minY, node.y - nodeHeight / 2)
+      maxX = Math.max(maxX, node.x + nodeWidth / 2)
+      maxY = Math.max(maxY, node.y + nodeHeight / 2)
+    })
+
+    // 计算内容中心点
+    const contentCenterX = (minX + maxX) / 2
+    const contentCenterY = (minY + maxY) / 2
+
+    // 获取画布尺寸和变换
+    const transform = lfInstance.getTransform()
+    const canvasWidth = lfInstance.graphModel.width
+    const canvasHeight = lfInstance.graphModel.height
+
+    // 计算画布中心点（在逻辑坐标系中，考虑当前缩放和平移）
+    // 公式: 逻辑坐标 = (屏幕坐标 - 平移) / 缩放
+    const canvasCenterX =
+      (canvasWidth / 2 - transform.TRANSLATE_X) / transform.SCALE_X
+    const canvasCenterY =
+      (canvasHeight / 2 - transform.TRANSLATE_Y) / transform.SCALE_Y
+
+    // 计算需要移动的距离
+    const offsetX = canvasCenterX - contentCenterX
+    const offsetY = canvasCenterY - contentCenterY
+
+    // 移动所有节点
+    graphData.nodes.forEach((node) => {
+      // 保留2位小数
+      node.x = Number((node.x + offsetX).toFixed(2))
+      node.y = Number((node.y + offsetY).toFixed(2))
+      // 更新文本位置
+      if (node.text && typeof node.text === 'object') {
+        node.text.x = Number((node.text.x + offsetX).toFixed(2))
+        node.text.y = Number((node.text.y + offsetY).toFixed(2))
+      }
+    })
+
+    // 清空边的路径点，让LogicFlow自动重新计算
+    if (graphData.edges) {
+      graphData.edges.forEach((edge) => {
+        delete edge.pointsList
+        delete edge.startPoint
+        delete edge.endPoint
+      })
+    }
+
+    // 重新渲染图
+    lfInstance.render(graphData)
+
+    message.success('已居中显示')
+  } catch (error) {
+    console.error('居中失败:', error)
+    message.error('居中失败')
   }
 }
 
@@ -812,7 +981,8 @@ const handleKeyDown = (event) => {
         width: 16px;
         height: 16px;
       }
-      &[data-key='beautify'] {
+      &[data-key='beautify'],
+      &[data-key='center'] {
         width: 32px;
         height: 32px;
         background-color: #fff;
@@ -847,6 +1017,31 @@ const handleKeyDown = (event) => {
         display: block;
       }
     }
+
+    // 居中按钮图标
+    .lf-control-center {
+      &::before {
+        content: '◉';
+        font-size: 16px;
+        line-height: 1;
+        display: block;
+      }
+    }
+  }
+
+  // 取消边的箭头
+  :deep(.lf-edge) {
+    .lf-arrow {
+      display: none !important;
+    }
+  }
+
+  // 确保所有类型的边都没有箭头
+  :deep(.lf-edge-polyline),
+  :deep(.lf-edge-line),
+  :deep(.lf-edge-bezier) {
+    marker-end: none !important;
+    marker-start: none !important;
   }
 }
 </style>
