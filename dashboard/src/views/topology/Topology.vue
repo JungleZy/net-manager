@@ -4,7 +4,7 @@
       <div class="w-full h-full project-grid" ref="container"></div>
 
       <!-- 左侧菜单空状态提示 -->
-      <div v-if="leftMenus.length === 0" class="left-menu-empty">
+      <div v-if="leftMenus.length === 0" class="left-menu-empty layout-center">
         <div class="empty-content">
           <div class="empty-icon">📦</div>
           <div class="empty-text">暂无数据</div>
@@ -757,8 +757,6 @@ const handleCenterView = (lfInstance) => {
 
     // 重新渲染图
     lfInstance.render(graphData)
-
-    message.success('已居中显示')
   } catch (error) {
     console.error('居中失败:', error)
     message.error('居中失败')
@@ -785,67 +783,48 @@ const calculateBestAnchors = (sourceNode, targetNode) => {
   const absDx = Math.abs(dx)
   const absDy = Math.abs(dy)
 
+  // 锚点索引映射：0-上, 1-右, 2-下, 3-左
+  const ANCHOR = { TOP: 0, RIGHT: 1, BOTTOM: 2, LEFT: 3 }
   let sourceAnchor
   let targetAnchor
 
   // 优化策略：比较水平和垂直距离，选择更大的主方向
   if (absDx > absDy * 1.5) {
-    // 水平距离明显大于垂直距离，优先选择水平方向
-    if (dx > 0) {
-      // 目标在右侧 → 源用右(1)，目标用左(3)
-      sourceAnchor = `${sourceNode.id}_1`
-      targetAnchor = `${targetNode.id}_3`
-    } else {
-      // 目标在左侧 ← 源用左(3)，目标用右(1)
-      sourceAnchor = `${sourceNode.id}_3`
-      targetAnchor = `${targetNode.id}_1`
-    }
+    // 水平距离明显大于垂直距离，优先水平连接
+    const [source, target] =
+      dx > 0
+        ? [ANCHOR.RIGHT, ANCHOR.LEFT] // 目标在右侧 →
+        : [ANCHOR.LEFT, ANCHOR.RIGHT] // 目标在左侧 ←
+    sourceAnchor = `${sourceNode.id}_${source}`
+    targetAnchor = `${targetNode.id}_${target}`
   } else if (absDy > absDx * 1.5) {
-    // 垂直距离明显大于水平距离，优先选择垂直方向
-    if (dy > 0) {
-      // 目标在下方 ↓ 源用下(2)，目标用上(0)
-      sourceAnchor = `${sourceNode.id}_2`
-      targetAnchor = `${targetNode.id}_0`
-    } else {
-      // 目标在上方 ↑ 源用上(0)，目标用下(2)
-      sourceAnchor = `${sourceNode.id}_0`
-      targetAnchor = `${targetNode.id}_2`
-    }
+    // 垂直距离明显大于水平距离，优先垂直连接
+    const [source, target] =
+      dy > 0
+        ? [ANCHOR.BOTTOM, ANCHOR.TOP] // 目标在下方 ↓
+        : [ANCHOR.TOP, ANCHOR.BOTTOM] // 目标在上方 ↑
+    sourceAnchor = `${sourceNode.id}_${source}`
+    targetAnchor = `${targetNode.id}_${target}`
   } else {
-    // 对角方向：水平和垂直距离相近，根据角度精确选择
+    // 对角方向：水平和垂直距离相近，根据角度区间选择
+    let source, target
+
     if (angle >= -22.5 && angle < 22.5) {
-      // 正右 →
-      sourceAnchor = `${sourceNode.id}_1`
-      targetAnchor = `${targetNode.id}_3`
-    } else if (angle >= 22.5 && angle < 67.5) {
-      // 右下 ↘ 根据主要方向选择，这里选择下方
-      sourceAnchor = `${sourceNode.id}_2`
-      targetAnchor = `${targetNode.id}_0`
-    } else if (angle >= 67.5 && angle < 112.5) {
-      // 正下 ↓
-      sourceAnchor = `${sourceNode.id}_2`
-      targetAnchor = `${targetNode.id}_0`
-    } else if (angle >= 112.5 && angle < 157.5) {
-      // 左下 ↙ 根据主要方向选择，这里选择下方
-      sourceAnchor = `${sourceNode.id}_2`
-      targetAnchor = `${targetNode.id}_0`
+      // 正右 → (0°)
+      ;[source, target] = [ANCHOR.RIGHT, ANCHOR.LEFT]
+    } else if (angle >= 22.5 && angle < 157.5) {
+      // 下半圆 ↓ (22.5° ~ 157.5°) 包含：右下、正下、左下
+      ;[source, target] = [ANCHOR.BOTTOM, ANCHOR.TOP]
     } else if (angle >= 157.5 || angle < -157.5) {
-      // 正左 ←
-      sourceAnchor = `${sourceNode.id}_3`
-      targetAnchor = `${targetNode.id}_1`
-    } else if (angle >= -157.5 && angle < -112.5) {
-      // 左上 ↖ 根据主要方向选择，这里选择上方
-      sourceAnchor = `${sourceNode.id}_0`
-      targetAnchor = `${targetNode.id}_2`
-    } else if (angle >= -112.5 && angle < -67.5) {
-      // 正上 ↑
-      sourceAnchor = `${sourceNode.id}_0`
-      targetAnchor = `${targetNode.id}_2`
+      // 正左 ← (180°)
+      ;[source, target] = [ANCHOR.LEFT, ANCHOR.RIGHT]
     } else {
-      // 右上 ↗ 根据主要方向选择，这里选择上方
-      sourceAnchor = `${sourceNode.id}_0`
-      targetAnchor = `${targetNode.id}_2`
+      // 上半圆 ↑ (-157.5° ~ -22.5°) 包含：左上、正上、右上
+      ;[source, target] = [ANCHOR.TOP, ANCHOR.BOTTOM]
     }
+
+    sourceAnchor = `${sourceNode.id}_${source}`
+    targetAnchor = `${targetNode.id}_${target}`
   }
 
   return {
@@ -944,8 +923,6 @@ const updateLeftMenus = () => {
       icon: Switches
     })
   })
-  console.log(newMenus)
-
   // 更新 leftMenus
   leftMenus.value = newMenus
   lf.extension.dndPanel.setPatternItems(leftMenus.value)
@@ -1028,9 +1005,8 @@ const handleKeyDown = (event) => {
       padding: 20px;
 
       .empty-icon {
-        font-size: 32px;
+        font-size: 38px;
         margin-bottom: 8px;
-        opacity: 0.4;
       }
 
       .empty-text {
