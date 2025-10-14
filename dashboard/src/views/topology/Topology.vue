@@ -3,7 +3,9 @@
     <div class="size-full bg-white rounded-lg shadow p-[6px] relative">
       <div class="w-full h-full project-grid" ref="container"></div>
       <div class="absolute bottom-[24px] right-[24px]">
-        <a-button type="primary" @click="handleAddNode">保存</a-button>
+        <a-button type="primary" @click="handleAddNode" :loading="isSaving">
+          {{ isSaving ? '保存中...' : '保存' }}
+        </a-button>
       </div>
     </div>
   </div>
@@ -30,6 +32,8 @@ import SvgNode from '@/common/node/SvgNode'
 import { default as customNodes } from '@/common/node/index'
 import DeviceApi from '@/common/api/device'
 import SwitchApi from '@/common/api/switch'
+import TopologyApi from '@/common/api/topology'
+import { message } from 'ant-design-vue'
 import Firewall from '@/assets/firewall.png'
 import Laptop from '@/assets/laptop.png'
 import Pc from '@/assets/pc.png'
@@ -42,167 +46,11 @@ const containerRef = useTemplateRef('container')
 let lf = null
 const devices = ref([])
 const switches = ref([])
-const leftMenus = ref([
-  {
-    type: 'firewall',
-    label: '防火墙',
-    text: '防火墙',
-    properties: {
-      r: 40
-    },
-    icon: Firewall
-  }
-])
+const currentTopologyId = ref(null) // 当前拓扑图ID
+const isSaving = ref(false) // 保存状态
+const leftMenus = ref([])
 
-const data = {
-  nodes: [
-    {
-      id: '3',
-      type: 'firewall',
-      x: 200,
-      y: 300,
-      text: '防火墙防火墙防火墙',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    },
-    {
-      id: '31',
-      type: 'firewall',
-      x: 250,
-      y: 300,
-      text: '防火墙防火墙防火墙',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '4',
-      type: 'laptop',
-      x: 350,
-      y: 300,
-      text: '笔记本防火墙台式机路由器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '41',
-      type: 'laptop',
-      x: 400,
-      y: 300,
-      text: '笔记本防火墙台式机路由器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    },
-    {
-      id: '5',
-      type: 'pc',
-      x: 500,
-      y: 300,
-      text: '台式机',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '51',
-      type: 'pc',
-      x: 550,
-      y: 300,
-      text: '台式机',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    },
-    {
-      id: '6',
-      type: 'router',
-      x: 200,
-      y: 450,
-      text: '路由器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '61',
-      type: 'router',
-      x: 250,
-      y: 450,
-      text: '路由器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    },
-    {
-      id: '7',
-      type: 'server',
-      x: 350,
-      y: 450,
-      text: '服务器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '71',
-      type: 'server',
-      x: 400,
-      y: 450,
-      text: '服务器',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    },
-    {
-      id: '8',
-      type: 'switch',
-      x: 500,
-      y: 450,
-      text: '交换机',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'offline'
-      }
-    },
-    {
-      id: '81',
-      type: 'switch',
-      x: 550,
-      y: 450,
-      text: '交换机',
-      properties: {
-        width: 60,
-        height: 60,
-        status: 'online'
-      }
-    }
-  ],
-  edges: []
-}
+const data = ref({})
 
 onMounted(() => {
   nextTick(() => {
@@ -249,7 +97,7 @@ const initTopology = () => {
     lf.register(node)
   })
 
-  lf.render(data)
+  lf.render(data.value)
   lf.extension.dndPanel.setPatternItems([])
 
   // 监听节点拖拽添加事件，添加后从leftMenus中移除
@@ -276,12 +124,61 @@ const initTopology = () => {
   })
 
   // 获取设备和交换机数据并设置拖拽面板项
-  Promise.all([fetchDevices(), fetchSwitches()]).then(() => {
-    lf.extension.dndPanel.setPatternItems(leftMenus.value)
-  })
+  Promise.all([fetchDevices(), fetchSwitches(), loadLatestTopology()]).then(
+    () => {
+      lf.extension.dndPanel.setPatternItems(leftMenus.value)
+    }
+  )
 }
 
-const handleAddNode = () => {}
+// 加载最新的拓扑图
+const loadLatestTopology = async () => {
+  try {
+    const response = await TopologyApi.getLatestTopology()
+    if (response.data && response.data.content) {
+      const topologyData = response.data.content
+      currentTopologyId.value = response.data.id
+      data.value = topologyData
+      lf.render(data.value)
+    } else {
+      // 没有保存的拓扑图，使用默认数据
+      lf.render(data.value)
+    }
+  } catch (error) {
+    // 如果是404错误（没有拓扑图），使用默认数据
+    if (error.response?.status === 404) {
+      lf.render(data.value)
+    } else {
+      console.error('加载拓扑图失败:', error)
+      lf.render(data.value)
+    }
+  }
+}
+
+const handleAddNode = async () => {
+  if (isSaving.value) {
+    return
+  }
+
+  try {
+    isSaving.value = true
+
+    // 获取当前拓扑图数据
+    const graphData = lf.getGraphData()
+
+    // 如果当前已有拓扑图ID，则更新；否则创建新的
+    const response = await TopologyApi.createTopology(graphData)
+    if (response.data && response.data.id) {
+      currentTopologyId.value = response.data.id
+    }
+    message.success('拓扑图保存成功')
+  } catch (error) {
+    console.error('保存拓扑图失败:', error)
+    message.error(error.response?.data?.message || '保存拓扑图失败')
+  } finally {
+    isSaving.value = false
+  }
+}
 
 // 获取设备列表
 const fetchDevices = async () => {

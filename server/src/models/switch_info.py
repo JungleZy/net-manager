@@ -5,19 +5,32 @@
 交换机信息模型 - 用于表示和存储交换机SNMP配置信息
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
+
 
 class SwitchInfo:
     """交换机信息模型"""
-    
-    def __init__(self, ip: str, snmp_version: str, community: str = "", user: str = "",
-                 auth_key: str = "", auth_protocol: str = "", priv_key: str = "",
-                 priv_protocol: str = "", description: str = "", device_name: str = "",
-                 created_at: str = None, updated_at: str = None, id: int = None):
+
+    def __init__(
+        self,
+        ip: str,
+        snmp_version: str,
+        community: str = "",
+        user: str = "",
+        auth_key: str = "",
+        auth_protocol: str = "",
+        priv_key: str = "",
+        priv_protocol: str = "",
+        description: str = "",
+        device_name: str = "",
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        id: Optional[int] = None,
+    ):
         """
         初始化交换机信息对象
-        
+
         Args:
             id: 数据库ID（可选）
             ip: 交换机IP地址
@@ -50,51 +63,51 @@ class SwitchInfo:
     def to_dict(self) -> Dict[str, Any]:
         """
         将交换机信息转换为字典格式
-        
+
         Returns:
             包含所有交换机信息的字典
         """
         return {
-            'id': self.id,
-            'ip': self.ip,
-            'snmp_version': self.snmp_version,
-            'community': self.community,
-            'user': self.user,
-            'auth_key': self.auth_key,
-            'auth_protocol': self.auth_protocol,
-            'priv_key': self.priv_key,
-            'priv_protocol': self.priv_protocol,
-            'description': self.description,
-            'device_name': self.device_name,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at
+            "id": self.id,
+            "ip": self.ip,
+            "snmp_version": self.snmp_version,
+            "community": self.community,
+            "user": self.user,
+            "auth_key": self.auth_key,
+            "auth_protocol": self.auth_protocol,
+            "priv_key": self.priv_key,
+            "priv_protocol": self.priv_protocol,
+            "description": self.description,
+            "device_name": self.device_name,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SwitchInfo':
+    def from_dict(cls, data: Dict[str, Any]) -> "SwitchInfo":
         """
         从字典创建SwitchInfo实例
-        
+
         Args:
             data: 包含交换机信息的字典
-            
+
         Returns:
             SwitchInfo实例
         """
         return cls(
-            id=data.get('id'),
-            ip=data.get('ip', ''),
-            snmp_version=data.get('snmp_version', ''),
-            community=data.get('community', ''),
-            user=data.get('user', ''),
-            auth_key=data.get('auth_key', ''),
-            auth_protocol=data.get('auth_protocol', ''),
-            priv_key=data.get('priv_key', ''),
-            priv_protocol=data.get('priv_protocol', ''),
-            description=data.get('description', ''),
-            device_name=data.get('device_name', ''),
-            created_at=data.get('created_at'),
-            updated_at=data.get('updated_at')
+            id=data.get("id"),
+            ip=data.get("ip", ""),
+            snmp_version=data.get("snmp_version", ""),
+            community=data.get("community", ""),
+            user=data.get("user", ""),
+            auth_key=data.get("auth_key", ""),
+            auth_protocol=data.get("auth_protocol", ""),
+            priv_key=data.get("priv_key", ""),
+            priv_protocol=data.get("priv_protocol", ""),
+            description=data.get("description", ""),
+            device_name=data.get("device_name", ""),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
         )
 
     def __str__(self) -> str:

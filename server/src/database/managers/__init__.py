@@ -9,10 +9,12 @@ from src.database.managers.database_manager import DatabaseManager
 from src.database.managers.base_manager import BaseDatabaseManager
 from src.database.managers.device_manager import DeviceManager
 from src.database.managers.switch_manager import SwitchManager
+from src.database.managers.topology_manager import TopologyManager
 
 __all__ = [
-    'DatabaseManager',
-    'BaseDatabaseManager',
-    'DeviceManager',
-    'SwitchManager'
+    "DatabaseManager",
+    "BaseDatabaseManager",
+    "DeviceManager",
+    "SwitchManager",
+    "TopologyManager",
 ]

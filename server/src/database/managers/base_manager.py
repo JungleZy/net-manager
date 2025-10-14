@@ -8,58 +8,69 @@
 import sqlite3
 import threading
 from pathlib import Path
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from typing import Any
 
 from src.core.logger import logger
 from src.database.connection_pool import ConnectionPool, AsyncConnectionPool
 from src.database.db_exceptions import (
-    DatabaseError, 
-    DatabaseConnectionError, 
+    DatabaseError,
+    DatabaseConnectionError,
     DatabaseInitializationError,
     DatabaseQueryError,
-    DatabaseTransactionError
+    DatabaseTransactionError,
 )
 
 
 class BaseDatabaseManager:
     """基础数据库管理器类
-    
+
     提供线程安全的数据库连接和基本操作接口。
     """
-    
-    def __init__(self, db_path: str = "net_manager_server.db", max_connections: int = 10,
-                 cleanup_interval: int = 60, max_idle_time: int = 300):
+
+    def __init__(
+        self,
+        db_path: str = "net_manager_server.db",
+        max_connections: int = 10,
+        cleanup_interval: int = 60,
+        max_idle_time: int = 300,
+    ):
         """
         初始化基础数据库管理器
-        
+
         Args:
             db_path: 数据库文件路径
             max_connections: 最大连接数
             cleanup_interval: 连接池清理间隔（秒）
             max_idle_time: 连接最大空闲时间（秒）
-            
+
         Raises:
             DatabaseInitializationError: 数据库初始化失败时抛出
         """
         self.db_path = Path(db_path)
         self.db_lock = threading.RLock()  # 使用可重入锁
-        
+
         # 初始化连接池
         self.connection_pool = ConnectionPool(
             db_path=str(self.db_path),
             max_connections=max_connections,
             cleanup_interval=cleanup_interval,
-            max_idle_time=max_idle_time
+            max_idle_time=max_idle_time,
         )
         # 初始化异步连接池引用
         self.async_pool = None
 
-    def init_async_pool(self, async_pool=None, max_connections: int = 10, min_connections: int = 2,
-                       cleanup_interval: int = 60, max_idle_time: int = 300):
+    def init_async_pool(
+        self,
+        async_pool=None,
+        max_connections: int = 10,
+        min_connections: int = 2,
+        cleanup_interval: int = 60,
+        max_idle_time: int = 300,
+    ):
         """
         初始化异步连接池
-        
+
         Args:
             async_pool: 异步连接池实例（可选）
             max_connections: 最大连接数
@@ -75,25 +86,25 @@ class BaseDatabaseManager:
                 max_connections=max_connections,
                 min_connections=min_connections,
                 cleanup_interval=cleanup_interval,
-                max_idle_time=max_idle_time
+                max_idle_time=max_idle_time,
             )
 
-    @contextmanager
+    @asynccontextmanager
     async def get_async_connection(self):
         """
         异步数据库连接上下文管理器
-        
+
         从异步连接池获取数据库连接，使用完毕后自动归还到连接池。
-        
+
         Yields:
             sqlite3.Connection: 数据库连接对象
-            
+
         Raises:
             DatabaseConnectionError: 数据库连接失败时抛出
         """
         if self.async_pool is None:
             raise DatabaseConnectionError("异步连接池未初始化")
-        
+
         try:
             async with self.async_pool.get_connection_context() as conn:
                 yield conn
@@ -105,20 +116,24 @@ class BaseDatabaseManager:
     def get_db_connection(self):
         """
         数据库连接上下文管理器
-        
+
         从连接池获取数据库连接，使用完毕后自动归还到连接池。
-        
+
         Yields:
             sqlite3.Connection: 数据库连接对象
-            
+
         Raises:
             DatabaseConnectionError: 数据库连接失败时抛出
         """
         with self.connection_pool.get_connection_context() as conn:
             try:
                 yield conn
-            except (DatabaseError, DatabaseConnectionError, DatabaseInitializationError, 
-                    DatabaseQueryError):
+            except (
+                DatabaseError,
+                DatabaseConnectionError,
+                DatabaseInitializationError,
+                DatabaseQueryError,
+            ):
                 # 重新抛出特定的业务异常，不进行包装
                 raise
             except sqlite3.Error as e:
@@ -132,12 +147,12 @@ class BaseDatabaseManager:
     def transaction(self):
         """
         数据库事务上下文管理器
-        
+
         提供事务支持，自动处理事务的提交和回滚。
-        
+
         Yields:
             sqlite3.Connection: 数据库连接对象
-            
+
         Raises:
             DatabaseTransactionError: 事务操作失败时抛出
         """
@@ -154,7 +169,7 @@ class BaseDatabaseManager:
     async def close_async_pool(self):
         """
         关闭异步连接池
-        
+
         关闭所有异步数据库连接，释放资源。
         """
         if self.async_pool is not None:

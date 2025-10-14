@@ -109,7 +109,7 @@
           <template v-else-if="column.dataIndex === 'action'">
             <EditOutlined
               @click="openEditModal(record)"
-              style="font-size: 16px"
+              style="font-size: 16px;color: #1677ff;"
               class="cursor-pointer"
             />
             <a-popconfirm
@@ -399,6 +399,12 @@ const columns = [
     }
   },
   {
+    title: '设备类型',
+    dataIndex: 'type',
+    align: 'center',
+    key: 'type'
+  },
+  {
     title: '设备名称',
     dataIndex: 'hostname',
     align: 'center',
@@ -588,12 +594,6 @@ const columns = [
         record.networks_count > 0 && record.online ? text : 0
       )
     }
-  },
-  {
-    title: '设备类型',
-    dataIndex: 'type',
-    align: 'center',
-    key: 'type'
   },
   {
     title: '状态',

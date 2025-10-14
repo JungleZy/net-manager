@@ -8,10 +8,8 @@ This package contains data models for the network management server.
 # Import model classes for easier access
 from src.models.device_info import DeviceInfo
 from src.models.switch_info import SwitchInfo
+from src.models.topology_info import TopologyInfo
 
-__all__ = [
-    'DeviceInfo',  
-    'SwitchInfo'
-]
+__all__ = ["DeviceInfo", "SwitchInfo", "TopologyInfo"]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

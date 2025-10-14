@@ -11,7 +11,7 @@ export class Ws {
     if (!Ws.instance) {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-      const wsUrl = `${wsProtocol}//10.10.0.212:12344/ws`;
+      const wsUrl = `${wsProtocol}//127.0.0.1:12344/ws`;
       this.flag = true;
       this.url = wsUrl;
       this.socket = null;
