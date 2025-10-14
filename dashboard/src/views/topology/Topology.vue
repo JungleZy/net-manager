@@ -3,6 +3,14 @@
     <div class="size-full bg-white rounded-lg shadow p-[6px] relative">
       <div class="w-full h-full project-grid" ref="container"></div>
 
+      <!-- 左侧菜单空状态提示 -->
+      <div v-if="leftMenus.length === 0" class="left-menu-empty">
+        <div class="empty-content">
+          <div class="empty-icon">📦</div>
+          <div class="empty-text">暂无数据</div>
+        </div>
+      </div>
+
       <!-- 保存按钮 -->
       <div class="absolute bottom-[24px] right-[24px]">
         <a-button type="primary" @click="handleAddNode" :loading="isSaving">
@@ -403,12 +411,23 @@ const initTopology = () => {
     }
   })
 
+  // 监听节点删除事件，删除后重新添加到左侧菜单
+  lf.on('node:delete', ({ data }) => {
+    // 延迟更新菜单，确保节点已完全删除
+    nextTick(() => {
+      updateLeftMenus()
+      // 更新拖拽面板项
+      if (lf && lf.extension && lf.extension.dndPanel) {
+        lf.extension.dndPanel.setPatternItems(leftMenus.value)
+      }
+    })
+  })
+
   // 获取设备和交换机数据并设置拖拽面板项
-  Promise.all([fetchDevices(), fetchSwitches(), loadLatestTopology()]).then(
-    () => {
-      lf.extension.dndPanel.setPatternItems(leftMenus.value)
-    }
-  )
+  Promise.all([loadLatestTopology()]).then(() => {
+    fetchDevices()
+    fetchSwitches()
+  })
 }
 
 // 加载最新的拓扑图
@@ -837,6 +856,28 @@ const calculateBestAnchors = (sourceNode, targetNode) => {
 
 // 更新左侧菜单项
 const updateLeftMenus = () => {
+  // 获取当前拓扑图中已存在的节点ID集合
+  const existingNodeIds = new Set()
+  if (lf) {
+    try {
+      const graphData = lf.getGraphData()
+      if (graphData && graphData.nodes) {
+        graphData.nodes.forEach((node) => {
+          // 提取节点的 data.id
+          if (
+            node.properties &&
+            node.properties.data &&
+            node.properties.data.id
+          ) {
+            existingNodeIds.add(node.properties.data.id)
+          }
+        })
+      }
+    } catch (error) {
+      console.warn('获取拓扑图节点失败:', error)
+    }
+  }
+
   // 设备类型映射
   const deviceTypeMap = {
     台式机: { icon: Pc, type: 'pc' },
@@ -850,8 +891,14 @@ const updateLeftMenus = () => {
   // 构建新的菜单项列表
   const newMenus = []
 
-  // 添加设备项
+  // 添加设备项（过滤已在拓扑图中的设备）
   devices.value.forEach((device) => {
+    // 检查设备是否已在拓扑图中
+
+    if (existingNodeIds.has(device.client_id)) {
+      return // 跳过已存在的设备
+    }
+
     const deviceType = device.type || '未知设备'
     const typeConfig = deviceTypeMap[deviceType] || { icon: Pc, type: 'pc' }
 
@@ -870,8 +917,13 @@ const updateLeftMenus = () => {
     })
   })
 
-  // 添加交换机项
+  // 添加交换机项（过滤已在拓扑图中的交换机）
   switches.value.forEach((switchItem) => {
+    // 检查交换机是否已在拓扑图中
+    if (existingNodeIds.has(switchItem.id)) {
+      return // 跳过已存在的交换机
+    }
+
     // 使用 deriveDeviceName 函数从描述推导设备名称
     const deviceName =
       switchItem.device_name ||
@@ -892,9 +944,11 @@ const updateLeftMenus = () => {
       icon: Switches
     })
   })
+  console.log(newMenus)
 
   // 更新 leftMenus
   leftMenus.value = newMenus
+  lf.extension.dndPanel.setPatternItems(leftMenus.value)
 }
 
 // 处理键盘Delete键删除功能
@@ -955,6 +1009,37 @@ const handleKeyDown = (event) => {
 
 <style lang="less">
 .topology-area {
+  // 左侧菜单空状态样式
+  .left-menu-empty {
+    background: hsla(0, 0%, 100%, 0.8);
+    border-radius: 5px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    margin: 5px;
+    padding: 15px 5px;
+    position: absolute;
+    z-index: 999;
+    top: 6px;
+    bottom: 6px;
+    width: 120px;
+    overflow: auto;
+
+    .empty-content {
+      text-align: center;
+      padding: 20px;
+
+      .empty-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+        opacity: 0.4;
+      }
+
+      .empty-text {
+        font-size: 12px;
+        color: #999;
+      }
+    }
+  }
+
   .lf-dndpanel {
     top: 0;
     bottom: 0;
