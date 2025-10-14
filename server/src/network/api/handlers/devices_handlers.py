@@ -295,7 +295,7 @@ class DevicesHandler(BaseHandler):
                     if isinstance(network, dict) and 'ip_address' in network:
                         ip = network['ip_address']
                         if ip:  # 只添加非空的IP地址
-                            ips.append(ip)
+                            ips.append(f"{network['name']}: {ip}")
                 
                 processed_device = {
                     'id': device['id'],
@@ -314,7 +314,8 @@ class DevicesHandler(BaseHandler):
                     'machine_type': device['machine_type'],
                     'type': device['type'],
                     'client_id': device['client_id'],
-                    'timestamp': device['timestamp']
+                    'timestamp': device['timestamp'],
+                    'created_at': device['created_at']
                 }
                 processed_devices.append(processed_device)
             

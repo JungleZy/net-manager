@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 # Net Manager specific ignores
-server/*.db
+server/*.db*
 client/logs/
 server/logs/
 __pycache__/

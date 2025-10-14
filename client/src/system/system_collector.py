@@ -445,7 +445,7 @@ class SystemCollector:
         try:
             # 获取基本操作系统信息
             os_name = platform.system() or "unknown"
-            os_version = platform.release() or "unknown"
+            os_version = platform.version() or "unknown"
             machine_type = platform.machine() or "unknown"
             
             # 获取系统架构

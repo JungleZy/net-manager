@@ -59,6 +59,14 @@ class TCPServer:
                         # 存储client_id与客户端地址的映射关系
                         with self.clients_lock:
                             self.client_id_map[client_id] = address
+                        # 发送设备在线状态
+                        state_manager.broadcast_message({
+                            "type": "deviceStatus", 
+                            "data": {
+                                "client_id": client_id,
+                                "status": "online"
+                            }
+                        })
                     else:
                         logger.warning(f"客户端 {address} 发送的不是握手消息")
                 except json.JSONDecodeError:
@@ -95,6 +103,14 @@ class TCPServer:
         except Exception as e:
             logger.error(f"处理客户端 {address} 数据时出错: {e}")
         finally:
+            # 发送设备离线状态
+            state_manager.broadcast_message({
+                "type": "deviceStatus", 
+                "data": {
+                    "client_id": client_id,
+                    "status": "offline"
+                }
+            })
             self._cleanup_client_connection(client_socket, address, client_id)
     
     def _process_client_data(self, data, address, client_id=None):
@@ -206,7 +222,8 @@ class TCPServer:
             cpu_info=info.get('cpu_info', ''),  # CPU信息
             memory_info=info.get('memory_info', ''),  # 内存信息
             disk_info=info.get('disk_info', ''),  # 磁盘信息
-            type=''  # 显式设置type字段为空，确保通过TCP不更新type字段
+            type='',  # 显式设置type字段为空，确保通过TCP不更新type字段
+            created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 创建时间
         )
     
     def _process_services_info(self, info):

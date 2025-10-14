@@ -156,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
 import SwitchApi from '@/common/api/switch.js'
 import { useWindowSize } from '@vueuse/core'
@@ -230,24 +230,27 @@ watch(
 )
 const scanTaskId = ref('')
 
+const scanTaskData = ref([])
 onMounted(() => {
   localforage.getItem('scanTaskId').then((value) => {
     scanTaskId.value = value
   })
+  PubSub.subscribe(wsCode.SCAN_TASK, (data) => {
+    if (data.event === 'scan_completed') {
+      scanTaskData.value = data.data
+      scanTaskId.value = undefined
+      confirmLoading.value = false
+      okText.value = '发起扫描'
+    } else if (data.event === 'scan_error') {
+      scanTaskId.value = undefined
+      confirmLoading.value = false
+      okText.value = '发起扫描'
+    }
+  })
 })
 
-const scanTaskData = ref([])
-PubSub.subscribe(wsCode.SCAN_TASK, (data) => {
-  if (data.event === 'scan_completed') {
-    scanTaskData.value = data.data
-    scanTaskId.value = undefined
-    confirmLoading.value = false
-    okText.value = '发起扫描'
-  } else if (data.event === 'scan_error') {
-    scanTaskId.value = undefined
-    confirmLoading.value = false
-    okText.value = '发起扫描'
-  }
+onUnmounted(() => {
+  PubSub.unsubscribe(wsCode.SCAN_TASK)
 })
 
 // 表列定义

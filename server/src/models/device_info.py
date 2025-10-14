@@ -24,7 +24,8 @@ class DeviceInfo:
                  cpu_info: str = "", 
                  memory_info: str = "", 
                  disk_info: str = "", 
-                 type: str = ""):
+                 type: str = "",
+                 created_at: str = ""):
         """
         初始化系统信息对象
         
@@ -43,6 +44,7 @@ class DeviceInfo:
             os_architecture: 操作系统架构
             machine_type: 机器类型
             type: 设备类型（计算机、交换机、服务器等）
+            created_at: 创建时间
         """
         self.id = id # 数据库主键
         self.client_id = client_id # 客户端唯一标识符
@@ -59,6 +61,7 @@ class DeviceInfo:
         self.memory_info = memory_info # 内存信息（JSON字符串）
         self.disk_info = disk_info # 磁盘信息（JSON字符串）
         self.type = type # 设备类型（计算机、交换机、服务器等）
+        self.created_at = created_at # 创建时间
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -82,7 +85,8 @@ class DeviceInfo:
             'cpu_info': self.cpu_info,
             'memory_info': self.memory_info,
             'disk_info': self.disk_info,
-            'type': self.type
+            'type': self.type,
+            'created_at': self.created_at
         }
 
     @classmethod
@@ -111,5 +115,6 @@ class DeviceInfo:
             cpu_info=data.get('cpu_info', ''),
             memory_info=data.get('memory_info', ''),
             disk_info=data.get('disk_info', ''),
-            type=data.get('type', '')
+            type=data.get('type', ''),
+            created_at=data.get('created_at', '')
         )

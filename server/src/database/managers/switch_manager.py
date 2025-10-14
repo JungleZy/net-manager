@@ -7,6 +7,7 @@
 
 import sqlite3
 from typing import List, Dict, Any, Optional, Tuple
+from contextlib import contextmanager
 
 from src.core.logger import logger
 from src.models.switch_info import SwitchInfo
@@ -25,24 +26,85 @@ class SwitchManager(BaseDatabaseManager):
     提供交换机配置信息的增删改查操作。
     """
     
-    def __init__(self, db_path: str = "net_manager_server.db"):
+    def __init__(self, db_path: str = "net_manager_server.db", max_connections: int = 10,
+                 cleanup_interval: int = 60, max_idle_time: int = 300):
         """
         初始化交换机信息管理器
         
         Args:
             db_path: 数据库文件路径
+            max_connections: 最大连接数
+            cleanup_interval: 连接池清理间隔（秒）
+            max_idle_time: 连接最大空闲时间（秒）
         """
-        super().__init__(db_path)
+        super().__init__(db_path, max_connections, cleanup_interval, max_idle_time)
         self.init_tables()
+        # 初始化异步连接池引用
+        self.async_pool = None
+
+    @contextmanager
+    async def get_async_connection(self):
+        """
+        异步数据库连接上下文管理器
+        
+        从异步连接池获取数据库连接，使用完毕后自动归还到连接池。
+        
+        Yields:
+            sqlite3.Connection: 数据库连接对象
+            
+        Raises:
+            DatabaseConnectionError: 数据库连接失败时抛出
+        """
+        if self.async_pool is None:
+            raise DatabaseConnectionError("异步连接池未初始化")
+        
+        try:
+            async with self.async_pool.get_connection_context() as conn:
+                yield conn
+        except Exception as e:
+            logger.error(f"获取异步数据库连接失败: {e}")
+            raise DatabaseConnectionError(f"获取异步数据库连接失败: {e}") from e
+
+    def init_async_pool(self, async_pool=None, max_connections: int = 10, min_connections: int = 2,
+                       cleanup_interval: int = 60, max_idle_time: int = 300):
+        """
+        初始化异步连接池
+        
+        Args:
+            async_pool: 异步连接池实例（可选）
+            max_connections: 最大连接数
+            min_connections: 最小连接数
+            cleanup_interval: 清理间隔（秒）
+            max_idle_time: 连接最大空闲时间（秒）
+        """
+        if async_pool is not None:
+            self.async_pool = async_pool
+        elif self.async_pool is None:
+            self.async_pool = AsyncConnectionPool(
+                db_path=str(self.db_path),
+                max_connections=max_connections,
+                min_connections=min_connections,
+                cleanup_interval=cleanup_interval,
+                max_idle_time=max_idle_time
+            )
 
     def init_tables(self) -> None:
         """初始化交换机信息表结构
         
-        创建交换机配置表（如果不存在）。
+        创建交换机配置表（如果不存在），启用外键约束和优化设置。
         """
         try:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
+                
+                # 启用外键约束
+                cursor.execute('PRAGMA foreign_keys = ON')
+                
+                # 设置优化参数
+                cursor.execute('PRAGMA journal_mode = WAL')
+                cursor.execute('PRAGMA synchronous = NORMAL')
+                cursor.execute('PRAGMA cache_size = 10000')
+                cursor.execute('PRAGMA temp_store = MEMORY')
                 
                 # 创建交换机配置表
                 cursor.execute('''
@@ -63,8 +125,17 @@ class SwitchManager(BaseDatabaseManager):
                     )
                 ''')
                 
+                # 为常用查询字段创建索引
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_switch_info_ip ON switch_info(ip)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_switch_info_created_at ON switch_info(created_at)
+                ''')
+                
                 conn.commit()
-                logger.info("交换机信息表初始化成功")
+                logger.info("交换机信息表初始化成功，已启用外键约束和优化设置")
         except Exception as e:
             logger.error(f"交换机信息表初始化失败: {e}")
             raise DatabaseError(f"交换机信息表初始化失败: {e}") from e
@@ -84,7 +155,7 @@ class SwitchManager(BaseDatabaseManager):
             DeviceAlreadyExistsError: 交换机IP已存在时抛出
         """
         try:
-            with self.get_db_connection() as conn:
+            with self.transaction() as conn:
                 cursor = conn.cursor()
                 
                 # 检查交换机是否已存在（通过IP地址）
@@ -115,7 +186,7 @@ class SwitchManager(BaseDatabaseManager):
                     switch_info.device_name
                 ))
                 
-                conn.commit()
+                # 事务会在退出时自动提交
                 logger.info(f"交换机配置添加成功，IP地址: {switch_info.ip}")
                 return True, "交换机配置添加成功"
         except DeviceAlreadyExistsError:
@@ -139,7 +210,7 @@ class SwitchManager(BaseDatabaseManager):
             DeviceNotFoundError: 交换机不存在时抛出
         """
         try:
-            with self.get_db_connection() as conn:
+            with self.transaction() as conn:
                 cursor = conn.cursor()
                 
                 # 检查交换机是否存在
@@ -172,7 +243,7 @@ class SwitchManager(BaseDatabaseManager):
                     switch_info.id
                 ))
                 
-                conn.commit()
+                # 事务会在退出时自动提交
                 logger.info(f"交换机配置更新成功，ID: {switch_info.id}")
                 return True, "交换机配置更新成功"
         except DeviceNotFoundError:
@@ -196,7 +267,7 @@ class SwitchManager(BaseDatabaseManager):
             DeviceNotFoundError: 交换机不存在时抛出
         """
         try:
-            with self.get_db_connection() as conn:
+            with self.transaction() as conn:
                 cursor = conn.cursor()
                 
                 # 检查交换机是否存在
@@ -213,7 +284,7 @@ class SwitchManager(BaseDatabaseManager):
                     DELETE FROM switch_info WHERE id = ?
                 ''', (switch_id,))
                 
-                conn.commit()
+                # 事务会在退出时自动提交
                 logger.info(f"交换机配置删除成功，ID: {switch_id}")
                 return True, "交换机配置删除成功"
         except DeviceNotFoundError:
@@ -412,3 +483,14 @@ class SwitchManager(BaseDatabaseManager):
         except Exception as e:
             logger.error(f"查询交换机总数失败: {e}")
             raise DatabaseQueryError(f"查询交换机总数失败: {e}") from e
+
+    async def close_async_pool(self):
+        """
+        关闭异步连接池
+        
+        关闭所有异步数据库连接，释放资源。
+        """
+        if self.async_pool is not None:
+            await self.async_pool.close_all_connections()
+            self.async_pool = None
+            logger.info("交换机管理器异步连接池已关闭")

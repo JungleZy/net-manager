@@ -73,23 +73,25 @@ db_manager.add_switch(switch_info)
 
 ## 数据库表结构
 
-### devices_info（设备信息表）
+### device_info（设备信息表）
 ```sql
-CREATE TABLE IF NOT EXISTS devices_info (
-    mac_address TEXT PRIMARY KEY,
-    hostname TEXT NOT NULL,
-    ip_address TEXT NOT NULL,
-    gateway TEXT,
-    netmask TEXT,
-    services TEXT NOT NULL,
-    processes TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS device_info (
+    id TEXT PRIMARY KEY,
     client_id TEXT,
+    hostname TEXT,
     os_name TEXT,
     os_version TEXT,
     os_architecture TEXT,
     machine_type TEXT,
+    services TEXT,
+    processes TEXT,
+    networks TEXT,
+    cpu_info TEXT,
+    memory_info TEXT,
+    disk_info TEXT,
     type TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 ```
 
