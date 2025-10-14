@@ -11,26 +11,37 @@
         <span class="mr-2 font-medium">设备类型:</span>
         <a-select
           v-model:value="filterType"
-          style="width: 110px; margin-right: 12px"
+          style="width: 100px; margin-right: 12px"
           allow-clear
         >
           <a-select-option value="">全部类型</a-select-option>
-          <a-select-option value="__unset__">未设置</a-select-option>
           <a-select-option value="台式机">台式机</a-select-option>
           <a-select-option value="笔记本">笔记本</a-select-option>
           <a-select-option value="服务器">服务器</a-select-option>
+          <a-select-option value="__unset__">未知</a-select-option>
           <a-select-option value="其他">其他</a-select-option>
         </a-select>
 
         <span class="mr-2 font-medium">操作系统:</span>
         <a-select
           v-model:value="filterOS"
-          style="width: 110px; margin-right: 12px"
+          style="width: 100px; margin-right: 12px"
           allow-clear
         >
           <a-select-option value="">全部系统</a-select-option>
           <a-select-option value="Windows">Windows</a-select-option>
           <a-select-option value="Linux">Linux</a-select-option>
+        </a-select>
+
+        <span class="mr-2 font-medium">状态:</span>
+        <a-select
+          v-model:value="filterStatus"
+          style="width: 80px; margin-right: 12px"
+          allow-clear
+        >
+          <a-select-option value="">全部</a-select-option>
+          <a-select-option value="online">在线</a-select-option>
+          <a-select-option value="offline">离线</a-select-option>
         </a-select>
         <a-button @click="clearFilter">重置</a-button>
       </div>
@@ -310,6 +321,7 @@ const formatNetworkRate = (rate) => {
 const filterType = ref('')
 const filterIP = ref('')
 const filterOS = ref('')
+const filterStatus = ref('')
 
 // 计算筛选后的设备列表
 const filteredDevices = computed(() => {
@@ -359,6 +371,15 @@ const filteredDevices = computed(() => {
           .toLowerCase()
           .includes(filterOS.value.toLowerCase())
       })
+    }
+  }
+
+  // 状态筛选
+  if (filterStatus.value) {
+    if (filterStatus.value === 'online') {
+      filtered = filtered.filter((device) => device.online === true)
+    } else if (filterStatus.value === 'offline') {
+      filtered = filtered.filter((device) => device.online === false)
     }
   }
 
@@ -434,7 +455,8 @@ const columns = [
     title: '操作系统',
     dataIndex: 'os_name',
     align: 'center',
-    key: 'os_name'
+    key: 'os_name',
+    width: 100
   },
   {
     title: '系统版本',
@@ -446,13 +468,15 @@ const columns = [
     title: '系统架构',
     dataIndex: 'os_architecture',
     align: 'center',
-    key: 'os_architecture'
+    key: 'os_architecture',
+    width: 80
   },
   {
     title: '硬件架构',
     dataIndex: 'machine_type',
     align: 'center',
-    key: 'machine_type'
+    key: 'machine_type',
+    width: 80
   },
   {
     title: 'CPU使用率',
@@ -621,6 +645,7 @@ const clearFilter = () => {
   filterType.value = ''
   filterIP.value = ''
   filterOS.value = ''
+  filterStatus.value = ''
   emit('clearFilter')
 }
 
