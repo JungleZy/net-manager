@@ -249,9 +249,79 @@ jobs:
           name: net-manager-client-linux-${{ matrix.architecture }}
           path: client/${{ steps.build.outputs.outputName }}
 
+  build-arm64:
+    name: Build for Phytium D2000 (ARM64)
+    needs: [test-summary] # 只有在测试成功完成后才执行打包
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 飞腾D2000为ARM64架构
+        arch: [arm64]
+        # 可选择飞腾嵌入式Linux相关的发行版，例如Debian系
+        distro: [debian:bullseye]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Build and package for ARM64
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          # 指定飞腾D2000的架构
+          arch: ${{ matrix.arch }}
+          # 选择Linux发行版，例如debian:bullseye
+          distro: ${{ matrix.distro }}
+          # 设置环境变量，例如针对飞腾平台的特定编译标志
+          env: |
+            GOARCH=arm64
+            CROSS_COMPILE=aarch64-linux-gnu-
+          # 在ARM64环境的容器中执行的构建命令
+          run: |
+            # 安装必要的构建工具和依赖
+            apt-get update
+            apt-get install -y build-essential crossbuild-essential-arm64 git cmake python3 python3-pip gcc-multilib g++-multilib
+
+            # 安装 Python 依赖
+            pip3 install "nuitka>=2.7.0,<3.0.0"
+            pip3 install -r requirements.txt
+
+            # 进入客户端目录进行构建
+            cd client
+
+            # 使用Nuitka进行交叉编译打包
+            python3 -m nuitka \
+              --standalone \
+              --onefile \
+              --output-filename="net-manager-client-d2000" \
+              --product-version="1.0.0" \
+              --file-version="1.0.0" \
+              --enable-plugin=multiprocessing \
+              --follow-imports \
+              --include-package=src \
+              --python-flag=-O \
+              --lto=yes \
+              --remove-output \
+              main.py
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-client-d2000-${{ matrix.architecture }}
+          path: client/${{ steps.build.outputs.outputName }}
+
   release:
     name: Create Release
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-arm64]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     permissions:
@@ -285,3 +355,4 @@ jobs:
             dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
             dist/net-manager-client-linux-arm/net-manager-client-linux-arm
+            dist/net-manager-client-linux-d2000/net-manager-client-d2000
