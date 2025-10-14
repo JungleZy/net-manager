@@ -22,6 +22,7 @@ from src.core.config import TCP_PORT
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.models.device_info import DeviceInfo
+from src.core.state_manager import state_manager
 
 class TCPServer:
     """TCP服务端，用于与客户端建立长连接"""
@@ -141,6 +142,17 @@ class TCPServer:
             
             # 保存到数据库
             self.db_manager.save_device_info(device_info)
+            
+            # 从数据库获取保存后的设备信息（字典格式），用于WebSocket广播
+            saved_device_info = self.db_manager.get_device_info_by_id(device_info.id)
+            if saved_device_info:
+                state_manager.broadcast_message({
+                    "type": "deviceInfo", 
+                    "data": saved_device_info
+                })
+                logger.debug("设备信息已保存到数据库并通过WebSocket广播")
+            else:
+                logger.warning("设备信息保存成功，但无法获取保存后的数据进行广播")
             logger.debug("设备信息已保存到数据库")
             
         except json.JSONDecodeError as e:
@@ -190,10 +202,11 @@ class TCPServer:
             services=info.get('services', '[]'),  # 服务信息
             processes=info.get('processes', '[]'),  # 进程信息
             networks=info.get('networks', '[]'),  # 网络信息
-            timestamp=info.get('timestamp', 'N/A'),  # 时间戳
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 时间戳
             cpu_info=info.get('cpu_info', ''),  # CPU信息
             memory_info=info.get('memory_info', ''),  # 内存信息
             disk_info=info.get('disk_info', ''),  # 磁盘信息
+            type=''  # 显式设置type字段为空，确保通过TCP不更新type字段
         )
     
     def _process_services_info(self, info):

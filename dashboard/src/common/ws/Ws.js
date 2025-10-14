@@ -3,6 +3,7 @@ import { PubSub } from "@/common/utils/PubSub";
 
 export const wsCode = {
   SCAN_TASK: "scanTask",
+  DEVICE_INFO: "deviceInfo",
 }
 export class Ws {
   constructor() {
@@ -40,6 +41,9 @@ export class Ws {
         case "scanTask":
           localforage.setItem("scanTaskId", data.data.task_id);
           PubSub.publish(wsCode.SCAN_TASK, data.data);
+          break;
+        case "deviceInfo":
+          PubSub.publish(wsCode.DEVICE_INFO, data.data);
           break;
         default:
           break;

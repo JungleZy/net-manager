@@ -287,12 +287,23 @@ class DevicesHandler(BaseHandler):
             # 处理返回数据：只返回services和processes的数量，并添加在线状态和操作系统信息
             processed_devices = []
             for device in devices:
+                networks = device['networks'] if device['networks'] else []
+                
+                # 提取所有网络接口的IP地址
+                ips = []
+                for network in networks:
+                    if isinstance(network, dict) and 'ip_address' in network:
+                        ip = network['ip_address']
+                        if ip:  # 只添加非空的IP地址
+                            ips.append(ip)
+                
                 processed_device = {
                     'id': device['id'],
                     'hostname': device['hostname'],
                     'services_count': len(device['services']),
                     'processes_count': len(device['processes']),
-                    'networks_count': len(device['networks']),
+                    'networks_count': len(networks),
+                    'ips': ips,  # 添加IP地址列表字段
                     'cpu_info': device['cpu_info'],
                     'memory_info': device['memory_info'],
                     'disk_info': device['disk_info'],

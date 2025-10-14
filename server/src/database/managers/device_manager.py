@@ -99,6 +99,7 @@ class DeviceManager(BaseDatabaseManager):
                     disk_info_json = json.dumps(device_info.disk_info, ensure_ascii=False) if device_info.disk_info else '{}'
                     
                     # 使用INSERT OR REPLACE语句，如果id已存在则更新，否则插入新记录
+                    # 注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置
                     cursor.execute('''
                         INSERT OR REPLACE INTO device_info 
                         (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
@@ -120,7 +121,7 @@ class DeviceManager(BaseDatabaseManager):
                         cpu_info_json,
                         memory_info_json,
                         disk_info_json,
-                        device_info.type,
+                        device_info.id,  # 用于COALESCE子查询的参数
                         device_info.timestamp
                     ))
                     

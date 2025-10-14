@@ -61,30 +61,6 @@
                 <template v-else-if="column.dataIndex === 'type'">
                   {{ record.type || '未设置' }}
                 </template>
-                <template v-else-if="column.dataIndex === 'services_count'">
-                  <a
-                    @click="handleShowServices(record)"
-                    style="color: #1890ff; cursor: pointer"
-                  >
-                    {{
-                      record.services_count !== undefined
-                        ? record.services_count
-                        : 0
-                    }}
-                  </a>
-                </template>
-                <template v-else-if="column.dataIndex === 'processes_count'">
-                  <a
-                    @click="handleShowProcesses(record)"
-                    style="color: #1890ff; cursor: pointer"
-                  >
-                    {{
-                      record.processes_count !== undefined
-                        ? record.processes_count
-                        : 0
-                    }}
-                  </a>
-                </template>
                 <template v-else-if="column.dataIndex === 'cpu_usage'">
                   {{
                     record.cpu_info.usage_percent !== undefined
@@ -116,6 +92,7 @@
                     type="link"
                     size="small"
                     @click="openEditModal(record)"
+                    style="padding: 0"
                     >编辑</a-button
                   >
                   <a-popconfirm
@@ -124,7 +101,13 @@
                     ok-text="确定"
                     cancel-text="取消"
                   >
-                    <a-button type="link" size="small" danger>删除</a-button>
+                    <a-button
+                      type="link"
+                      style="padding: 0; margin-left: 6px"
+                      size="small"
+                      danger
+                      >删除</a-button
+                    >
                   </a-popconfirm>
                 </template>
               </template>
@@ -264,9 +247,11 @@ import ProcessDetailModal from '@/components/devices/ProcessDetailModal.vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import SwitchAddModal from '@/components/devices/SwitchAddModal.vue'
 import SNMPScanModal from '@/components/devices/SNMPScanModal.vue'
-import { message } from 'ant-design-vue'
+import { message, Tooltip } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { formatOSInfo, formatMachineType } from '@/common/utils/Utils.js'
+import { wsCode } from '@/common/ws/Ws.js'
+import { PubSub } from '@/common/utils/PubSub.js'
 
 // 设备列表
 const devices = ref([])
@@ -299,6 +284,45 @@ const columns = [
     dataIndex: 'hostname',
     align: 'center',
     key: 'hostname'
+  },
+  {
+    title: '设备地址',
+    dataIndex: 'ips',
+    align: 'center',
+    key: 'ips',
+    customRender: ({ text }) => {
+      if (!text || !Array.isArray(text) || text.length === 0) {
+        return '无'
+      }
+      // 如果只有一个IP地址，直接显示
+      if (text.length === 1) {
+        return text[0]
+      }
+      // 如果有多个IP地址，显示第一个并提示还有更多
+      return h('div', [
+        h('span', text[0]),
+        h(
+          Tooltip,
+          {
+            title: text.join(', ')
+          },
+          {
+            default: () =>
+              h(
+                'span',
+                {
+                  style: {
+                    color: '#1890ff',
+                    marginLeft: '5px',
+                    cursor: 'pointer'
+                  }
+                },
+                `(+${text.length - 1})`
+              )
+          }
+        )
+      ])
+    }
   },
   {
     title: '操作系统',
@@ -349,13 +373,47 @@ const columns = [
     title: '服务数量',
     dataIndex: 'services_count',
     align: 'center',
-    key: 'services_count'
+    key: 'services_count',
+    customRender: ({ text, record }) => {
+      return h(
+        'a',
+        {
+          onClick: () => {
+            if (record.services_count > 0) {
+              handleShowServices(record)
+            }
+          },
+          style: {
+            color: record.services_count > 0 ? '#1890ff' : '#00000040',
+            cursor: record.services_count > 0 ? 'pointer' : 'not-allowed'
+          }
+        },
+        text
+      )
+    }
   },
   {
     title: '进程数量',
     dataIndex: 'processes_count',
     align: 'center',
-    key: 'processes_count'
+    key: 'processes_count',
+    customRender: ({ text, record }) => {
+      return h(
+        'a',
+        {
+          onClick: () => {
+            if (record.processes_count > 0) {
+              handleShowProcesses(record)
+            }
+          },
+          style: {
+            color: record.processes_count > 0 ? '#1890ff' : '#00000040',
+            cursor: record.processes_count > 0 ? 'pointer' : 'not-allowed'
+          }
+        },
+        text
+      )
+    }
   },
   {
     title: '网口数量',
@@ -394,11 +452,38 @@ const columns = [
     width: 80
   },
   {
+    title: '上报时间',
+    dataIndex: 'timestamp',
+    align: 'center',
+    key: 'timestamp',
+    width: 136,
+    customRender: ({ text, record }) => {
+      // 生成唯一key用于跟踪变更
+      const key = `timestamp-${record.id}`
+      // 检查是否是新变更的数据
+      const isChanged = changedTimestamps.value[key] || false
+
+      return h(
+        'span',
+        {
+          class: isChanged ? 'timestamp-changed' : '',
+          onAnimationEnd: () => {
+            // 动画结束后清除标记
+            if (changedTimestamps.value[key]) {
+              changedTimestamps.value[key] = false
+            }
+          }
+        },
+        text
+      )
+    }
+  },
+  {
     title: '操作',
     dataIndex: 'action',
     align: 'center',
     key: 'action',
-    width: 106
+    width: 86
   }
 ]
 
@@ -407,6 +492,9 @@ const pagination = {
   pageSize: 10
 }
 const loading = ref(false)
+
+// 用于跟踪时间戳变更状态
+const changedTimestamps = ref({})
 
 // 筛选类型
 const filterType = ref('')
@@ -687,6 +775,34 @@ onBeforeRouteLeave((to, from) => {
 onMounted(() => {
   fetchDevices()
   fetchSwitches()
+  PubSub.subscribe(wsCode.DEVICE_INFO, (deviceInfo) => {
+    // 处理设备信息更新
+    console.log('收到设备信息更新:', deviceInfo)
+    // 可以根据需要更新设备列表
+    // 例如：
+    const index = devices.value.findIndex((dev) => dev.id === deviceInfo.id)
+    if (index !== -1) {
+      // 检查时间戳是否发生变化
+      const oldTimestamp = devices.value[index].timestamp
+      const newTimestamp = deviceInfo.timestamp
+
+      // 更新设备信息
+      devices.value[index] = { ...devices.value[index], ...deviceInfo }
+
+      // 如果时间戳发生变化，标记变更状态
+      if (oldTimestamp !== newTimestamp) {
+        const key = `timestamp-${deviceInfo.id}`
+        changedTimestamps.value[key] = true
+
+        // 3秒后自动清除变更标记
+        setTimeout(() => {
+          if (changedTimestamps.value[key]) {
+            changedTimestamps.value[key] = false
+          }
+        }, 3000)
+      }
+    }
+  })
 })
 // 获取交换机列表
 const fetchSwitches = async () => {
@@ -801,39 +917,6 @@ const formatNetworkRate = (rate) => {
   return `${(rate / 1000000).toFixed(2)} Gbps`
 }
 
-// 进程表格列定义
-const processColumns = [
-  {
-    title: 'PID',
-    dataIndex: 'pid',
-    key: 'pid',
-    width: 80
-  },
-  {
-    title: '名称',
-    dataIndex: 'name',
-    key: 'name'
-  },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    key: 'status',
-    width: 100
-  },
-  {
-    title: 'CPU使用率',
-    dataIndex: 'cpu_percent',
-    key: 'cpu_percent',
-    width: 120
-  },
-  {
-    title: '内存使用率',
-    dataIndex: 'memory_percent',
-    key: 'memory_percent',
-    width: 120
-  }
-]
-
 // 网口表格列定义
 const networkColumns = [
   {
@@ -874,20 +957,9 @@ const networkColumns = [
     customRender: ({ text }) => formatNetworkRate(text)
   }
 ]
-
-// 分页配置
-const servicePagination = {
-  pageSize: 10
-}
-const processPagination = {
-  pageSize: 10
-}
-const networkPagination = {
-  pageSize: 10
-}
 </script>
 
-<style lang="less" scoped>
+<style lang="less">
 .modal-max-height {
   :deep(.ant-modal) {
     max-height: 90vh;
@@ -936,5 +1008,25 @@ const networkPagination = {
 
 .pt-2 {
   padding-top: 0.5rem;
+}
+
+// 时间戳变更时的过渡色提示样式
+.timestamp-changed {
+  animation: highlightChange 3s ease-in-out;
+}
+
+@keyframes highlightChange {
+  0% {
+    background-color: rgba(255, 193, 7, 0.5); // 淡黄色背景
+    color: #212529;
+  }
+  50% {
+    background-color: rgba(40, 167, 69, 0.3); // 淡绿色背景
+    color: #212529;
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
 }
 </style>
