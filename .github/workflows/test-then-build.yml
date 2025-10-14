@@ -221,8 +221,10 @@ jobs:
           # 根据架构设置编译选项
           if [ "${{ matrix.architecture }}" = "x86" ]; then
             export OUTPUT_NAME="net-manager-client-linux-x86"
-          else
+          elif [ "${{ matrix.architecture }}" = "arm" ]; then
             export OUTPUT_NAME="net-manager-client-linux-arm"
+          else
+            export OUTPUT_NAME="net-manager-client-linux-arm64"
           fi
 
           # 设置输出变量供后续步骤使用
