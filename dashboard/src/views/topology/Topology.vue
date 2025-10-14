@@ -607,10 +607,9 @@ const fetchSwitches = async () => {
 const formatGraphData = (graphData) => {
   if (!graphData) return graphData
 
-  // 格式化节点坐标 - 使用for循环提升性能
+  // 格式化节点坐标 - 使用for-of循环提升可读性
   if (graphData.nodes?.length > 0) {
-    for (let i = 0; i < graphData.nodes.length; i++) {
-      const node = graphData.nodes[i]
+    for (const node of graphData.nodes) {
       if (typeof node.x === 'number') {
         node.x = Number(node.x.toFixed(2))
       }
@@ -629,10 +628,9 @@ const formatGraphData = (graphData) => {
     }
   }
 
-  // 格式化边的坐标点 - 使用for循环提升性能
+  // 格式化边的坐标点 - 使用for-of循环提升可读性
   if (graphData.edges?.length > 0) {
-    for (let i = 0; i < graphData.edges.length; i++) {
-      const edge = graphData.edges[i]
+    for (const edge of graphData.edges) {
       // 格式化起点
       if (edge.startPoint) {
         if (typeof edge.startPoint.x === 'number') {
@@ -653,8 +651,7 @@ const formatGraphData = (graphData) => {
       }
       // 格式化路径点列表
       if (edge.pointsList?.length > 0) {
-        for (let j = 0; j < edge.pointsList.length; j++) {
-          const point = edge.pointsList[j]
+        for (const point of edge.pointsList) {
           if (typeof point.x === 'number') {
             point.x = Number(point.x.toFixed(2))
           }
@@ -667,6 +664,117 @@ const formatGraphData = (graphData) => {
   }
 
   return graphData
+}
+
+/**
+ * 创建并配置dagre图布局
+ */
+const createDagreGraph = () => {
+  const g = new dagre.graphlib.Graph()
+  g.setGraph({
+    rankdir: 'TB', // 从上到下布局
+    nodesep: 100, // 节点间距
+    ranksep: 100, // 层级间距
+    marginx: 50,
+    marginy: 50
+  })
+  g.setDefaultEdgeLabel(() => ({}))
+  return g
+}
+
+/**
+ * 将节点和边添加到dagre图中
+ */
+const populateDagreGraph = (g, graphData) => {
+  // 添加节点
+  for (const node of graphData.nodes) {
+    g.setNode(node.id, {
+      width: node.properties?.width || 60,
+      height: node.properties?.height || 60
+    })
+  }
+
+  // 添加边
+  if (graphData.edges?.length > 0) {
+    for (const edge of graphData.edges) {
+      g.setEdge(edge.sourceNodeId, edge.targetNodeId)
+    }
+  }
+}
+
+/**
+ * 根据dagre布局结果更新节点位置
+ */
+const updateNodePositions = (graphData, g) => {
+  for (const node of graphData.nodes) {
+    const dagreNode = g.node(node.id)
+    if (!dagreNode) continue
+
+    // 保留2位小数
+    node.x = Number(dagreNode.x.toFixed(2))
+    node.y = Number(dagreNode.y.toFixed(2))
+
+    // 更新文本位置
+    if (node.text && typeof node.text === 'object') {
+      node.text.x = Number(dagreNode.x.toFixed(2))
+      node.text.y = Number(dagreNode.y.toFixed(2))
+    }
+  }
+}
+
+/**
+ * 优化边的锚点连接
+ */
+const optimizeEdgeAnchors = (graphData) => {
+  if (!graphData.edges?.length) return
+
+  for (const edge of graphData.edges) {
+    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
+    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
+
+    if (sourceNode && targetNode) {
+      const bestAnchors = calculateBestAnchors(sourceNode, targetNode)
+      edge.sourceAnchorId = bestAnchors.sourceAnchor
+      edge.targetAnchorId = bestAnchors.targetAnchor
+    }
+
+    // 删除旧的路径点信息，让LogicFlow重新计算
+    delete edge.pointsList
+    delete edge.startPoint
+    delete edge.endPoint
+  }
+}
+
+/**
+ * 触发画布适应视图
+ */
+const triggerFitView = (lfInstance) => {
+  const control = lfInstance.extension?.control
+  if (!control) {
+    lfInstance.fitView(20)
+    return
+  }
+
+  const controlItems = control.controlItems
+  if (!controlItems) {
+    lfInstance.fitView(20)
+    return
+  }
+
+  // 查找适应画布按钮
+  const fitItem = controlItems.find(
+    (item) =>
+      item.key === 'reset' ||
+      item.key === 'fit' ||
+      item.key === 'lf-control-fit'
+  )
+
+  const hasFitFunction = fitItem?.onClick
+  if (hasFitFunction) {
+    fitItem.onClick(lfInstance)
+  } else {
+    lfInstance.fitView(20)
+  }
 }
 
 // 一键美化功能（供 Control 插件调用）
@@ -684,109 +792,24 @@ const handleBeautifyAction = (lfInstance) => {
       return
     }
 
-    // 创廼dagre图
-    const g = new dagre.graphlib.Graph()
-    g.setGraph({
-      rankdir: 'TB', // 从上到下布局
-      nodesep: 100, // 节点间距
-      ranksep: 100, // 层级间距
-      marginx: 50,
-      marginy: 50
-    })
-    g.setDefaultEdgeLabel(() => ({}))
-
-    // 添加节点到dagre图
-    graphData.nodes.forEach((node) => {
-      g.setNode(node.id, {
-        width: node.properties?.width || 60,
-        height: node.properties?.height || 60
-      })
-    })
-
-    // 添加边到dagre图
-    if (graphData.edges) {
-      graphData.edges.forEach((edge) => {
-        g.setEdge(edge.sourceNodeId, edge.targetNodeId)
-      })
-    }
-
-    // 执行布局计算
+    // 创建dagre图并执行布局
+    const g = createDagreGraph()
+    populateDagreGraph(g, graphData)
     dagre.layout(g)
 
-    // 更新节点位置 - 直接修改graphData并重新渲染
-    graphData.nodes.forEach((node) => {
-      const dagreNode = g.node(node.id)
-      if (dagreNode) {
-        // 保留2位小数
-        node.x = Number(dagreNode.x.toFixed(2))
-        node.y = Number(dagreNode.y.toFixed(2))
-        // 更新文本位置
-        if (node.text && typeof node.text === 'object') {
-          node.text.x = Number(dagreNode.x.toFixed(2))
-          node.text.y = Number(dagreNode.y.toFixed(2))
-        }
-      }
-    })
+    // 更新节点位置和边的锚点
+    updateNodePositions(graphData, g)
+    optimizeEdgeAnchors(graphData)
 
-    // 优化边的锚点连接 - 遵循就近原则
-    if (graphData.edges) {
-      graphData.edges.forEach((edge) => {
-        const sourceNode = graphData.nodes.find(
-          (n) => n.id === edge.sourceNodeId
-        )
-        const targetNode = graphData.nodes.find(
-          (n) => n.id === edge.targetNodeId
-        )
-
-        if (sourceNode && targetNode) {
-          // 计算最佳锚点
-          const bestAnchors = calculateBestAnchors(sourceNode, targetNode)
-
-          // 更新锚点ID
-          edge.sourceAnchorId = bestAnchors.sourceAnchor
-          edge.targetAnchorId = bestAnchors.targetAnchor
-        }
-
-        // 删除旧的路径点信息，让LogicFlow重新计算
-        delete edge.pointsList
-        delete edge.startPoint
-        delete edge.endPoint
-      })
-    }
-
-    // 重新渲染图，这会根据新的节点位置自动计算连线
+    // 重新渲染图
     lfInstance.render(graphData)
 
-    // 使用Control插件的适应画布功能
+    // 适应视图并居中
     nextTick(() => {
-      if (lfInstance.extension && lfInstance.extension.control) {
-        // 查找并触发Control插件的适应按钮
-        const controlItems = lfInstance.extension.control.controlItems
-        if (controlItems) {
-          // 查找适应画布按钮（通常key为'reset'或'fit'）
-          const fitItem = controlItems.find(
-            (item) =>
-              item.key === 'reset' ||
-              item.key === 'fit' ||
-              item.key === 'lf-control-fit'
-          )
-          if (fitItem && fitItem.onClick) {
-            // 调用Control插件的适应功能
-            fitItem.onClick(lfInstance)
-          } else {
-            // 如果找不到，降级使用原生API
-            lfInstance.fitView(20)
-          }
-        } else {
-          // 如果Control插件未正确初始化，使用原生API
-          lfInstance.fitView(20)
-        }
-      } else {
-        // 如果Control插件不存在，使用原生API
-        lfInstance.fitView(20)
-      }
+      triggerFitView(lfInstance)
+      handleCenterView(lf)
     })
-    handleCenterView(lf)
+
     message.success('布局美化完成')
   } catch (error) {
     console.error('美化失败:', error)
@@ -815,8 +838,7 @@ const handleCenterView = (lfInstance) => {
     let maxX = -Infinity
     let maxY = -Infinity
 
-    for (let i = 0; i < graphData.nodes.length; i++) {
-      const node = graphData.nodes[i]
+    for (const node of graphData.nodes) {
       const nodeWidth = node.properties?.width || 60
       const nodeHeight = node.properties?.height || 60
 
@@ -845,9 +867,8 @@ const handleCenterView = (lfInstance) => {
     const offsetX = canvasCenterX - contentCenterX
     const offsetY = canvasCenterY - contentCenterY
 
-    // 移动所有节点 - 使用for循环提升性能
-    for (let i = 0; i < graphData.nodes.length; i++) {
-      const node = graphData.nodes[i]
+    // 移动所有节点 - 使用for-of循环提升可读性
+    for (const node of graphData.nodes) {
       node.x = Number((node.x + offsetX).toFixed(2))
       node.y = Number((node.y + offsetY).toFixed(2))
       // 更新文本位置
@@ -859,8 +880,7 @@ const handleCenterView = (lfInstance) => {
 
     // 清空边的路径点，让LogicFlow自动重新计算
     if (graphData.edges?.length > 0) {
-      for (let i = 0; i < graphData.edges.length; i++) {
-        const edge = graphData.edges[i]
+      for (const edge of graphData.edges) {
         delete edge.pointsList
         delete edge.startPoint
         delete edge.endPoint
@@ -876,6 +896,62 @@ const handleCenterView = (lfInstance) => {
 }
 
 /**
+ * 根据角度确定锚点方向
+ * @param {number} angle - 角度值（度数）
+ * @returns {Array} [源锚点索引, 目标锚点索引]
+ */
+const getAnchorsByAngle = (angle) => {
+  // 角度区间到锚点的映射表
+  const angleRanges = [
+    { min: -22.5, max: 22.5, anchors: [ANCHOR.RIGHT, ANCHOR.LEFT] }, // 正右
+    { min: 22.5, max: 157.5, anchors: [ANCHOR.BOTTOM, ANCHOR.TOP] }, // 下半圆
+    { min: 157.5, max: 180, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（正值）
+    { min: -180, max: -157.5, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（负值）
+    { min: -157.5, max: -22.5, anchors: [ANCHOR.TOP, ANCHOR.BOTTOM] } // 上半圆
+  ]
+
+  for (const range of angleRanges) {
+    if (angle >= range.min && angle < range.max) {
+      return range.anchors
+    }
+  }
+
+  // 默认返回右侧连接
+  return [ANCHOR.RIGHT, ANCHOR.LEFT]
+}
+
+/**
+ * 根据距离差值确定主方向的锚点
+ * @param {number} dx - x轴差值
+ * @param {number} dy - y轴差值
+ * @param {number} absDx - x轴距离绝对值
+ * @param {number} absDy - y轴距离绝对值
+ * @returns {Array|null} [源锚点索引, 目标锚点索引] 或 null（表示需要用角度计算）
+ */
+const getAnchorsByDistance = (dx, dy, absDx, absDy) => {
+  const horizontalDominant = absDx > absDy * 1.5
+  const verticalDominant = absDy > absDx * 1.5
+
+  if (horizontalDominant) {
+    return dx > 0 ? [ANCHOR.RIGHT, ANCHOR.LEFT] : [ANCHOR.LEFT, ANCHOR.RIGHT]
+  }
+
+  if (verticalDominant) {
+    return dy > 0 ? [ANCHOR.BOTTOM, ANCHOR.TOP] : [ANCHOR.TOP, ANCHOR.BOTTOM]
+  }
+
+  return null
+}
+
+/**
+ * 格式化锚点ID
+ * @param {string} nodeId - 节点ID
+ * @param {number} anchorIndex - 锚点索引
+ * @returns {string} 格式化的锚点ID
+ */
+const formatAnchorId = (nodeId, anchorIndex) => `${nodeId}_${anchorIndex}`
+
+/**
  * 计算两个节点之间的最佳锚点连接
  * 锚点索引: 0-上, 1-右, 2-下, 3-左
  * 原则：目标在源的某个方向，源节点就用该方向的锚点，目标节点用相反方向的锚点
@@ -889,65 +965,26 @@ const calculateBestAnchors = (sourceNode, targetNode) => {
     }
   }
 
-  const sx = sourceNode.x
-  const sy = sourceNode.y
-  const tx = targetNode.x
-  const ty = targetNode.y
-
-  // 计算节点中心点之间的差值和角度
-  const dx = tx - sx
-  const dy = ty - sy
-  const angle = Math.atan2(dy, dx) * (180 / Math.PI)
-
-  // 计算水平和垂直距离的绝对值，用于判断主要方向
+  // 计算节点中心点之间的差值
+  const dx = targetNode.x - sourceNode.x
+  const dy = targetNode.y - sourceNode.y
   const absDx = Math.abs(dx)
   const absDy = Math.abs(dy)
 
-  let sourceAnchor
-  let targetAnchor
+  // 优先根据距离判断主方向
+  let anchors = getAnchorsByDistance(dx, dy, absDx, absDy)
 
-  // 优化策略：比较水平和垂直距离，选择更大的主方向
-  if (absDx > absDy * 1.5) {
-    // 水平距离明显大于垂直距离，优先水平连接
-    const [source, target] =
-      dx > 0
-        ? [ANCHOR.RIGHT, ANCHOR.LEFT] // 目标在右侧 →
-        : [ANCHOR.LEFT, ANCHOR.RIGHT] // 目标在左侧 ←
-    sourceAnchor = `${sourceNode.id}_${source}`
-    targetAnchor = `${targetNode.id}_${target}`
-  } else if (absDy > absDx * 1.5) {
-    // 垂直距离明显大于水平距离，优先垂直连接
-    const [source, target] =
-      dy > 0
-        ? [ANCHOR.BOTTOM, ANCHOR.TOP] // 目标在下方 ↓
-        : [ANCHOR.TOP, ANCHOR.BOTTOM] // 目标在上方 ↑
-    sourceAnchor = `${sourceNode.id}_${source}`
-    targetAnchor = `${targetNode.id}_${target}`
-  } else {
-    // 对角方向：水平和垂直距离相近，根据角度区间选择
-    let source, target
-
-    if (angle >= -22.5 && angle < 22.5) {
-      // 正右 → (0°)
-      ;[source, target] = [ANCHOR.RIGHT, ANCHOR.LEFT]
-    } else if (angle >= 22.5 && angle < 157.5) {
-      // 下半圆 ↓ (22.5° ~ 157.5°) 包含：右下、正下、左下
-      ;[source, target] = [ANCHOR.BOTTOM, ANCHOR.TOP]
-    } else if (angle >= 157.5 || angle < -157.5) {
-      // 正左 ← (180°)
-      ;[source, target] = [ANCHOR.LEFT, ANCHOR.RIGHT]
-    } else {
-      // 上半圆 ↑ (-157.5° ~ -22.5°) 包含：左上、正上、右上
-      ;[source, target] = [ANCHOR.TOP, ANCHOR.BOTTOM]
-    }
-
-    sourceAnchor = `${sourceNode.id}_${source}`
-    targetAnchor = `${targetNode.id}_${target}`
+  // 如果距离无法确定主方向，则根据角度判断
+  if (!anchors) {
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI)
+    anchors = getAnchorsByAngle(angle)
   }
 
+  const [sourceAnchorIndex, targetAnchorIndex] = anchors
+
   return {
-    sourceAnchor,
-    targetAnchor
+    sourceAnchor: formatAnchorId(sourceNode.id, sourceAnchorIndex),
+    targetAnchor: formatAnchorId(targetNode.id, targetAnchorIndex)
   }
 }
 
@@ -959,9 +996,8 @@ const updateLeftMenus = () => {
     try {
       const graphData = lf.getGraphData()
       if (graphData?.nodes?.length > 0) {
-        // 使用for循环提升性能
-        for (let i = 0; i < graphData.nodes.length; i++) {
-          const node = graphData.nodes[i]
+        // 使用for-of循环提升可读性
+        for (const node of graphData.nodes) {
           const dataId = node?.properties?.data?.id
           if (dataId) {
             existingNodeIds.add(dataId)
@@ -976,10 +1012,9 @@ const updateLeftMenus = () => {
   // 构建新的菜单项列表
   const newMenus = []
 
-  // 添加设备项（过滤已在拓扑图中的设备） - 使用for循环
+  // 添加设备项（过滤已在拓扑图中的设备） - 使用for-of循环
   const devicesArray = devices.value
-  for (let i = 0; i < devicesArray.length; i++) {
-    const device = devicesArray[i]
+  for (const device of devicesArray) {
     // 检查设备是否已在拓扑图中
     if (existingNodeIds.has(device.client_id)) {
       continue // 跳过已存在的设备
@@ -1003,10 +1038,9 @@ const updateLeftMenus = () => {
     })
   }
 
-  // 添加交换机项（过滤已在拓扑图中的交换机） - 使用for循环
+  // 添加交换机项（过滤已在拓扑图中的交换机） - 使用for-of循环
   const switchesArray = switches.value
-  for (let i = 0; i < switchesArray.length; i++) {
-    const switchItem = switchesArray[i]
+  for (const switchItem of switchesArray) {
     // 检查交换机是否已在拓扑图中
     if (existingNodeIds.has(switchItem.id)) {
       continue // 跳过已存在的交换机
@@ -1040,62 +1074,87 @@ const updateLeftMenus = () => {
   }
 }
 
+/**
+ * 检查事件目标是否为可编辑元素
+ * @param {EventTarget} target - 事件目标
+ * @returns {boolean} 是否为可编辑元素
+ */
+const isEditableElement = (target) => {
+  return (
+    target?.tagName === 'INPUT' ||
+    target?.tagName === 'TEXTAREA' ||
+    target?.isContentEditable
+  )
+}
+
+/**
+ * 删除选中的节点和边
+ * @param {Object} selectElements - 选中的元素
+ * @returns {boolean} 是否成功删除
+ */
+const deleteSelectedElements = (selectElements) => {
+  const nodesCount = selectElements.nodes?.length || 0
+  const edgesCount = selectElements.edges?.length || 0
+
+  if (nodesCount === 0 && edgesCount === 0) {
+    return false
+  }
+
+  // 删除选中的节点
+  if (nodesCount > 0) {
+    for (const node of selectElements.nodes) {
+      lf.deleteNode(node.id)
+    }
+    message.success(`已删除 ${nodesCount} 个节点`)
+  }
+
+  // 删除选中的边
+  if (edgesCount > 0) {
+    for (const edge of selectElements.edges) {
+      lf.deleteEdge(edge.id)
+    }
+    message.success(`已删除 ${edgesCount} 条边`)
+  }
+
+  return true
+}
+
 // 处理键盘Delete键删除功能 - 优化健壮性
 const handleKeyDown = (event) => {
   // 检查组件是否已挂载和LogicFlow实例是否存在
   if (!isComponentMounted.value || !lf) {
-    return
+    return false
   }
 
   // 检查是否按下Delete或Backspace键
-  if (event.key === 'Delete' || event.key === 'Backspace') {
-    // 防止在输入框等元素中触发删除操作
-    const target = event.target
-    if (
-      target?.tagName === 'INPUT' ||
-      target?.tagName === 'TEXTAREA' ||
-      target?.isContentEditable
-    ) {
-      return
+  const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace'
+  if (!isDeleteKey) {
+    return false
+  }
+
+  // 防止在输入框等元素中触发删除操作
+  if (isEditableElement(event.target)) {
+    return false
+  }
+
+  // 阻止默认行为（如浏览器后退）
+  event.preventDefault()
+
+  try {
+    // 获取选中的元素
+    const selectElements = lf.getSelectElements(true)
+
+    if (!selectElements) {
+      return false
     }
 
-    // 阻止默认行为（如浏览器后退）
-    event.preventDefault()
-
-    try {
-      // 获取选中的元素
-      const selectElements = lf.getSelectElements(true)
-
-      if (!selectElements) {
-        return
-      }
-
-      const nodesCount = selectElements.nodes?.length || 0
-      const edgesCount = selectElements.edges?.length || 0
-
-      if (nodesCount === 0 && edgesCount === 0) {
-        return
-      }
-
-      // 删除选中的节点 - 使用for循环
-      if (nodesCount > 0) {
-        for (let i = 0; i < selectElements.nodes.length; i++) {
-          lf.deleteNode(selectElements.nodes[i].id)
-        }
-        message.success(`已删除 ${nodesCount} 个节点`)
-      }
-
-      // 删除选中的边 - 使用for循环
-      if (edgesCount > 0) {
-        for (let i = 0; i < selectElements.edges.length; i++) {
-          lf.deleteEdge(selectElements.edges[i].id)
-        }
-        message.success(`已删除 ${edgesCount} 条边`)
-      }
-    } catch (error) {
-      console.error('删除元素失败:', error)
-      message.error('删除失败')
-    }
+    // 删除选中的元素
+    const deleted = deleteSelectedElements(selectElements)
+    return deleted
+  } catch (error) {
+    console.error('删除元素失败:', error)
+    message.error('删除失败')
+    return false
   }
 }
 </script>
