@@ -21,7 +21,7 @@ class DeviceCreateHandler(BaseHandler):
             data = tornado.escape.json_decode(self.request.body)
             
             # 检查必需字段
-            required_fields = ['mac_address', 'hostname', 'ip_address']
+            required_fields = ['id', 'hostname']
             for field in required_fields:
                 if field not in data or not data[field]:
                     self.set_status(400)
@@ -69,7 +69,7 @@ class DeviceUpdateHandler(BaseHandler):
             data = tornado.escape.json_decode(self.request.body)
             
             # 检查必需字段
-            required_fields = ['mac_address', 'hostname', 'ip_address']
+            required_fields = ['id', 'hostname']
             for field in required_fields:
                 if field not in data or not data[field]:
                     self.set_status(400)
@@ -117,17 +117,17 @@ class DeviceDeleteHandler(BaseHandler):
             data = tornado.escape.json_decode(self.request.body)
             
             # 检查必需字段
-            mac_address = data.get('mac_address')
-            if not mac_address:
+            device_id = data.get('id')
+            if not device_id:
                 self.set_status(400)
                 self.write({
                     "status": "error",
-                    "message": "缺少必需的字段: mac_address"
+                    "message": "缺少必需的字段: id"
                 })
                 return
             
             # 删除设备
-            success, message = self.db_manager.delete_device(mac_address)
+            success, message = self.db_manager.delete_device(device_id)
             
             if success:
                 self.write({
@@ -154,20 +154,20 @@ class DeviceDeleteHandler(BaseHandler):
             })
 
 class DeviceHandler(BaseHandler):
-    """单个系统信息处理器 - 根据MAC地址获取系统信息"""
+    """单个系统信息处理器 - 根据设备ID获取系统信息"""
     def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
         self.get_tcp_server_func = get_tcp_server_func
     
-    def get_online_status(self, mac_address):
+    def get_online_status(self, device_id):
         """根据client_id判断客户端是否在线"""
-        # 首先通过MAC地址获取client_id
+        # 首先通过设备ID获取client_id
         try:
             conn = sqlite3.connect(self.db_manager.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT client_id FROM devices_info WHERE mac_address = ? ORDER BY timestamp DESC LIMIT 1
-            ''', (mac_address,))
+                SELECT client_id FROM devices_info WHERE id = ? ORDER BY timestamp DESC LIMIT 1
+            ''', (device_id,))
             row = cursor.fetchone()
             conn.close()
             
@@ -190,21 +190,21 @@ class DeviceHandler(BaseHandler):
         with tcp_server.clients_lock:
             return client_id in tcp_server.client_id_map
     
-    def get(self, mac_address):
+    def get(self, device_id):
         try:
-            system = self.db_manager.get_system_info_by_mac(mac_address)
-            if system:
+            device = self.db_manager.get_device_info_by_id(device_id)
+            if device:
                 # 添加在线状态字段
-                system['online'] = self.get_online_status(mac_address)
+                device['online'] = self.get_online_status(device_id)
                 self.write({
                     "status": "success",
-                    "data": system
+                    "data": device
                 })
             else:
                 self.set_status(404)
                 self.write({
                     "status": "error",
-                    "message": f"未找到MAC地址为 {mac_address} 的系统信息"
+                    "message": f"未找到ID为 {device_id} 的系统信息"
                 })
         except Exception as e:
             self.set_status(500)
@@ -218,7 +218,7 @@ class DeviceTypeHandler(BaseHandler):
     def initialize(self, db_manager):
         self.db_manager = db_manager
     
-    def put(self, mac_address):
+    def put(self, device_id):
         try:
             # 解析请求体中的JSON数据
             data = tornado.escape.json_decode(self.request.body)
@@ -234,7 +234,7 @@ class DeviceTypeHandler(BaseHandler):
                 return
             
             # 更新数据库中的设备类型
-            success = self.db_manager.update_system_type(mac_address, device_type)
+            success = self.db_manager.update_device_type(device_id, device_type)
             
             if success:
                 self.write({
@@ -245,7 +245,7 @@ class DeviceTypeHandler(BaseHandler):
                 self.set_status(404)
                 self.write({
                     "status": "error",
-                    "message": f"未找到MAC地址为 {mac_address} 的系统信息"
+                    "message": f"未找到ID为 {device_id} 的系统信息"
                 })
         except json.JSONDecodeError:
             self.set_status(400)
@@ -282,34 +282,35 @@ class DevicesHandler(BaseHandler):
     
     def get(self):
         try:
-            systems = self.db_manager.get_all_system_info()
+            devices = self.db_manager.get_all_device_info()
             
             # 处理返回数据：只返回services和processes的数量，并添加在线状态和操作系统信息
-            processed_systems = []
-            for system in systems:
-                processed_system = {
-                    'mac_address': system['mac_address'],
-                    'hostname': system['hostname'],
-                    'ip_address': system['ip_address'],
-                    'gateway': system['gateway'],
-                    'netmask': system['netmask'],
-                    'services_count': len(system['services']),
-                    'processes_count': len(system['processes']),
-                    'online': self.get_online_status(system['client_id']),
-                    'os_name': system['os_name'],
-                    'os_version': system['os_version'],
-                    'os_architecture': system['os_architecture'],
-                    'machine_type': system['machine_type'],
-                    'type': system['type'],
-                    'client_id': system['client_id'],
-                    'timestamp': system['timestamp']
+            processed_devices = []
+            for device in devices:
+                processed_device = {
+                    'id': device['id'],
+                    'hostname': device['hostname'],
+                    'services_count': len(device['services']),
+                    'processes_count': len(device['processes']),
+                    'networks_count': len(device['networks']),
+                    'cpu_info': device['cpu_info'],
+                    'memory_info': device['memory_info'],
+                    'disk_info': device['disk_info'],
+                    'online': self.get_online_status(device['client_id']),
+                    'os_name': device['os_name'],
+                    'os_version': device['os_version'],
+                    'os_architecture': device['os_architecture'],
+                    'machine_type': device['machine_type'],
+                    'type': device['type'],
+                    'client_id': device['client_id'],
+                    'timestamp': device['timestamp']
                 }
-                processed_systems.append(processed_system)
+                processed_devices.append(processed_device)
             
             self.write({
                 "status": "success",
-                "data": processed_systems,
-                "count": len(processed_systems)
+                "data": processed_devices,
+                "count": len(processed_devices)
             })
         except Exception as e:
             self.set_status(500)

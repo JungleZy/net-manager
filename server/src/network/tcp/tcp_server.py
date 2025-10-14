@@ -21,7 +21,7 @@ sys.path.insert(0, parent_dir)
 from src.core.config import TCP_PORT
 from src.core.logger import logger
 from src.database import DatabaseManager
-from src.models.system_info import SystemInfo
+from src.models.device_info import DeviceInfo
 
 class TCPServer:
     """TCP服务端，用于与客户端建立长连接"""
@@ -116,12 +116,32 @@ class TCPServer:
                 
             info = json.loads(json_str)
             
-            # 创建SystemInfo对象用于保存到数据库
-            system_info = self._create_system_info(info)
+            # 检查是否提供了client_id
+            client_id = info.get('client_id')
+            if client_id:
+                # 根据client_id查询设备信息
+                existing_device = self.db_manager.get_device_info_by_client_id(client_id)
+                if existing_device:
+                    # 如果存在，则使用现有设备的ID进行更新
+                    info['id'] = existing_device['id']
+                    logger.debug(f"使用现有设备ID更新: {info['id']}")
+                else:
+                    # 如果不存在，则生成新的ID
+                    import uuid
+                    info['id'] = str(uuid.uuid4())
+                    logger.debug(f"为新设备生成ID: {info['id']}")
+            else:
+                # 如果没有提供client_id，则生成新的ID
+                import uuid
+                info['id'] = str(uuid.uuid4())
+                logger.debug(f"未提供client_id，生成新ID: {info['id']}")
+            
+            # 创建DeviceInfo对象用于保存到数据库
+            device_info = self._create_device_info_with_id(info)
             
             # 保存到数据库
-            self.db_manager.save_system_info(system_info)
-            logger.debug("系统信息已保存到数据库")
+            self.db_manager.save_device_info(device_info)
+            logger.debug("设备信息已保存到数据库")
             
         except json.JSONDecodeError as e:
                 # 记录更详细的错误信息，包括有问题的数据片段
@@ -136,24 +156,44 @@ class TCPServer:
         except Exception as e:
             logger.error(f"  处理数据时出错: {e}")
     
-    def _create_system_info(self, info):
-        """创建系统信息对象"""
-        # services和processes是从客户端发送的JSON字符串，直接使用即可
+    def _create_device_info(self, info):
+        """创建设备信息对象"""
         
-        return SystemInfo(
-            hostname=info.get('hostname', 'N/A'),
-            ip_address=info.get('ip_address', 'N/A'),
-            mac_address=info.get('mac_address', 'N/A'),
-            gateway=info.get('gateway', 'N/A'),
-            netmask=info.get('netmask', 'N/A'),
-            services=info.get('services', '[]'),  # 直接使用客户端发送的JSON字符串
-            processes=info.get('processes', '[]'),  # 直接使用客户端发送的JSON字符串
-            timestamp=info.get('timestamp', 'N/A'),
+        import uuid
+        return DeviceInfo(
+            id=str(uuid.uuid4()),  # 生成唯一ID
             client_id=info.get('client_id', ''),  # 客户端唯一标识符
-            os_name=info.get('os_name', ''),  # 操作系统名称
-            os_version=info.get('os_version', ''),  # 操作系统版本
-            os_architecture=info.get('os_architecture', ''),  # 操作系统架构
-            machine_type=info.get('machine_type', ''),  # 机器类型
+            hostname=info.get('hostname', 'N/A'),  # 主机名
+            os_name=info.get('os_name', 'N/A'),  # 操作系统名称
+            os_version=info.get('os_version', 'N/A'),  # 操作系统版本
+            os_architecture=info.get('os_architecture', 'N/A'),  # 操作系统架构
+            machine_type=info.get('machine_type', 'N/A'),   # 机器类型
+            services=info.get('services', '[]'),  # 服务信息
+            processes=info.get('processes', '[]'),  # 进程信息
+            networks=info.get('networks', '[]'),  # 网络信息
+            timestamp=info.get('timestamp', 'N/A'),  # 时间戳
+            cpu_info=info.get('cpu_info', ''),  # CPU信息
+            memory_info=info.get('memory_info', ''),  # 内存信息
+            disk_info=info.get('disk_info', ''),  # 磁盘信息
+        )
+    
+    def _create_device_info_with_id(self, info):
+        """创建带有指定ID的设备信息对象"""
+        return DeviceInfo(
+            id=info['id'],  # 使用指定的ID
+            client_id=info.get('client_id', ''),  # 客户端唯一标识符
+            hostname=info.get('hostname', 'N/A'),  # 主机名
+            os_name=info.get('os_name', 'N/A'),  # 操作系统名称
+            os_version=info.get('os_version', 'N/A'),  # 操作系统版本
+            os_architecture=info.get('os_architecture', 'N/A'),  # 操作系统架构
+            machine_type=info.get('machine_type', 'N/A'),   # 机器类型
+            services=info.get('services', '[]'),  # 服务信息
+            processes=info.get('processes', '[]'),  # 进程信息
+            networks=info.get('networks', '[]'),  # 网络信息
+            timestamp=info.get('timestamp', 'N/A'),  # 时间戳
+            cpu_info=info.get('cpu_info', ''),  # CPU信息
+            memory_info=info.get('memory_info', ''),  # 内存信息
+            disk_info=info.get('disk_info', ''),  # 磁盘信息
         )
     
     def _process_services_info(self, info):

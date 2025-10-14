@@ -23,10 +23,10 @@
       <a-form-item label="IP地址">
         <a-input v-model:value="form.ip_address" placeholder="请输入IP地址" />
       </a-form-item>
-      <a-form-item label="MAC地址">
+      <a-form-item label="设备ID">
         <a-input
-          v-model:value="form.mac_address"
-          placeholder="请输入MAC地址"
+          v-model:value="form.id"
+          placeholder="请输入设备ID"
           :disabled="isEditing"
         />
       </a-form-item>
@@ -63,7 +63,7 @@ const emit = defineEmits(['update:visible', 'ok', 'cancel'])
 
 // 表单数据
 const form = reactive({
-  mac_address: '',
+  id: '',
   hostname: '',
   ip_address: '',
   type: '',
@@ -94,8 +94,8 @@ const handleOk = async () => {
   try {
     confirmLoading.value = true
     // 验证表单数据
-    if (!form.mac_address) {
-      message.error('请输入MAC地址')
+    if (!form.id) {
+      message.error('请输入设备ID')
       confirmLoading.value = false
       return
     }
@@ -119,7 +119,7 @@ const handleCancel = () => {
 // 重置表单
 const resetForm = () => {
   Object.assign(form, {
-    mac_address: '',
+    id: '',
     hostname: '',
     ip_address: '',
     type: '',

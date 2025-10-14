@@ -15,7 +15,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.database import DatabaseManager
-from src.models.system_info import SystemInfo
+from src.models.devices_info import DevicesInfo
 from src.models.switch_info import SwitchInfo
 
 
@@ -27,7 +27,7 @@ def example_device_management():
     db_manager = DatabaseManager("example.db")
     
     # 创建系统信息对象
-    system_info = SystemInfo(
+    devices_info = DevicesInfo(
         hostname="example-host",
         ip_address="192.168.1.100",
         mac_address="00:11:22:33:44:55",
@@ -45,8 +45,8 @@ def example_device_management():
     
     # 保存系统信息
     try:
-        db_manager.save_system_info(system_info)
-        print("✓ 系统信息保存成功")
+        db_manager.save_devices_info(devices_info)
+        print("✓ 设备信息保存成功")
     except Exception as e:
         print(f"✗ 系统信息保存失败: {e}")
         return

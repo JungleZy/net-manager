@@ -28,7 +28,7 @@ database/
 - 处理设备相关的业务逻辑
 
 ### SwitchManager (switch_manager.py)
-- 管理交换机配置表 (switches_info)
+- 管理交换机配置表 (switch_info)
 - 提供交换机配置的增删改查操作
 - 处理交换机相关的业务逻辑
 
@@ -93,9 +93,9 @@ CREATE TABLE IF NOT EXISTS devices_info (
 )
 ```
 
-### switches_info（交换机配置表）
+### switch_info（交换机配置表）
 ```sql
-CREATE TABLE IF NOT EXISTS switches_info (
+CREATE TABLE IF NOT EXISTS switch_info (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ip TEXT NOT NULL UNIQUE,
     snmp_version TEXT NOT NULL,

@@ -63,8 +63,8 @@ const data = {
       y: 300,
       text: '防火墙防火墙防火墙',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     },
@@ -75,8 +75,8 @@ const data = {
       y: 300,
       text: '防火墙防火墙防火墙',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -87,8 +87,8 @@ const data = {
       y: 300,
       text: '笔记本防火墙台式机路由器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -99,8 +99,8 @@ const data = {
       y: 300,
       text: '笔记本防火墙台式机路由器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     },
@@ -111,8 +111,8 @@ const data = {
       y: 300,
       text: '台式机',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -123,8 +123,8 @@ const data = {
       y: 300,
       text: '台式机',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     },
@@ -135,8 +135,8 @@ const data = {
       y: 450,
       text: '路由器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -147,8 +147,8 @@ const data = {
       y: 450,
       text: '路由器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     },
@@ -159,8 +159,8 @@ const data = {
       y: 450,
       text: '服务器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -171,8 +171,8 @@ const data = {
       y: 450,
       text: '服务器',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     },
@@ -183,8 +183,8 @@ const data = {
       y: 450,
       text: '交换机',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'offline'
       }
     },
@@ -195,8 +195,8 @@ const data = {
       y: 450,
       text: '交换机',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         status: 'online'
       }
     }
@@ -330,8 +330,8 @@ const updateLeftMenus = () => {
       label: device.hostname || device.ip_address || '未知设备',
       text: device.hostname || device.ip_address || '未知设备',
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         data: {
           id: device.client_id
         }
@@ -353,8 +353,8 @@ const updateLeftMenus = () => {
       label: deviceName,
       text: deviceName,
       properties: {
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         data: {
           id: switchItem.id
         }

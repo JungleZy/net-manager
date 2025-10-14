@@ -39,21 +39,24 @@
               :pagination="pagination"
               :loading="loading"
               size="small"
-              row-key="mac_address"
+              row-key="id"
               @change="handleTableChange"
             >
-              <template #bodyCell="{ column, record }">
+              <template #bodyCell="{ column, record, index }">
                 <template v-if="column.dataIndex === 'hostname'">
                   {{ record.hostname || '未知设备' }}
+                </template>
+                <template v-else-if="column.dataIndex === 'index'">
+                  {{ index + 1 }}
                 </template>
                 <template v-else-if="column.dataIndex === 'ip_address'">
                   {{ record.ip_address || '未知' }}
                 </template>
-                <template v-else-if="column.dataIndex === 'mac_address'">
-                  {{ record.mac_address || '未知' }}
+                <template v-else-if="column.dataIndex === 'id'">
+                  {{ record.id || '未知' }}
                 </template>
-                <template v-else-if="column.dataIndex === 'os_info'">
-                  {{ formatOSInfo(record) }}
+                <template v-else-if="column.dataIndex === 'machine_type'">
+                  {{ formatMachineType(record.machine_type) }}
                 </template>
                 <template v-else-if="column.dataIndex === 'type'">
                   {{ record.type || '未设置' }}
@@ -82,6 +85,27 @@
                     }}
                   </a>
                 </template>
+                <template v-else-if="column.dataIndex === 'cpu_usage'">
+                  {{
+                    record.cpu_info.usage_percent !== undefined
+                      ? record.cpu_info.usage_percent + '%'
+                      : '未知'
+                  }}
+                </template>
+                <template v-else-if="column.dataIndex === 'memory_usage'">
+                  {{
+                    record.memory_info.percentage !== undefined
+                      ? record.memory_info.percentage + '%'
+                      : '未知'
+                  }}
+                </template>
+                <template v-else-if="column.dataIndex === 'disk_usage'">
+                  {{
+                    record.disk_info.percentage !== undefined
+                      ? record.disk_info.percentage + '%'
+                      : '未知'
+                  }}
+                </template>
                 <template v-else-if="column.dataIndex === 'online'">
                   <a-tag :color="record.online ? 'green' : 'red'">
                     {{ record.online ? '在线' : '离线' }}
@@ -96,7 +120,7 @@
                   >
                   <a-popconfirm
                     title="确定要删除这个设备吗？"
-                    @confirm="deleteDevice(record.mac_address)"
+                    @confirm="deleteDevice(record.id)"
                     ok-text="确定"
                     cancel-text="取消"
                   >
@@ -224,7 +248,7 @@ import SwitchAddModal from '@/components/devices/SwitchAddModal.vue'
 import SNMPScanModal from '@/components/devices/SNMPScanModal.vue'
 import { message } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import { formatOSInfo } from '@/common/utils/Utils.js'
+import { formatOSInfo, formatMachineType } from '@/common/utils/Utils.js'
 
 // 设备列表
 const devices = ref([])
@@ -244,22 +268,62 @@ const currentDeviceName = ref('')
 // 表格列定义
 const columns = [
   {
+    title: '序号',
+    dataIndex: 'index',
+    align: 'center',
+    key: 'index',
+    width: 60
+  },
+  {
     title: '设备名称',
     dataIndex: 'hostname',
     align: 'center',
     key: 'hostname'
   },
   {
-    title: 'IP地址',
-    dataIndex: 'ip_address',
+    title: '操作系统',
+    dataIndex: 'os_name',
     align: 'center',
-    key: 'ip_address'
+    key: 'os_name'
   },
   {
-    title: 'MAC地址',
-    dataIndex: 'mac_address',
+    title: '系统版本',
+    dataIndex: 'os_version',
     align: 'center',
-    key: 'mac_address'
+    key: 'os_version'
+  },
+  {
+    title: '系统架构',
+    dataIndex: 'os_architecture',
+    align: 'center',
+    key: 'os_architecture'
+  },
+  {
+    title: '硬件架构',
+    dataIndex: 'machine_type',
+    align: 'center',
+    key: 'machine_type'
+  },
+  {
+    title: 'CPU使用率',
+    dataIndex: 'cpu_usage',
+    align: 'center',
+    key: 'cpu_usage',
+    width: 100
+  },
+  {
+    title: '内存使用率',
+    dataIndex: 'memory_usage',
+    align: 'center',
+    key: 'memory_usage',
+    width: 100
+  },
+  {
+    title: '磁盘使用率',
+    dataIndex: 'disk_usage',
+    align: 'center',
+    key: 'disk_usage',
+    width: 100
   },
   {
     title: '服务数量',
@@ -274,16 +338,10 @@ const columns = [
     key: 'processes_count'
   },
   {
-    title: '在线状态',
-    dataIndex: 'online',
+    title: '网口数量',
+    dataIndex: 'networks_count',
     align: 'center',
-    key: 'online'
-  },
-  {
-    title: '操作系统',
-    dataIndex: 'os_info',
-    align: 'center',
-    key: 'os_info'
+    key: 'networks_count'
   },
   {
     title: '设备类型',
@@ -292,11 +350,18 @@ const columns = [
     key: 'type'
   },
   {
+    title: '状态',
+    dataIndex: 'online',
+    align: 'center',
+    key: 'online',
+    width: 80
+  },
+  {
     title: '操作',
     dataIndex: 'action',
     align: 'center',
     key: 'action',
-    width: 120
+    width: 106
   }
 ]
 
@@ -316,16 +381,12 @@ const showDiscoverSwitchModal = ref(false)
 const isEditing = ref(false)
 const isSwitchEditing = ref(false)
 const currentDevice = ref({
-  mac_address: '',
+  id: '',
   hostname: '',
   ip_address: '',
-  type: '',
-  os_name: '',
-  os_version: '',
-  gateway: '',
-  netmask: '',
-  os_architecture: '',
-  machine_type: ''
+  device_type: '',
+  os_info: '',
+  last_seen: ''
 })
 const currentSwitch = ref({
   id: undefined,
@@ -362,7 +423,7 @@ const clearFilter = () => {
 const handleShowServices = async (record) => {
   try {
     // 获取设备详细信息
-    const response = await DeviceApi.getDeviceInfo(record.mac_address)
+    const response = await DeviceApi.getDeviceInfo(record.id)
     if (response.data && response.data.services) {
       // 按PID排序服务列表
       const sortedServices = [...response.data.services].sort((a, b) => {
@@ -373,7 +434,7 @@ const handleShowServices = async (record) => {
         return a.pid - b.pid
       })
       servicesList.value = sortedServices
-      currentDeviceName.value = record.hostname || record.mac_address
+      currentDeviceName.value = record.hostname || record.id
       showServicesModal.value = true
     }
   } catch (error) {
@@ -385,7 +446,7 @@ const handleShowServices = async (record) => {
 const handleShowProcesses = async (record) => {
   try {
     // 获取设备详细信息
-    const response = await DeviceApi.getDeviceInfo(record.mac_address)
+    const response = await DeviceApi.getDeviceInfo(record.id)
     if (response.data && response.data.processes) {
       // 按PID排序进程列表
       const sortedProcesses = [...response.data.processes].sort((a, b) => {
@@ -396,7 +457,7 @@ const handleShowProcesses = async (record) => {
         return a.pid - b.pid
       })
       processesList.value = sortedProcesses
-      currentDeviceName.value = record.hostname || record.mac_address
+      currentDeviceName.value = record.hostname || record.id
       showProcessesModal.value = true
     }
   } catch (error) {
@@ -434,26 +495,26 @@ const fetchDevices = async () => {
 
 // 打开创建设备模态框
 const openCreateModal = () => {
-  isEditing.value = false
+  isEditMode.value = false
   currentDevice.value = {
-    mac_address: '',
+    id: '',
     hostname: '',
     ip_address: '',
-    type: '',
-    os_name: '',
-    os_version: '',
-    gateway: '',
-    netmask: '',
-    os_architecture: '',
-    machine_type: ''
+    device_type: '',
+    os_info: '',
+    last_seen: ''
   }
+  switchOptionsEditing.value = []
+  isSwitchEditing.value = false
   showModal.value = true
 }
 
 // 打开编辑设备模态框
 const openEditModal = (device) => {
   isEditing.value = true
-  currentDevice.value = { ...device }
+  // 过滤掉device中的mac_address字段
+  const { mac_address, ...deviceWithoutMac } = device
+  currentDevice.value = { ...deviceWithoutMac }
   showModal.value = true
 }
 
@@ -493,9 +554,9 @@ const saveDevice = async (deviceData) => {
 }
 
 // 删除设备
-const deleteDevice = async (macAddress) => {
+const deleteDevice = async (id) => {
   try {
-    const response = await DeviceApi.deleteDevice({ mac_address: macAddress })
+    const response = await DeviceApi.deleteDevice({ id: id })
     if (response.status === 'success') {
       message.success('设备删除成功')
       fetchDevices()

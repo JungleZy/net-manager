@@ -10,7 +10,7 @@ import sqlite3
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.core.logger import logger
-from src.models.system_info import SystemInfo
+from src.models.device_info import DeviceInfo
 from src.database.db_exceptions import (
     DatabaseError, 
     DatabaseQueryError,
@@ -45,21 +45,22 @@ class DeviceManager(BaseDatabaseManager):
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                # 创建设备信息表，使用mac_address作为主键
+                # 创建设备信息表，使用id作为主键
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS devices_info (
-                        mac_address TEXT PRIMARY KEY,
-                        hostname TEXT NOT NULL,
-                        ip_address TEXT NOT NULL,
-                        gateway TEXT,
-                        netmask TEXT,
-                        services TEXT NOT NULL,
-                        processes TEXT NOT NULL,
+                    CREATE TABLE IF NOT EXISTS device_info (
+                        id TEXT PRIMARY KEY, -- 流程编号
                         client_id TEXT,
+                        hostname TEXT,
                         os_name TEXT,
                         os_version TEXT,
                         os_architecture TEXT,
                         machine_type TEXT,
+                        services TEXT,
+                        processes TEXT,
+                        networks TEXT,
+                        cpu_info TEXT,
+                        memory_info TEXT,
+                        disk_info TEXT,
                         type TEXT,  -- 设备类型字段（计算机、交换机、服务器等）
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
@@ -71,15 +72,15 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"设备信息表初始化失败: {e}")
             raise DatabaseError(f"设备信息表初始化失败: {e}") from e
 
-    def save_system_info(self, system_info: SystemInfo) -> None:
+    def save_device_info(self, device_info: DeviceInfo) -> None:
         """
         保存设备信息到数据库
         
-        使用mac_address作为主键进行更新或插入操作。
+        使用id作为主键进行更新或插入操作。
         注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置。
         
         Args:
-            system_info: SystemInfo对象
+            device_info: DeviceInfo对象
             
         Raises:
             DatabaseQueryError: 数据库操作失败时抛出
@@ -89,42 +90,47 @@ class DeviceManager(BaseDatabaseManager):
                 with self.get_db_connection() as conn:
                     cursor = conn.cursor()
                     
-                    # 将services和processes转换为JSON字符串
-                    services_json = json.dumps(system_info.services) if system_info.services else '[]'
-                    processes_json = json.dumps(system_info.processes) if system_info.processes else '[]'
+                    # 将复杂数据结构转换为JSON字符串
+                    services_json = json.dumps(device_info.services, ensure_ascii=False) if device_info.services else '[]'
+                    processes_json = json.dumps(device_info.processes, ensure_ascii=False) if device_info.processes else '[]'
+                    networks_json = json.dumps(device_info.networks, ensure_ascii=False) if device_info.networks else '[]'
+                    cpu_info_json = json.dumps(device_info.cpu_info, ensure_ascii=False) if device_info.cpu_info else '{}'
+                    memory_info_json = json.dumps(device_info.memory_info, ensure_ascii=False) if device_info.memory_info else '{}'
+                    disk_info_json = json.dumps(device_info.disk_info, ensure_ascii=False) if device_info.disk_info else '{}'
                     
-                    # 使用INSERT OR REPLACE语句，如果mac_address已存在则更新，否则插入新记录
+                    # 使用INSERT OR REPLACE语句，如果id已存在则更新，否则插入新记录
                     cursor.execute('''
-                        INSERT OR REPLACE INTO devices_info 
-                        (mac_address, hostname, ip_address, gateway, netmask, services, processes, 
-                         client_id, os_name, os_version, os_architecture, machine_type, type, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                            COALESCE((SELECT type FROM devices_info WHERE mac_address = ?), ''), 
+                        INSERT OR REPLACE INTO device_info 
+                        (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
+                        services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+                            COALESCE((SELECT type FROM device_info WHERE id = ?), ''), 
                             ?)
                     ''', (
-                        system_info.mac_address, 
-                        system_info.hostname, 
-                        system_info.ip_address, 
-                        system_info.gateway, 
-                        system_info.netmask, 
+                        device_info.id,
+                        device_info.client_id,
+                        device_info.hostname,
+                        device_info.os_name,
+                        device_info.os_version,
+                        device_info.os_architecture,
+                        device_info.machine_type,
                         services_json,
                         processes_json,
-                        system_info.client_id,
-                        system_info.os_name, 
-                        system_info.os_version, 
-                        system_info.os_architecture, 
-                        system_info.machine_type, 
-                        system_info.mac_address,  # 用于子查询
-                        system_info.timestamp
+                        networks_json,
+                        cpu_info_json,
+                        memory_info_json,
+                        disk_info_json,
+                        device_info.type,
+                        device_info.timestamp
                     ))
                     
                     conn.commit()
-                    # logger.info(f"系统信息保存成功，MAC地址: {system_info.mac_address}")
+                    # logger.info(f"设备信息保存成功，ID: {device_info.id}")
         except Exception as e:
-            logger.error(f"保存系统信息失败: {e}")
-            raise DatabaseQueryError(f"保存系统信息失败: {e}") from e
+            logger.error(f"保存设备信息失败: {e}")
+            raise DatabaseQueryError(f"保存设备信息失败: {e}") from e
 
-    def get_all_system_info(self) -> List[Dict[str, Any]]:
+    def get_all_device_info(self) -> List[Dict[str, Any]]:
         """
         获取所有设备信息
         
@@ -139,9 +145,9 @@ class DeviceManager(BaseDatabaseManager):
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, 
-                           client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                    FROM devices_info
+                    SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp
+                    FROM device_info
                     ORDER BY timestamp DESC
                 ''')
                 
@@ -150,43 +156,59 @@ class DeviceManager(BaseDatabaseManager):
                 # 转换为字典列表
                 result = []
                 for row in rows:
-                    # 处理services字段
-                    services_data = row[5]
-                    if services_data:
-                        try:
-                            services = json.loads(services_data)
-                        except json.JSONDecodeError:
-                            logger.warning(f"无法解析services数据，使用空列表: {services_data}")
-                            services = []
-                    else:
+                    # 处理JSON字段
+                    try:
+                        services = json.loads(row[7]) if row[7] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析services数据，使用空列表: {row[7]}")
                         services = []
                     
-                    # 处理processes字段
-                    processes_data = row[6]
-                    if processes_data:
-                        try:
-                            processes = json.loads(processes_data)
-                        except json.JSONDecodeError:
-                            logger.warning(f"无法解析processes数据，使用空列表: {processes_data}")
-                            processes = []
-                    else:
+                    try:
+                        processes = json.loads(row[8]) if row[8] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析processes数据，使用空列表: {row[8]}")
                         processes = []
                     
+                    try:
+                        networks = json.loads(row[9]) if row[9] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析networks数据，使用空列表: {row[9]}")
+                        networks = []
+                    
+                    try:
+                        cpu_info = json.loads(row[10]) if row[10] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析cpu_info数据，使用空字典: {row[10]}")
+                        cpu_info = {}
+                    
+                    try:
+                        memory_info = json.loads(row[11]) if row[11] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析memory_info数据，使用空字典: {row[11]}")
+                        memory_info = {}
+                    
+                    try:
+                        disk_info = json.loads(row[12]) if row[12] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析disk_info数据，使用空字典: {row[12]}")
+                        disk_info = {}
+                    
                     result.append({
-                        'mac_address': row[0],
-                        'hostname': row[1],
-                        'ip_address': row[2],
-                        'gateway': row[3],
-                        'netmask': row[4],
+                        'id': row[0],
+                        'client_id': row[1],
+                        'hostname': row[2],
+                        'os_name': row[3],
+                        'os_version': row[4],
+                        'os_architecture': row[5],
+                        'machine_type': row[6],
                         'services': services,
                         'processes': processes,
-                        'client_id': row[7],
-                        'os_name': row[8],
-                        'os_version': row[9],
-                        'os_architecture': row[10],
-                        'machine_type': row[11],
-                        'type': row[12],
-                        'timestamp': row[13]
+                        'networks': networks,
+                        'cpu_info': cpu_info,
+                        'memory_info': memory_info,
+                        'disk_info': disk_info,
+                        'type': row[13],
+                        'timestamp': row[14]
                     })
                 
                 return result
@@ -194,12 +216,12 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"查询所有系统信息失败: {e}")
             raise DatabaseQueryError(f"查询所有系统信息失败: {e}") from e
 
-    def get_system_info_by_mac(self, mac_address: str) -> Optional[Dict[str, Any]]:
+    def get_device_info_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
-        根据MAC地址获取设备信息
+        根据设备ID获取设备信息
         
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             
         Returns:
             设备信息字典，如果未找到则返回None
@@ -212,64 +234,168 @@ class DeviceManager(BaseDatabaseManager):
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT mac_address, hostname, ip_address, gateway, netmask, services, processes, 
-                           client_id, os_name, os_version, os_architecture, machine_type, type, timestamp
-                    FROM devices_info
-                    WHERE mac_address = ?
-                ''', (mac_address,))
+                    SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp
+                    FROM device_info
+                    WHERE id = ?
+                ''', (device_id,))
                 
                 row = cursor.fetchone()
                 
                 if row:
-                    # 处理services字段
-                    services_data = row[5]
-                    if services_data:
-                        try:
-                            services = json.loads(services_data)
-                        except json.JSONDecodeError:
-                            logger.warning(f"无法解析services数据，使用空列表: {services_data}")
-                            services = []
-                    else:
+                    # 处理JSON字段
+                    try:
+                        services = json.loads(row[7]) if row[7] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析services数据，使用空列表: {row[7]}")
                         services = []
                     
-                    # 处理processes字段
-                    processes_data = row[6]
-                    if processes_data:
-                        try:
-                            processes = json.loads(processes_data)
-                        except json.JSONDecodeError:
-                            logger.warning(f"无法解析processes数据，使用空列表: {processes_data}")
-                            processes = []
-                    else:
+                    try:
+                        processes = json.loads(row[8]) if row[8] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析processes数据，使用空列表: {row[8]}")
                         processes = []
                     
+                    try:
+                        networks = json.loads(row[9]) if row[9] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析networks数据，使用空列表: {row[9]}")
+                        networks = []
+                    
+                    try:
+                        cpu_info = json.loads(row[10]) if row[10] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析cpu_info数据，使用空字典: {row[10]}")
+                        cpu_info = {}
+                    
+                    try:
+                        memory_info = json.loads(row[11]) if row[11] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析memory_info数据，使用空字典: {row[11]}")
+                        memory_info = {}
+                    
+                    try:
+                        disk_info = json.loads(row[12]) if row[12] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析disk_info数据，使用空字典: {row[12]}")
+                        disk_info = {}
+                    
                     return {
-                        'mac_address': row[0],
-                        'hostname': row[1],
-                        'ip_address': row[2],
-                        'gateway': row[3],
-                        'netmask': row[4],
+                        'id': row[0],
+                        'client_id': row[1],
+                        'hostname': row[2],
+                        'os_name': row[3],
+                        'os_version': row[4],
+                        'os_architecture': row[5],
+                        'machine_type': row[6],
                         'services': services,
                         'processes': processes,
-                        'client_id': row[7],
-                        'os_name': row[8],
-                        'os_version': row[9],
-                        'os_architecture': row[10],
-                        'machine_type': row[11],
-                        'type': row[12],
-                        'timestamp': row[13]
+                        'networks': networks,
+                        'cpu_info': cpu_info,
+                        'memory_info': memory_info,
+                        'disk_info': disk_info,
+                        'type': row[13],
+                        'timestamp': row[14]
                     }
                 return None
         except Exception as e:
-            logger.error(f"根据MAC地址查询系统信息失败: {e}")
-            raise DatabaseQueryError(f"根据MAC地址查询系统信息失败: {e}") from e
+            logger.error(f"根据设备ID查询系统信息失败: {e}")
+            raise DatabaseQueryError(f"根据设备ID查询系统信息失败: {e}") from e
 
-    def update_system_type(self, mac_address: str, device_type: str) -> bool:
+    def get_device_info_by_client_id(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """
+        根据client_id获取设备信息
+        
+        Args:
+            client_id: 客户端ID
+            
+        Returns:
+            设备信息字典，如果未找到则返回None
+            
+        Raises:
+            DatabaseQueryError: 查询失败时抛出
+        """
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp
+                    FROM device_info
+                    WHERE client_id = ?
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                ''', (client_id,))
+                
+                row = cursor.fetchone()
+                
+                if row:
+                    # 处理JSON字段
+                    try:
+                        services = json.loads(row[7]) if row[7] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析services数据，使用空列表: {row[7]}")
+                        services = []
+                    
+                    try:
+                        processes = json.loads(row[8]) if row[8] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析processes数据，使用空列表: {row[8]}")
+                        processes = []
+                    
+                    try:
+                        networks = json.loads(row[9]) if row[9] else []
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析networks数据，使用空列表: {row[9]}")
+                        networks = []
+                    
+                    try:
+                        cpu_info = json.loads(row[10]) if row[10] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析cpu_info数据，使用空字典: {row[10]}")
+                        cpu_info = {}
+                    
+                    try:
+                        memory_info = json.loads(row[11]) if row[11] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析memory_info数据，使用空字典: {row[11]}")
+                        memory_info = {}
+                    
+                    try:
+                        disk_info = json.loads(row[12]) if row[12] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"无法解析disk_info数据，使用空字典: {row[12]}")
+                        disk_info = {}
+                    
+                    return {
+                        'id': row[0],
+                        'client_id': row[1],
+                        'hostname': row[2],
+                        'os_name': row[3],
+                        'os_version': row[4],
+                        'os_architecture': row[5],
+                        'machine_type': row[6],
+                        'services': services,
+                        'processes': processes,
+                        'networks': networks,
+                        'cpu_info': cpu_info,
+                        'memory_info': memory_info,
+                        'disk_info': disk_info,
+                        'type': row[13],
+                        'timestamp': row[14]
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"根据client_id查询设备信息失败: {e}")
+            raise DatabaseQueryError(f"根据client_id查询设备信息失败: {e}") from e
+
+    def update_device_type(self, device_id: str, device_type: str) -> bool:
         """
         更新设备类型
         
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             device_type: 设备类型
             
         Returns:
@@ -284,8 +410,8 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 检查系统是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
-                ''', (mac_address,))
+                    SELECT COUNT(*) FROM device_info WHERE id = ?
+                ''', (device_id,))
                 
                 count = cursor.fetchone()[0]
                 if count == 0:
@@ -293,11 +419,11 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 更新设备类型
                 cursor.execute('''
-                    UPDATE devices_info SET type = ? WHERE mac_address = ?
-                ''', (device_type, mac_address))
+                    UPDATE device_info SET type = ? WHERE id = ?
+                ''', (device_type, device_id))
                 
                 conn.commit()
-                logger.info(f"设备类型更新成功，MAC地址: {mac_address}, 类型: {device_type}")
+                logger.info(f"设备类型更新成功，设备ID: {device_id}, 类型: {device_type}")
                 return True
         except Exception as e:
             logger.error(f"更新系统设备类型失败: {e}")
@@ -323,38 +449,39 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 检查设备是否已存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
-                ''', (device_data['mac_address'],))
+                    SELECT COUNT(*) FROM device_info WHERE id = ?
+                ''', (device_data['id'],))
                 
                 count = cursor.fetchone()[0]
                 if count > 0:
-                    raise DeviceAlreadyExistsError(f"设备MAC地址已存在: {device_data['mac_address']}")
+                    raise DeviceAlreadyExistsError(f"设备ID已存在: {device_data['id']}")
                 
                 # 插入新设备信息
                 cursor.execute('''
-                    INSERT INTO devices_info (
-                        mac_address, hostname, ip_address, gateway, netmask, 
-                        services, processes, client_id, os_name, os_version, 
-                        os_architecture, machine_type, type, timestamp
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    INSERT INTO device_info (
+                        id, client_id, hostname, os_name, os_version, 
+                        os_architecture, machine_type, services, processes, networks,
+                        cpu_info, memory_info, disk_info, type, timestamp
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 ''', (
-                    device_data['mac_address'],
+                    device_data['id'],
+                    device_data.get('client_id', ''),
                     device_data['hostname'],
-                    device_data['ip_address'],
-                    device_data.get('gateway', ''),
-                    device_data.get('netmask', ''),
-                    json.dumps([]),  # services
-                    json.dumps([]),  # processes
-                    '',  # client_id
                     device_data.get('os_name', ''),
                     device_data.get('os_version', ''),
                     device_data.get('os_architecture', ''),
                     device_data.get('machine_type', ''),
+                    json.dumps(device_data.get('services', [])),
+                    json.dumps(device_data.get('processes', [])),
+                    json.dumps(device_data.get('networks', [])),
+                    json.dumps(device_data.get('cpu_info', {})),
+                    json.dumps(device_data.get('memory_info', {})),
+                    json.dumps(device_data.get('disk_info', {})),
                     device_data.get('type', '')
                 ))
                 
                 conn.commit()
-                logger.info(f"设备创建成功，MAC地址: {device_data['mac_address']}")
+                logger.info(f"设备创建成功，设备ID: {device_data['id']}")
                 return True, "设备创建成功"
         except DeviceAlreadyExistsError:
             raise
@@ -382,35 +509,40 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 检查设备是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
-                ''', (device_data['mac_address'],))
+                    SELECT COUNT(*) FROM device_info WHERE id = ?
+                ''', (device_data['id'],))
                 
                 count = cursor.fetchone()[0]
                 if count == 0:
-                    raise DeviceNotFoundError(f"设备不存在: {device_data['mac_address']}")
+                    raise DeviceNotFoundError(f"设备不存在: {device_data['id']}")
                 
                 # 更新设备信息
                 cursor.execute('''
-                    UPDATE devices_info SET 
-                        hostname = ?, ip_address = ?, gateway = ?, netmask = ?,
-                        os_name = ?, os_version = ?, os_architecture = ?, 
-                        machine_type = ?, type = ?
-                    WHERE mac_address = ?
+                    UPDATE device_info SET 
+                        hostname = ?, client_id = ?, os_name = ?, os_version = ?, 
+                        os_architecture = ?, machine_type = ?, type = ?,
+                        services = ?, processes = ?, networks = ?,
+                        cpu_info = ?, memory_info = ?, disk_info = ?
+                    WHERE id = ?
                 ''', (
                     device_data['hostname'],
-                    device_data['ip_address'],
-                    device_data.get('gateway', ''),
-                    device_data.get('netmask', ''),
+                    device_data.get('client_id', ''),
                     device_data.get('os_name', ''),
                     device_data.get('os_version', ''),
                     device_data.get('os_architecture', ''),
                     device_data.get('machine_type', ''),
                     device_data.get('type', ''),
-                    device_data['mac_address']
+                    json.dumps(device_data.get('services', [])),
+                    json.dumps(device_data.get('processes', [])),
+                    json.dumps(device_data.get('networks', [])),
+                    json.dumps(device_data.get('cpu_info', {})),
+                    json.dumps(device_data.get('memory_info', {})),
+                    json.dumps(device_data.get('disk_info', {})),
+                    device_data['id']
                 ))
                 
                 conn.commit()
-                logger.info(f"设备更新成功，MAC地址: {device_data['mac_address']}")
+                logger.info(f"设备更新成功，设备ID: {device_data['id']}")
                 return True, "设备更新成功"
         except DeviceNotFoundError:
             raise
@@ -418,12 +550,12 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"更新设备失败: {e}")
             raise DatabaseQueryError(f"更新设备失败: {e}") from e
 
-    def delete_device(self, mac_address: str) -> Tuple[bool, str]:
+    def delete_device(self, device_id: str) -> Tuple[bool, str]:
         """
         删除设备
-        
+
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             
         Returns:
             (成功标志, 消息) 的元组
@@ -438,20 +570,20 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 检查设备是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM devices_info WHERE mac_address = ?
-                ''', (mac_address,))
+                    SELECT COUNT(*) FROM device_info WHERE id = ?
+                ''', (device_id,))
                 
                 count = cursor.fetchone()[0]
                 if count == 0:
-                    raise DeviceNotFoundError(f"设备不存在: {mac_address}")
+                    raise DeviceNotFoundError(f"设备不存在: {device_id}")
                 
                 # 删除设备
                 cursor.execute('''
-                    DELETE FROM devices_info WHERE mac_address = ?
-                ''', (mac_address,))
+                    DELETE FROM device_info WHERE id = ?
+                ''', (device_id,))
                 
                 conn.commit()
-                logger.info(f"设备删除成功，MAC地址: {mac_address}")
+                logger.info(f"设备删除成功，设备ID: {device_id}")
                 return True, "设备删除成功"
         except DeviceNotFoundError:
             raise
@@ -473,7 +605,7 @@ class DeviceManager(BaseDatabaseManager):
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                cursor.execute('SELECT COUNT(*) FROM devices_info')
+                cursor.execute('SELECT COUNT(*) FROM device_info')
                 count = cursor.fetchone()[0]
                 return count
         except Exception as e:

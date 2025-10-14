@@ -29,7 +29,7 @@ const DeviceApi = {
 
   /**
    * 删除设备
-   * @param {Object} params - 包含mac_address的对象
+   * @param {Object} params - 包含id的对象
    * @returns {Promise}
    */
   deleteDevice(params) {
@@ -45,16 +45,16 @@ const DeviceApi = {
       url: '/api/devices'
     })
   },
-  getDeviceInfo: (macAddress) => {
+  getDeviceInfo: (deviceId) => {
     return axios({
       method: 'get',
-      url: `/api/devices/${macAddress}`
+      url: `/api/devices/${deviceId}`
     })
   },
-  updateDeviceType: (macAddress, data) => {
+  updateDeviceType: (deviceId, data) => {
     return axios({
       method: 'put',
-      url: `/api/devices/${macAddress}/type`,
+      url: `/api/devices/${deviceId}/type`,
       data: data
     })
   }

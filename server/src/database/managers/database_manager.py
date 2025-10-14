@@ -8,7 +8,7 @@
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.core.logger import logger
-from src.models.system_info import SystemInfo
+from src.models.device_info import DeviceInfo
 from src.models.switch_info import SwitchInfo
 from src.database.db_exceptions import (
     DatabaseError, 
@@ -68,19 +68,19 @@ class DatabaseManager:
 
     # ==================== 设备信息管理方法 ====================
 
-    def save_system_info(self, system_info: SystemInfo) -> None:
+    def save_device_info(self, device_info: DeviceInfo) -> None:
         """
         保存设备信息到数据库
         
         Args:
-            system_info: SystemInfo对象
+            device_info: DeviceInfo对象
             
         Raises:
             DatabaseQueryError: 数据库操作失败时抛出
         """
-        return self.device_manager.save_system_info(system_info)
+        return self.device_manager.save_device_info(device_info)
 
-    def get_all_system_info(self) -> List[Dict[str, Any]]:
+    def get_all_device_info(self) -> List[Dict[str, Any]]:
         """
         获取所有设备信息
         
@@ -90,14 +90,14 @@ class DatabaseManager:
         Raises:
             DatabaseQueryError: 查询失败时抛出
         """
-        return self.device_manager.get_all_system_info()
+        return self.device_manager.get_all_device_info()
 
-    def get_system_info_by_mac(self, mac_address: str) -> Optional[Dict[str, Any]]:
+    def get_device_info_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
-        根据MAC地址获取设备信息
+        根据设备ID获取设备信息
         
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             
         Returns:
             设备信息字典，如果未找到则返回None
@@ -105,14 +105,14 @@ class DatabaseManager:
         Raises:
             DatabaseQueryError: 查询失败时抛出
         """
-        return self.device_manager.get_system_info_by_mac(mac_address)
+        return self.device_manager.get_device_info_by_id(device_id)
 
-    def update_system_type(self, mac_address: str, device_type: str) -> bool:
+    def update_device_type(self, device_id: str, device_type: str) -> bool:
         """
         更新设备类型
         
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             device_type: 设备类型
             
         Returns:
@@ -121,7 +121,7 @@ class DatabaseManager:
         Raises:
             DatabaseQueryError: 更新失败时抛出
         """
-        return self.device_manager.update_system_type(mac_address, device_type)
+        return self.device_manager.update_device_type(device_id, device_type)
 
     def create_device(self, device_data: Dict[str, Any]) -> Tuple[bool, str]:
         """
@@ -155,12 +155,12 @@ class DatabaseManager:
         """
         return self.device_manager.update_device(device_data)
 
-    def delete_device(self, mac_address: str) -> Tuple[bool, str]:
+    def delete_device(self, device_id: str) -> Tuple[bool, str]:
         """
         删除设备
         
         Args:
-            mac_address: MAC地址
+            device_id: 设备ID
             
         Returns:
             (成功标志, 消息) 的元组
@@ -169,7 +169,7 @@ class DatabaseManager:
             DatabaseQueryError: 删除失败时抛出
             DeviceNotFoundError: 设备不存在时抛出
         """
-        return self.device_manager.delete_device(mac_address)
+        return self.device_manager.delete_device(device_id)
 
     def get_device_count(self) -> int:
         """
@@ -182,6 +182,21 @@ class DatabaseManager:
             DatabaseQueryError: 查询失败时抛出
         """
         return self.device_manager.get_device_count()
+
+    def get_device_info_by_client_id(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """
+        根据客户端ID获取设备信息
+        
+        Args:
+            client_id: 客户端ID
+            
+        Returns:
+            设备信息字典，如果未找到则返回None
+            
+        Raises:
+            DatabaseQueryError: 查询失败时抛出
+        """
+        return self.device_manager.get_device_info_by_client_id(client_id)
 
     # ==================== 交换机信息管理方法 ====================
 

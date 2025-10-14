@@ -28,13 +28,13 @@ from src.utils.logger import get_logger
 class SystemInfo:
     """系统信息数据类"""
     hostname: str
-    ip_address: str
-    mac_address: str
-    gateway: str
-    netmask: str
+    timestamp: str
     services: List[Dict[str, Any]]
     processes: List[Dict[str, Any]]
-    timestamp: str
+    network_interfaces: List[Dict[str, Any]]
+    cpu_info: Dict[str, Any]
+    memory_info: Dict[str, Any]
+    disk_info: Dict[str, Any]
     client_id: str = ""
     os_name: str = ""
     os_version: str = ""
@@ -433,6 +433,147 @@ class SystemCollector:
             # 返回空列表而不是抛出异常，以避免影响整体系统信息收集
             return []
     
+    def get_network_interfaces(self) -> List[Dict[str, Any]]:
+        """
+        获取网络接口信息，包括IP、MAC、网关、掩码、上传速率、下载速率
+        
+        Returns:
+            List[Dict[str, Any]]: 网络接口信息列表
+        """
+        try:
+            interfaces = []
+            
+            # 获取网络接口统计信息
+            net_io_initial = psutil.net_io_counters(pernic=True)
+            
+            # 等待1秒以计算速率
+            import time
+            time_start = time.time()
+            while time.time() - time_start < 1:
+                time.sleep(0.1)  # 分段休眠以减少阻塞
+            
+            # 再次获取网络接口统计信息
+            net_io_final = psutil.net_io_counters(pernic=True)
+            
+            # 获取网络地址信息
+            net_if_addrs = psutil.net_if_addrs()
+            
+            # 获取当前的IP和网关信息
+            current_ip = self.get_ip_address()
+            gateway, netmask = self.get_gateway_and_netmask()
+            
+            # 遍历网络接口
+            for interface_name, initial_stats in net_io_initial.items():
+                # 跳过没有统计数据的接口
+                if interface_name not in net_io_final:
+                    continue
+                    
+                final_stats = net_io_final[interface_name]
+                
+                # 计算上传和下载速率 (bytes/sec)
+                upload_rate = final_stats.bytes_sent - initial_stats.bytes_sent
+                download_rate = final_stats.bytes_recv - initial_stats.bytes_recv
+                
+                # 获取接口的MAC地址
+                mac_address = ""
+                ip_address = ""
+                if interface_name in net_if_addrs:
+                    for addr in net_if_addrs[interface_name]:
+                        if addr.family == psutil.AF_LINK:  # MAC地址
+                            mac_address = addr.address
+                        elif addr.family == socket.AF_INET:  # IPv4地址
+                            ip_address = addr.address
+                
+                interface_info = {
+                    "name": interface_name,
+                    "ip_address": ip_address,
+                    "mac_address": mac_address,
+                    "gateway": gateway if ip_address == current_ip else "",
+                    "netmask": netmask if ip_address == current_ip else "",
+                    "upload_rate": upload_rate,
+                    "download_rate": download_rate
+                }
+                
+                interfaces.append(interface_info)
+                
+            self.logger.debug(f"成功获取网络接口信息，共 {len(interfaces)} 个接口")
+            return interfaces
+        except Exception as e:
+            self.logger.error(f"获取网络接口信息失败: {e}")
+            return []
+
+    def get_cpu_info(self) -> Dict[str, Any]:
+        """
+        获取CPU信息
+        
+        Returns:
+            Dict[str, Any]: CPU信息
+        """
+        try:
+            cpu_info = {
+                "physical_cores": psutil.cpu_count(logical=False),
+                "logical_cores": psutil.cpu_count(logical=True),
+                "max_frequency": psutil.cpu_freq().max if psutil.cpu_freq() else 0,
+                "current_frequency": psutil.cpu_freq().current if psutil.cpu_freq() else 0,
+                "usage_percent": psutil.cpu_percent(interval=1)
+            }
+            
+            self.logger.debug("成功获取CPU信息")
+            return cpu_info
+        except Exception as e:
+            self.logger.error(f"获取CPU信息失败: {e}")
+            return {}
+
+    def get_memory_info(self) -> Dict[str, Any]:
+        """
+        获取内存信息
+        
+        Returns:
+            Dict[str, Any]: 内存信息
+        """
+        try:
+            virtual_mem = psutil.virtual_memory()
+            swap_mem = psutil.swap_memory()
+            
+            memory_info = {
+                "total": virtual_mem.total,
+                "available": virtual_mem.available,
+                "used": virtual_mem.used,
+                "percentage": virtual_mem.percent,
+                "swap_total": swap_mem.total,
+                "swap_used": swap_mem.used,
+                "swap_percentage": swap_mem.percent
+            }
+            
+            self.logger.debug("成功获取内存信息")
+            return memory_info
+        except Exception as e:
+            self.logger.error(f"获取内存信息失败: {e}")
+            return {}
+
+    def get_disk_info(self) -> Dict[str, Any]:
+        """
+        获取磁盘信息
+        
+        Returns:
+            Dict[str, Any]: 磁盘信息
+        """
+        try:
+            disk_usage = psutil.disk_usage('/')
+            
+            disk_info = {
+                "total": disk_usage.total,
+                "used": disk_usage.used,
+                "free": disk_usage.free,
+                "percentage": disk_usage.percent
+            }
+            
+            self.logger.debug("成功获取磁盘信息")
+            return disk_info
+        except Exception as e:
+            self.logger.error(f"获取磁盘信息失败: {e}")
+            return {}
+
     def get_processes(self) -> List[Dict[str, Any]]:
         """
         获取进程信息
@@ -501,21 +642,24 @@ class SystemCollector:
         try:
             self.logger.info("开始收集系统信息")
             os_name, os_version, os_architecture, machine_type = self.get_os_info()
-            gateway, netmask = self.get_gateway_and_netmask()
             services = self.get_services()
             processes = self.get_processes()
+            network_interfaces = self.get_network_interfaces()
+            cpu_info = self.get_cpu_info()
+            memory_info = self.get_memory_info()
+            disk_info = self.get_disk_info()
 
             from src.core.state_manager import StateManager
             client_id = StateManager().get_client_id()
 
             system_info = SystemInfo(
                 hostname=self.get_hostname(),
-                ip_address=self.get_ip_address(),
-                mac_address=self.get_mac_address(),
-                gateway=gateway,
-                netmask=netmask,
                 processes=processes,
                 services=services,
+                network_interfaces=network_interfaces,
+                cpu_info=cpu_info,
+                memory_info=memory_info,
+                disk_info=disk_info,
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
                 client_id=client_id or "", 
                 os_name=os_name, 

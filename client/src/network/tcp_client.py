@@ -324,19 +324,19 @@ class TCPClient:
             
             # 构造消息
             info_dict = {
-                "hostname": system_info.hostname,
-                "ip_address": system_info.ip_address,
-                "mac_address": system_info.mac_address,
-                "gateway": system_info.gateway,
-                "netmask": system_info.netmask,
-                "services": system_info.services,  # 这已经是JSON格式的字符串
-                "processes": system_info.processes,  # 这已经是JSON格式的字符串
+                "client_id": system_info.client_id,  # 客户端唯一标识符
+                "hostname": system_info.hostname, # 主机名
                 "os_name": system_info.os_name,  # 操作系统名称
                 "os_version": system_info.os_version,  # 操作系统版本
                 "os_architecture": system_info.os_architecture,  # 操作系统架构
                 "machine_type": system_info.machine_type,  # 机器类型
-                "timestamp": system_info.timestamp,
-                "client_id": system_info.client_id  # 客户端唯一标识符
+                "services": system_info.services, # 端口服务
+                "processes": system_info.processes, # 进程
+                "networks": system_info.network_interfaces, # 网络接口信息
+                "cpu_info": system_info.cpu_info, # CPU信息
+                "memory_info": system_info.memory_info, # 内存信息
+                "disk_info": system_info.disk_info, # 磁盘信息
+                "timestamp": system_info.timestamp # 时间戳
             }
             message = json.dumps(info_dict, ensure_ascii=False)
             # 验证数据不为空

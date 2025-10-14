@@ -46,7 +46,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 创建交换机配置表
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS switches_info (
+                    CREATE TABLE IF NOT EXISTS switch_info (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         ip TEXT NOT NULL UNIQUE,
                         snmp_version TEXT NOT NULL,
@@ -89,7 +89,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 检查交换机是否已存在（通过IP地址）
                 cursor.execute('''
-                    SELECT COUNT(*) FROM switches_info WHERE ip = ?
+                    SELECT COUNT(*) FROM switch_info WHERE ip = ?
                 ''', (switch_info.ip,))
                 
                 count = cursor.fetchone()[0]
@@ -98,7 +98,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 插入新的交换机配置
                 cursor.execute('''
-                    INSERT INTO switches_info (
+                    INSERT INTO switch_info (
                         ip, snmp_version, community, user, auth_key, auth_protocol,
                         priv_key, priv_protocol, description, device_name, created_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
@@ -144,7 +144,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 检查交换机是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM switches_info WHERE id = ?
+                    SELECT COUNT(*) FROM switch_info WHERE id = ?
                 ''', (switch_info.id,))
                 
                 count = cursor.fetchone()[0]
@@ -153,7 +153,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 更新交换机配置
                 cursor.execute('''
-                    UPDATE switches_info SET 
+                    UPDATE switch_info SET 
                         ip = ?, snmp_version = ?, community = ?, user = ?, 
                         auth_key = ?, auth_protocol = ?, priv_key = ?, 
                         priv_protocol = ?, description = ?, device_name = ?, updated_at = datetime('now')
@@ -201,7 +201,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 检查交换机是否存在
                 cursor.execute('''
-                    SELECT COUNT(*) FROM switches_info WHERE id = ?
+                    SELECT COUNT(*) FROM switch_info WHERE id = ?
                 ''', (switch_id,))
                 
                 count = cursor.fetchone()[0]
@@ -210,7 +210,7 @@ class SwitchManager(BaseDatabaseManager):
                 
                 # 删除交换机配置
                 cursor.execute('''
-                    DELETE FROM switches_info WHERE id = ?
+                    DELETE FROM switch_info WHERE id = ?
                 ''', (switch_id,))
                 
                 conn.commit()
@@ -243,7 +243,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute('''
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
                            priv_key, priv_protocol, description, device_name, created_at, updated_at
-                    FROM switches_info
+                    FROM switch_info
                     WHERE id = ?
                 ''', (switch_id,))
                 
@@ -290,7 +290,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute('''
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
                            priv_key, priv_protocol, description, device_name, created_at, updated_at
-                    FROM switches_info
+                    FROM switch_info
                     WHERE ip = ?
                 ''', (ip,))
                 
@@ -334,7 +334,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute('''
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
                            priv_key, priv_protocol, description, device_name, created_at, updated_at
-                    FROM switches_info
+                    FROM switch_info
                     ORDER BY created_at DESC
                 ''')
                 
@@ -383,7 +383,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT COUNT(*) FROM switches_info WHERE ip = ? AND snmp_version = ?
+                    SELECT COUNT(*) FROM switch_info WHERE ip = ? AND snmp_version = ?
                 ''', (ip, snmp_version))
                 
                 count = cursor.fetchone()[0]
@@ -406,7 +406,7 @@ class SwitchManager(BaseDatabaseManager):
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                cursor.execute('SELECT COUNT(*) FROM switches_info')
+                cursor.execute('SELECT COUNT(*) FROM switch_info')
                 count = cursor.fetchone()[0]
                 return count
         except Exception as e:
