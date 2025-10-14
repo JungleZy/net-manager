@@ -218,6 +218,24 @@
         @cancel="closeProcessesModal"
       />
 
+      <!-- 网口详情模态框 -->
+      <a-modal
+        v-model:open="showNetworksModal"
+        :title="`网口详情 - ${currentDeviceName}`"
+        @cancel="closeNetworksModal"
+        width="80%"
+      >
+        <a-table
+          :dataSource="networksList"
+          :columns="networkColumns"
+          :pagination="false"
+          size="small"
+        />
+        <template #footer>
+          <a-button @click="closeNetworksModal">关闭</a-button>
+        </template>
+      </a-modal>
+
       <!-- 创建/编辑交换机模态框 -->
       <SwitchAddModal
         v-model:visible="showSwitchModal"
@@ -237,7 +255,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, h } from 'vue'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import DeviceApi from '@/common/api/device.js'
 import SwitchApi from '@/common/api/switch.js'
@@ -261,8 +279,10 @@ const activeKey = ref(savedActiveKey)
 // 详情模态框相关
 const showServicesModal = ref(false)
 const showProcessesModal = ref(false)
+const showNetworksModal = ref(false) // 添加网口详情模态框状态
 const servicesList = ref([])
 const processesList = ref([])
+const networksList = ref([]) // 添加网口列表
 const currentDeviceName = ref('')
 
 // 表格列定义
@@ -341,7 +361,24 @@ const columns = [
     title: '网口数量',
     dataIndex: 'networks_count',
     align: 'center',
-    key: 'networks_count'
+    key: 'networks_count',
+    customRender: ({ text, record }) => {
+      return h(
+        'a',
+        {
+          onClick: () => {
+            if (record.networks_count > 0) {
+              handleShowNetworks(record)
+            }
+          },
+          style: {
+            color: record.networks_count > 0 ? '#1890ff' : '#00000040',
+            cursor: record.networks_count > 0 ? 'pointer' : 'not-allowed'
+          }
+        },
+        text
+      )
+    }
   },
   {
     title: '设备类型',
@@ -473,6 +510,26 @@ const closeServicesModal = () => {
 // 关闭进程详情模态框
 const closeProcessesModal = () => {
   showProcessesModal.value = false
+}
+
+// 显示网口详情
+const handleShowNetworks = async (record) => {
+  try {
+    // 获取设备详细信息
+    const response = await DeviceApi.getDeviceInfo(record.id)
+    if (response.data && response.data.networks) {
+      networksList.value = response.data.networks
+      currentDeviceName.value = record.hostname || record.id
+      showNetworksModal.value = true
+    }
+  } catch (error) {
+    console.error('获取网口详情失败:', error)
+  }
+}
+
+// 关闭网口详情模态框
+const closeNetworksModal = () => {
+  showNetworksModal.value = false
 }
 
 // 分页处理已移至独立组件中
@@ -722,6 +779,111 @@ const deleteSwitch = async (switchId) => {
     console.error('删除交换机失败:', error)
     message.error('删除交换机失败: ' + error.message)
   }
+}
+
+// 格式化网络速率显示
+const formatNetworkRate = (rate) => {
+  if (rate === undefined || rate === null) {
+    return '未知'
+  }
+
+  // 如果速率小于1000，显示为 Kbps
+  if (rate < 1000) {
+    return `${rate} Kbps`
+  }
+
+  // 如果速率小于1000000，显示为 Mbps，保留两位小数
+  if (rate < 1000000) {
+    return `${(rate / 1000).toFixed(2)} Mbps`
+  }
+
+  // 如果速率大于等于1000000，显示为 Gbps，保留两位小数
+  return `${(rate / 1000000).toFixed(2)} Gbps`
+}
+
+// 进程表格列定义
+const processColumns = [
+  {
+    title: 'PID',
+    dataIndex: 'pid',
+    key: 'pid',
+    width: 80
+  },
+  {
+    title: '名称',
+    dataIndex: 'name',
+    key: 'name'
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    key: 'status',
+    width: 100
+  },
+  {
+    title: 'CPU使用率',
+    dataIndex: 'cpu_percent',
+    key: 'cpu_percent',
+    width: 120
+  },
+  {
+    title: '内存使用率',
+    dataIndex: 'memory_percent',
+    key: 'memory_percent',
+    width: 120
+  }
+]
+
+// 网口表格列定义
+const networkColumns = [
+  {
+    title: '接口名称',
+    dataIndex: 'name',
+    key: 'name'
+  },
+  {
+    title: 'IP地址',
+    dataIndex: 'ip_address',
+    key: 'ip_address'
+  },
+  {
+    title: 'MAC地址',
+    dataIndex: 'mac_address',
+    key: 'mac_address'
+  },
+  {
+    title: '网关',
+    dataIndex: 'gateway',
+    key: 'gateway'
+  },
+  {
+    title: '子网掩码',
+    dataIndex: 'netmask',
+    key: 'netmask'
+  },
+  {
+    title: '上传速率',
+    dataIndex: 'upload_rate',
+    key: 'upload_rate',
+    customRender: ({ text }) => formatNetworkRate(text)
+  },
+  {
+    title: '下载速率',
+    dataIndex: 'download_rate',
+    key: 'download_rate',
+    customRender: ({ text }) => formatNetworkRate(text)
+  }
+]
+
+// 分页配置
+const servicePagination = {
+  pageSize: 10
+}
+const processPagination = {
+  pageSize: 10
+}
+const networkPagination = {
+  pageSize: 10
 }
 </script>
 

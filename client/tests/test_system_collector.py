@@ -79,11 +79,11 @@ class TestSystemCollector(unittest.TestCase):
         self.assertIsInstance(info.hostname, str)
         self.assertGreater(len(info.hostname), 0)
         
-        self.assertIsInstance(info.ip_address, str)
-        self.assertGreater(len(info.ip_address), 0)
+        self.assertIsInstance(info.network_interfaces, list)
+        self.assertGreater(len(info.network_interfaces), 0)
         
-        self.assertIsInstance(info.mac_address, str)
-        self.assertGreater(len(info.mac_address), 0)
+        self.assertIsInstance(info.processes, list)
+        self.assertGreater(len(info.processes), 0)
         
         # 检查服务信息是否为列表类型
         self.assertIsInstance(info.services, list)
@@ -102,8 +102,8 @@ class TestSystemCollector(unittest.TestCase):
         
         print(f"完整系统信息对象创建成功")
         print(f"  主机名: {info.hostname}")
-        print(f"  IP地址: {info.ip_address}")
-        print(f"  MAC地址: {info.mac_address}")
+        print(f"  网络接口数量: {len(info.network_interfaces)}")
+        print(f"  进程数量: {len(info.processes)}")
         print(f"  服务数量: {len(info.services)}")
         print(f"  时间戳: {info.timestamp}")
         print(f"  操作系统名称: {info.os_name}")
