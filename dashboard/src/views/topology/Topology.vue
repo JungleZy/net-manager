@@ -354,7 +354,6 @@ const initTopology = () => {
       handleBeautifyAction(lf)
     }
   })
-  console.log('Control 插件美化按钮添加成功', lf.extension.control)
 
   lf.render(data.value)
 
@@ -512,9 +511,25 @@ const handleBeautifyAction = (lfInstance) => {
       }
     })
 
-    // 清空边的路径点，让LogicFlow自动重新计算
+    // 优化边的锚点连接 - 遵循就近原则
     if (graphData.edges) {
       graphData.edges.forEach((edge) => {
+        const sourceNode = graphData.nodes.find(
+          (n) => n.id === edge.sourceNodeId
+        )
+        const targetNode = graphData.nodes.find(
+          (n) => n.id === edge.targetNodeId
+        )
+
+        if (sourceNode && targetNode) {
+          // 计算最佳锚点
+          const bestAnchors = calculateBestAnchors(sourceNode, targetNode)
+
+          // 更新锚点ID
+          edge.sourceAnchorId = bestAnchors.sourceAnchor
+          edge.targetAnchorId = bestAnchors.targetAnchor
+        }
+
         // 删除旧的路径点信息，让LogicFlow重新计算
         delete edge.pointsList
         delete edge.startPoint
@@ -525,15 +540,129 @@ const handleBeautifyAction = (lfInstance) => {
     // 重新渲染图，这会根据新的节点位置自动计算连线
     lfInstance.render(graphData)
 
-    // 适应画布
-    setTimeout(() => {
-      lfInstance.fitView(20)
-    }, 100)
+    // 使用Control插件的适应画布功能
+    nextTick(() => {
+      if (lfInstance.extension && lfInstance.extension.control) {
+        // 查找并触发Control插件的适应按钮
+        const controlItems = lfInstance.extension.control.controlItems
+        if (controlItems) {
+          // 查找适应画布按钮（通常key为'reset'或'fit'）
+          const fitItem = controlItems.find(
+            (item) =>
+              item.key === 'reset' ||
+              item.key === 'fit' ||
+              item.key === 'lf-control-fit'
+          )
+          if (fitItem && fitItem.onClick) {
+            // 调用Control插件的适应功能
+            fitItem.onClick(lfInstance)
+          } else {
+            // 如果找不到，降级使用原生API
+            lfInstance.fitView(20)
+          }
+        } else {
+          // 如果Control插件未正确初始化，使用原生API
+          lfInstance.fitView(20)
+        }
+      } else {
+        // 如果Control插件不存在，使用原生API
+        lfInstance.fitView(20)
+      }
+    })
 
     message.success('布局美化完成')
   } catch (error) {
     console.error('美化失败:', error)
     message.error('美化失败，请确保已安装dagre库')
+  }
+}
+
+/**
+ * 计算两个节点之间的最佳锚点连接
+ * 锚点索引: 0-上, 1-右, 2-下, 3-左
+ * 原则：目标在源的某个方向，源节点就用该方向的锚点，目标节点用相反方向的锚点
+ */
+const calculateBestAnchors = (sourceNode, targetNode) => {
+  const sx = sourceNode.x
+  const sy = sourceNode.y
+  const tx = targetNode.x
+  const ty = targetNode.y
+
+  // 计算节点中心点之间的差值和角度
+  const dx = tx - sx
+  const dy = ty - sy
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI)
+
+  // 计算水平和垂直距离的绝对值，用于判断主要方向
+  const absDx = Math.abs(dx)
+  const absDy = Math.abs(dy)
+
+  let sourceAnchor
+  let targetAnchor
+
+  // 优化策略：比较水平和垂直距离，选择更大的主方向
+  if (absDx > absDy * 1.5) {
+    // 水平距离明显大于垂直距离，优先选择水平方向
+    if (dx > 0) {
+      // 目标在右侧 → 源用右(1)，目标用左(3)
+      sourceAnchor = `${sourceNode.id}_1`
+      targetAnchor = `${targetNode.id}_3`
+    } else {
+      // 目标在左侧 ← 源用左(3)，目标用右(1)
+      sourceAnchor = `${sourceNode.id}_3`
+      targetAnchor = `${targetNode.id}_1`
+    }
+  } else if (absDy > absDx * 1.5) {
+    // 垂直距离明显大于水平距离，优先选择垂直方向
+    if (dy > 0) {
+      // 目标在下方 ↓ 源用下(2)，目标用上(0)
+      sourceAnchor = `${sourceNode.id}_2`
+      targetAnchor = `${targetNode.id}_0`
+    } else {
+      // 目标在上方 ↑ 源用上(0)，目标用下(2)
+      sourceAnchor = `${sourceNode.id}_0`
+      targetAnchor = `${targetNode.id}_2`
+    }
+  } else {
+    // 对角方向：水平和垂直距离相近，根据角度精确选择
+    if (angle >= -22.5 && angle < 22.5) {
+      // 正右 →
+      sourceAnchor = `${sourceNode.id}_1`
+      targetAnchor = `${targetNode.id}_3`
+    } else if (angle >= 22.5 && angle < 67.5) {
+      // 右下 ↘ 根据主要方向选择，这里选择下方
+      sourceAnchor = `${sourceNode.id}_2`
+      targetAnchor = `${targetNode.id}_0`
+    } else if (angle >= 67.5 && angle < 112.5) {
+      // 正下 ↓
+      sourceAnchor = `${sourceNode.id}_2`
+      targetAnchor = `${targetNode.id}_0`
+    } else if (angle >= 112.5 && angle < 157.5) {
+      // 左下 ↙ 根据主要方向选择，这里选择下方
+      sourceAnchor = `${sourceNode.id}_2`
+      targetAnchor = `${targetNode.id}_0`
+    } else if (angle >= 157.5 || angle < -157.5) {
+      // 正左 ←
+      sourceAnchor = `${sourceNode.id}_3`
+      targetAnchor = `${targetNode.id}_1`
+    } else if (angle >= -157.5 && angle < -112.5) {
+      // 左上 ↖ 根据主要方向选择，这里选择上方
+      sourceAnchor = `${sourceNode.id}_0`
+      targetAnchor = `${targetNode.id}_2`
+    } else if (angle >= -112.5 && angle < -67.5) {
+      // 正上 ↑
+      sourceAnchor = `${sourceNode.id}_0`
+      targetAnchor = `${targetNode.id}_2`
+    } else {
+      // 右上 ↗ 根据主要方向选择，这里选择上方
+      sourceAnchor = `${sourceNode.id}_0`
+      targetAnchor = `${targetNode.id}_2`
+    }
+  }
+
+  return {
+    sourceAnchor,
+    targetAnchor
   }
 }
 
@@ -670,8 +799,19 @@ const handleKeyDown = (event) => {
 
   // Control插件样式自定义
   .lf-control {
+    top: 12px;
+    right: 2px;
+    padding: 0 12px;
+    margin: 0;
     // 一键美化按钮样式
     .lf-control-item {
+      .lf-control-text {
+        font-size: 12px;
+      }
+      i {
+        width: 16px;
+        height: 16px;
+      }
       &[data-key='beautify'] {
         width: 32px;
         height: 32px;
