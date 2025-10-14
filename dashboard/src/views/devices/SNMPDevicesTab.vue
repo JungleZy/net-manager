@@ -36,6 +36,7 @@
         :loading="loading"
         size="small"
         row-key="id"
+        bordered
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
@@ -63,7 +64,7 @@
       v-model:visible="showDiscoverSwitchModal"
       @scan-complete="() => emit('fetchSwitches')"
     />
-    
+
     <!-- 创建/编辑交换机模态框 -->
     <SwitchAddModal
       v-model:visible="showSwitchModal"
@@ -140,13 +141,15 @@ const switchColumns = [
     title: 'IP地址',
     dataIndex: 'ip',
     align: 'center',
-    key: 'ip'
+    key: 'ip',
+    width: 120
   },
   {
     title: 'SNMP版本',
     dataIndex: 'snmp_version',
     align: 'center',
-    key: 'snmp_version'
+    key: 'snmp_version',
+    width: 90
   },
   {
     title: '描述',
@@ -158,13 +161,15 @@ const switchColumns = [
     title: '创建时间',
     dataIndex: 'created_at',
     align: 'center',
-    key: 'created_at'
+    key: 'created_at',
+    width: 146
   },
   {
     title: '更新时间',
     dataIndex: 'updated_at',
     align: 'center',
-    key: 'updated_at'
+    key: 'updated_at',
+    width: 146
   },
   {
     title: '操作',
