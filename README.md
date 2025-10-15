@@ -77,6 +77,48 @@ python src/main.py
 - Linux x86
 - Linux x64
 
+### 本地打包
+
+使用 `build.py` 脚本可以在本地进行打包：
+
+```bash
+python build.py          # 打包客户端和服务端
+python build.py --client # 仅打包客户端
+python build.py --server # 仅打包服务端
+```
+
+**Linux系统打包依赖：**
+
+在Linux系统下进行打包时，需要安装以下工具：
+
+1. **patchelf** - 用于修改ELF二进制文件
+2. **C编译器** - gcc 或 clang（推荐使用clang，更稳定）
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install patchelf gcc clang
+
+# CentOS/RHEL/Fedora
+sudo dnf install patchelf gcc clang
+# 或
+sudo yum install patchelf gcc clang
+
+# Arch Linux
+sudo pacman -S patchelf gcc clang
+```
+
+**关于编译器的说明：**
+
+- 打包脚本会自动检测可用的C编译器
+- 如果安装了clang，脚本会优先使用clang（更稳定，较少崩溃）
+- 如果只有gcc可用，会使用gcc
+- 如果遇到gcc编译器崩溃问题（segfault），建议：
+  - 安装并使用clang编译器
+  - 或升级gcc到最新版本
+
+如果未安装必要的工具，打包过程会自动检测并给出安装提示。
+
 详细说明请参见 [GitHub Actions 打包指南](docs/GITHUB_ACTIONS_PACKAGING.md)
 
 ## 自动化测试
