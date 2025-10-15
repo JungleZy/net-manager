@@ -82,21 +82,27 @@
           </template>
           <template v-else-if="column.dataIndex === 'cpu_usage'">
             {{
-              record.cpu_info.usage_percent !== undefined
+              !record.online
+                ? '0%'
+                : record.cpu_info.usage_percent !== undefined
                 ? record.cpu_info.usage_percent + '%'
                 : '未知'
             }}
           </template>
           <template v-else-if="column.dataIndex === 'memory_usage'">
             {{
-              record.memory_info.percentage !== undefined
+              !record.online
+                ? '0%'
+                : record.memory_info.percentage !== undefined
                 ? record.memory_info.percentage + '%'
                 : '未知'
             }}
           </template>
           <template v-else-if="column.dataIndex === 'disk_usage'">
             {{
-              record.disk_info.percentage !== undefined
+              !record.online
+                ? '0%'
+                : record.disk_info.percentage !== undefined
                 ? record.disk_info.percentage + '%'
                 : '未知'
             }}
@@ -109,7 +115,7 @@
           <template v-else-if="column.dataIndex === 'action'">
             <EditOutlined
               @click="openEditModal(record)"
-              style="font-size: 16px;color: #1677ff;"
+              style="font-size: 16px; color: #1677ff"
               class="cursor-pointer"
             />
             <a-popconfirm
