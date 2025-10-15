@@ -134,6 +134,7 @@ class SwitchManager(BaseDatabaseManager):
                         priv_protocol TEXT,
                         description TEXT,
                         device_name TEXT,
+                        device_type TEXT,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
@@ -196,8 +197,8 @@ class SwitchManager(BaseDatabaseManager):
                     """
                     INSERT INTO switch_info (
                         ip, snmp_version, community, user, auth_key, auth_protocol,
-                        priv_key, priv_protocol, description, device_name, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                        priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
                 """,
                     (
                         switch_info.ip,
@@ -210,6 +211,7 @@ class SwitchManager(BaseDatabaseManager):
                         switch_info.priv_protocol,
                         switch_info.description,
                         switch_info.device_name,
+                        switch_info.device_type,
                     ),
                 )
 
@@ -258,7 +260,7 @@ class SwitchManager(BaseDatabaseManager):
                     UPDATE switch_info SET 
                         ip = ?, snmp_version = ?, community = ?, user = ?, 
                         auth_key = ?, auth_protocol = ?, priv_key = ?, 
-                        priv_protocol = ?, description = ?, device_name = ?, updated_at = datetime('now')
+                        priv_protocol = ?, description = ?, device_name = ?, device_type = ?, updated_at = datetime('now')
                     WHERE id = ?
                 """,
                     (
@@ -272,6 +274,7 @@ class SwitchManager(BaseDatabaseManager):
                         switch_info.priv_protocol,
                         switch_info.description,
                         switch_info.device_name,
+                        switch_info.device_type,
                         switch_info.id,
                     ),
                 )
@@ -353,7 +356,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
                     FROM switch_info
                     WHERE id = ?
                 """,
@@ -375,8 +378,9 @@ class SwitchManager(BaseDatabaseManager):
                         "priv_protocol": row[8],
                         "description": row[9],
                         "device_name": row[10],
-                        "created_at": row[11],
-                        "updated_at": row[12],
+                        "device_type": row[11],
+                        "created_at": row[12],
+                        "updated_at": row[13],
                     }
                 return None
         except Exception as e:
@@ -403,7 +407,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
                     FROM switch_info
                     WHERE ip = ?
                 """,
@@ -425,8 +429,9 @@ class SwitchManager(BaseDatabaseManager):
                         "priv_protocol": row[8],
                         "description": row[9],
                         "device_name": row[10],
-                        "created_at": row[11],
-                        "updated_at": row[12],
+                        "device_type": row[11],
+                        "created_at": row[12],
+                        "updated_at": row[13],
                     }
                 return None
         except Exception as e:
@@ -450,7 +455,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
                     FROM switch_info
                     ORDER BY created_at DESC
                 """
@@ -474,8 +479,9 @@ class SwitchManager(BaseDatabaseManager):
                             "priv_protocol": row[8],
                             "description": row[9],
                             "device_name": row[10],
-                            "created_at": row[11],
-                            "updated_at": row[12],
+                            "device_type": row[11],
+                            "created_at": row[12],
+                            "updated_at": row[13],
                         }
                     )
 

@@ -62,7 +62,8 @@
     <!-- SNMP扫描模态框 -->
     <SNMPScanModal
       v-model:visible="showDiscoverSwitchModal"
-      @scan-complete="() => emit('fetchSwitches')"
+      @scan-complete="handleScanComplete"
+      @cancel="handleDiscoverModalCancel"
     />
 
     <!-- 创建/编辑交换机模态框 -->
@@ -71,7 +72,7 @@
       :is-editing="isSwitchEditing"
       :switch-data="currentSwitch"
       @ok="saveSwitch"
-      @cancel="closeSwitchModal"
+      @cancel="handleSwitchModalCancel"
     />
   </div>
 </template>
@@ -117,7 +118,8 @@ const currentSwitch = ref({
   priv_key: '',
   priv_protocol: '',
   description: '',
-  device_name: ''
+  device_name: '',
+  device_type: ''
 })
 
 // 定义组件事件
@@ -136,6 +138,13 @@ const switchColumns = [
     dataIndex: 'device_name',
     align: 'center',
     key: 'device_name'
+  },
+  {
+    title: '设备类型',
+    dataIndex: 'device_type',
+    align: 'center',
+    key: 'device_type',
+    width: 100
   },
   {
     title: 'IP地址',
@@ -185,6 +194,17 @@ const openDiscoverSwitchModal = () => {
   showDiscoverSwitchModal.value = true
 }
 
+// 处理扫描完成事件
+const handleScanComplete = () => {
+  emit('fetchSwitches')
+}
+
+// 处理自动发现模态框关闭事件
+const handleDiscoverModalCancel = () => {
+  // 关闭模态框时刷新表格数据
+  emit('fetchSwitches')
+}
+
 // 打开创建交换机模态框
 const openCreateSwitchModal = () => {
   isSwitchEditing.value = false
@@ -199,7 +219,8 @@ const openCreateSwitchModal = () => {
     priv_key: '',
     priv_protocol: '',
     description: '',
-    device_name: ''
+    device_name: '',
+    device_type: ''
   }
   showSwitchModal.value = true
 }
@@ -214,6 +235,13 @@ const openEditSwitchModal = (switchData) => {
 // 关闭交换机模态框
 const closeSwitchModal = () => {
   showSwitchModal.value = false
+}
+
+// 处理手动添加/编辑模态框关闭事件
+const handleSwitchModalCancel = () => {
+  closeSwitchModal()
+  // 关闭模态框时刷新表格数据
+  emit('fetchSwitches')
 }
 
 // 保存交换机（创建或更新）

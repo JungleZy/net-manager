@@ -24,6 +24,7 @@ class SwitchInfo:
         priv_protocol: str = "",
         description: str = "",
         device_name: str = "",
+        device_type: str = "",
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         id: Optional[int] = None,
@@ -43,6 +44,7 @@ class SwitchInfo:
             priv_protocol: SNMPv3隐私协议（如'DES', 'AES'）
             description: 交换机描述信息
             device_name: 设备名称
+            device_type: 设备类型（如'交换机', '路由器', '防火墙'等）
             created_at: 创建时间（可选）
             updated_at: 更新时间（可选）
         """
@@ -57,6 +59,7 @@ class SwitchInfo:
         self.priv_protocol = priv_protocol
         self.description = description
         self.device_name = device_name
+        self.device_type = device_type
         self.created_at = created_at or datetime.now().isoformat()
         self.updated_at = updated_at or datetime.now().isoformat()
 
@@ -79,6 +82,7 @@ class SwitchInfo:
             "priv_protocol": self.priv_protocol,
             "description": self.description,
             "device_name": self.device_name,
+            "device_type": self.device_type,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -106,13 +110,14 @@ class SwitchInfo:
             priv_protocol=data.get("priv_protocol", ""),
             description=data.get("description", ""),
             device_name=data.get("device_name", ""),
+            device_type=data.get("device_type", ""),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
 
     def __str__(self) -> str:
         """返回交换机信息的字符串表示"""
-        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description}, device_name={self.device_name})"
+        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description}, device_name={self.device_name}, device_type={self.device_type})"
 
     def __repr__(self) -> str:
         """返回交换机信息的详细字符串表示"""

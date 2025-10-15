@@ -39,6 +39,100 @@ export const formatMachineType = (machineType) => {
 }
 
 /**
+ * 根据设备描述智能推导设备类型
+ * @param {string} description - 设备描述信息
+ * @returns {string} 推导出的设备类型 (交换机/路由器/防火墙/服务器/打印机/电脑/笔记本/未知)
+ */
+export const deriveDeviceType = (description) => {
+  if (!description) return '未知';
+
+  // 统一转换为小写便于匹配
+  const lowerDesc = description.toLowerCase();
+
+  // 打印机识别
+  if (lowerDesc.includes('printer') || lowerDesc.includes('laserjet') ||
+    lowerDesc.includes('mfp') || lowerDesc.includes('officejet') ||
+    lowerDesc.includes('deskjet') || lowerDesc.includes('打印机') ||
+    lowerDesc.includes('epson') || lowerDesc.includes('canon') ||
+    lowerDesc.includes('brother') || lowerDesc.includes('xerox') ||
+    lowerDesc.includes('ricoh') || lowerDesc.includes('kyocera')) {
+    return '打印机';
+  }
+
+  // 防火墙识别
+  if (lowerDesc.includes('firewall') || lowerDesc.includes('防火墙') ||
+    lowerDesc.includes('palo alto') || lowerDesc.includes('fortigate') ||
+    lowerDesc.includes('checkpoint') || lowerDesc.includes('juniper srx') ||
+    lowerDesc.includes('asa') || lowerDesc.includes('fortinet') ||
+    lowerDesc.includes('ngfw') || lowerDesc.includes('utm')) {
+    return '防火墙';
+  }
+
+  // 路由器识别
+  if (lowerDesc.includes('router') || lowerDesc.includes('路由器') ||
+    lowerDesc.includes('routing') || lowerDesc.includes('gateway') ||
+    lowerDesc.includes('网关')) {
+    return '路由器';
+  }
+
+  // 交换机识别
+  if (lowerDesc.includes('switch') || lowerDesc.includes('交换机') ||
+    lowerDesc.includes('catalyst') || lowerDesc.includes('nexus') ||
+    lowerDesc.includes('procurve') || lowerDesc.includes('powerconnect') ||
+    lowerDesc.includes('cloudengine') || lowerDesc.includes('ethernet switch')) {
+    return '交换机';
+  }
+
+  // 服务器识别
+  if (lowerDesc.includes('server') || lowerDesc.includes('服务器') ||
+    lowerDesc.includes('poweredge') || lowerDesc.includes('proliant') ||
+    lowerDesc.includes('thinksystem') || lowerDesc.includes('thinkserver') ||
+    lowerDesc.includes('esxi') || lowerDesc.includes('vcenter') ||
+    lowerDesc.includes('windows server') || lowerDesc.includes('linux server') ||
+    lowerDesc.includes('centos') || lowerDesc.includes('ubuntu server') ||
+    lowerDesc.includes('red hat')) {
+    return '服务器';
+  }
+
+  // 笔记本识别
+  if (lowerDesc.includes('laptop') || lowerDesc.includes('notebook') ||
+    lowerDesc.includes('笔记本') || lowerDesc.includes('thinkpad') ||
+    lowerDesc.includes('macbook') || lowerDesc.includes('latitude') ||
+    lowerDesc.includes('elitebook') || lowerDesc.includes('pavilion')) {
+    return '笔记本';
+  }
+
+  // PC识别
+  if (lowerDesc.includes('desktop') || lowerDesc.includes('pc') ||
+    lowerDesc.includes('台式机') || lowerDesc.includes('工作站') ||
+    lowerDesc.includes('workstation') || lowerDesc.includes('optiplex') ||
+    lowerDesc.includes('thinkcentre') || lowerDesc.includes('elitedesk') ||
+    lowerDesc.includes('windows 10') || lowerDesc.includes('windows 11') ||
+    lowerDesc.includes('imac')) {
+    return '电脑';
+  }
+
+  // 根据常见厂商判断设备类型
+  // 网络设备厂商
+  if (description.includes('Cisco') || description.includes('Huawei') ||
+    description.includes('H3C') || description.includes('Juniper') ||
+    description.includes('Arista') || description.includes('华为') ||
+    description.includes('思科') || description.includes('锐捷') ||
+    description.includes('Ruijie')) {
+    return '交换机'; // 默认为交换机
+  }
+
+  // 如果包含IP地址或MAC地址，可能是网络设备
+  if (/\b(?:\d{1,3}\.){3}\d{1,3}\b/.test(description) ||
+    /([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i.test(description)) {
+    return '交换机';
+  }
+
+  // 默认返回未知类型
+  return '未知';
+};
+
+/**
  * 根据设备描述智能推导设备名称
  * @param {string} description - 设备描述信息
  * @returns {string} 推导出的设备名称
@@ -216,6 +310,57 @@ export const deriveDeviceName = (description) => {
     return 'Arista交换机';
   }
 
+  // HP设备识别（包括打印机、交换机等）
+  if (description.includes('HP') || description.includes('惠普') || description.includes('Hewlett')) {
+    // 首先检查是否是打印机
+    if (lowerDesc.includes('laserjet') || lowerDesc.includes('printer') ||
+      lowerDesc.includes('mfp') || lowerDesc.includes('officejet') ||
+      lowerDesc.includes('deskjet') || lowerDesc.includes('打印机')) {
+
+      // 尝试从PID字段提取型号
+      const pidMatch = description.match(/PID:([^,]+)/i);
+      if (pidMatch) {
+        const model = pidMatch[1].trim();
+        return model;
+      }
+
+      // 尝试匹配LaserJet等型号
+      const printerPatterns = [
+        /HP\s+LaserJet\s+[A-Z0-9\s]+/i,
+        /HP\s+OfficeJet\s+[A-Z0-9\s]+/i,
+        /HP\s+DeskJet\s+[A-Z0-9\s]+/i,
+        /LaserJet\s+MFP\s+[A-Z0-9]+/i,
+        /LaserJet\s+[A-Z0-9]+/i
+      ];
+
+      for (const pattern of printerPatterns) {
+        const modelMatch = description.match(pattern);
+        if (modelMatch) {
+          return modelMatch[0].trim();
+        }
+      }
+
+      return 'HP打印机';
+    }
+
+    // HP交换机识别
+    const hpSwitchPatterns = [
+      /procurve\s*\d+/i,             // ProCurve系列
+      /\d+g\b/i,                     // 如2920G
+      /aruba\s*\d+/i,                // Aruba系列
+      /flexfabric\s*\d+/i            // FlexFabric系列
+    ];
+
+    for (const pattern of hpSwitchPatterns) {
+      const modelMatch = description.match(pattern);
+      if (modelMatch) {
+        return `HP${modelMatch[0]}交换机`;
+      }
+    }
+
+    return 'HP设备';
+  }
+
   // 其他品牌设备
   if (description.includes('Switch') || description.includes('交换机') ||
     lowerDesc.includes('switch') || lowerDesc.includes('router') ||
@@ -250,3 +395,4 @@ export const deriveDeviceName = (description) => {
   // 默认情况返回原始描述或空字符串
   return description || '';
 }
+

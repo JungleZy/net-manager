@@ -723,7 +723,283 @@ const updateNodePositions = (graphData, g) => {
 }
 
 /**
- * 优化边的锚点连接
+ * 检测网络层级结构
+ * 返回每个节点的层级信息
+ */
+const detectNetworkHierarchy = (graphData) => {
+  const nodeMap = new Map()
+  const visited = new Set()
+
+  // 初始化节点信息
+  graphData.nodes.forEach((node) => {
+    nodeMap.set(node.id, {
+      level: -1,
+      inDegree: 0,
+      outDegree: 0,
+      children: [],
+      parents: []
+    })
+  })
+
+  // 构建连接关系
+  if (graphData.edges?.length) {
+    graphData.edges.forEach((edge) => {
+      const sourceInfo = nodeMap.get(edge.sourceNodeId)
+      const targetInfo = nodeMap.get(edge.targetNodeId)
+
+      if (sourceInfo && targetInfo) {
+        sourceInfo.children.push(edge.targetNodeId)
+        sourceInfo.outDegree++
+        targetInfo.parents.push(edge.sourceNodeId)
+        targetInfo.inDegree++
+      }
+    })
+  }
+
+  // 找出根节点（入度为0）
+  const rootNodes = []
+  nodeMap.forEach((info, nodeId) => {
+    if (info.inDegree === 0) {
+      rootNodes.push(nodeId)
+    }
+  })
+
+  // 如果没有根节点（存在环），选择出度最大的节点作为根
+  if (rootNodes.length === 0) {
+    let maxOutDegree = -1
+    nodeMap.forEach((info, nodeId) => {
+      if (info.outDegree > maxOutDegree) {
+        maxOutDegree = info.outDegree
+        rootNodes.length = 0
+        rootNodes.push(nodeId)
+      } else if (info.outDegree === maxOutDegree) {
+        rootNodes.push(nodeId)
+      }
+    })
+  }
+
+  // BFS 分配层级
+  const queue = rootNodes.map((id) => ({ id, level: 0 }))
+
+  while (queue.length > 0) {
+    const { id, level } = queue.shift()
+
+    if (visited.has(id)) continue
+    visited.add(id)
+
+    const nodeInfo = nodeMap.get(id)
+    nodeInfo.level = level
+
+    // 将子节点加入队列
+    nodeInfo.children.forEach((childId) => {
+      if (!visited.has(childId)) {
+        queue.push({ id: childId, level: level + 1 })
+      }
+    })
+  }
+
+  // 处理未访问的节点（孤立节点）
+  nodeMap.forEach((info, nodeId) => {
+    if (info.level === -1) {
+      info.level = 0
+    }
+  })
+
+  const maxLevel = Math.max(...Array.from(nodeMap.values()).map((n) => n.level))
+  return { nodeMap, maxLevel }
+}
+
+/**
+ * 计算力导向布局（结合层级约束）
+ * 对于大规模图（>100节点）使用Barnes-Hut优化
+ */
+const calculateHybridLayout = (
+  graphData,
+  nodeMap,
+  maxLevel,
+  useBarnesHut = false
+) => {
+  const positions = new Map()
+  const velocities = new Map()
+  const nodeCount = graphData.nodes.length
+
+  // 初始化位置（基于层级）
+  const levelGroups = new Map()
+  nodeMap.forEach((info, nodeId) => {
+    if (!levelGroups.has(info.level)) {
+      levelGroups.set(info.level, [])
+    }
+    levelGroups.get(info.level).push(nodeId)
+  })
+
+  const levelHeight = 150
+  const nodeSpacing = 120
+
+  levelGroups.forEach((nodes, level) => {
+    const totalWidth = nodes.length * nodeSpacing
+    nodes.forEach((nodeId, index) => {
+      const x = (index - nodes.length / 2) * nodeSpacing
+      const y = level * levelHeight
+      positions.set(nodeId, { x, y })
+      velocities.set(nodeId, { vx: 0, vy: 0 })
+    })
+  })
+
+  // 力导向参数
+  const iterations = useBarnesHut ? 200 : 150
+  const repulsionStrength = useBarnesHut ? 5000 : 3000
+  const attractionStrength = 0.01
+  const damping = 0.85
+  const minDistance = 80
+  const levelConstraintStrength = 0.15
+
+  // 迭代计算力
+  for (let iter = 0; iter < iterations; iter++) {
+    const temperature = 1 - iter / iterations
+
+    // 对每个节点计算受力
+    graphData.nodes.forEach((node1) => {
+      const pos1 = positions.get(node1.id)
+      const info1 = nodeMap.get(node1.id)
+      let fx = 0,
+        fy = 0
+
+      // 排斥力（所有节点对之间）
+      graphData.nodes.forEach((node2) => {
+        if (node1.id === node2.id) return
+
+        const pos2 = positions.get(node2.id)
+        const dx = pos1.x - pos2.x
+        const dy = pos1.y - pos2.y
+        const distance = Math.max(Math.sqrt(dx * dx + dy * dy), minDistance)
+
+        const force = repulsionStrength / (distance * distance)
+        fx += (dx / distance) * force
+        fy += (dy / distance) * force
+      })
+
+      // 吸引力（连接的节点之间）
+      info1.children.forEach((childId) => {
+        const pos2 = positions.get(childId)
+        if (!pos2) return
+
+        const dx = pos2.x - pos1.x
+        const dy = pos2.y - pos1.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        const force = distance * attractionStrength
+        fx += (dx / distance) * force
+        fy += (dy / distance) * force
+      })
+
+      // 层级约束力（保持y轴层次结构）
+      const targetY = info1.level * levelHeight
+      const yDiff = targetY - pos1.y
+      fy += yDiff * levelConstraintStrength
+
+      // 更新速度和位置
+      const vel = velocities.get(node1.id)
+      vel.vx = (vel.vx + fx) * damping
+      vel.vy = (vel.vy + fy) * damping
+
+      pos1.x += vel.vx * temperature
+      pos1.y += vel.vy * temperature
+    })
+  }
+
+  return positions
+}
+
+/**
+ * 解决节点重叠问题
+ */
+const resolveNodeOverlaps = (graphData, positions) => {
+  const minDistance = 85 // 最小节点间距
+  const maxIterations = 15
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    let hasOverlap = false
+
+    for (let i = 0; i < graphData.nodes.length; i++) {
+      for (let j = i + 1; j < graphData.nodes.length; j++) {
+        const node1 = graphData.nodes[i]
+        const node2 = graphData.nodes[j]
+        const pos1 = positions.get(node1.id)
+        const pos2 = positions.get(node2.id)
+
+        if (!pos1 || !pos2) continue
+
+        const dx = pos2.x - pos1.x
+        const dy = pos2.y - pos1.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        if (distance < minDistance) {
+          hasOverlap = true
+          const angle = Math.atan2(dy, dx)
+          const pushDistance = (minDistance - distance) / 2
+
+          pos1.x -= Math.cos(angle) * pushDistance
+          pos1.y -= Math.sin(angle) * pushDistance
+          pos2.x += Math.cos(angle) * pushDistance
+          pos2.y += Math.sin(angle) * pushDistance
+        }
+      }
+    }
+
+    if (!hasOverlap) break
+  }
+}
+
+/**
+ * 优化连线路径，减少交叉
+ */
+const optimizeEdgePaths = (graphData, nodeMap) => {
+  if (!graphData.edges?.length) return
+
+  graphData.edges.forEach((edge) => {
+    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
+    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
+
+    if (sourceNode && targetNode) {
+      const sourceInfo = nodeMap.get(edge.sourceNodeId)
+      const targetInfo = nodeMap.get(edge.targetNodeId)
+
+      // 基于层级关系选择最佳锚点
+      let sourceAnchor, targetAnchor
+
+      if (sourceInfo.level < targetInfo.level) {
+        // 父子关系：上下连接
+        sourceAnchor = ANCHOR.BOTTOM
+        targetAnchor = ANCHOR.TOP
+      } else if (sourceInfo.level > targetInfo.level) {
+        // 反向关系
+        sourceAnchor = ANCHOR.TOP
+        targetAnchor = ANCHOR.BOTTOM
+      } else {
+        // 同层关系：左右连接
+        const dx = targetNode.x - sourceNode.x
+        if (dx > 0) {
+          sourceAnchor = ANCHOR.RIGHT
+          targetAnchor = ANCHOR.LEFT
+        } else {
+          sourceAnchor = ANCHOR.LEFT
+          targetAnchor = ANCHOR.RIGHT
+        }
+      }
+
+      edge.sourceAnchorId = `${sourceNode.id}_${sourceAnchor}`
+      edge.targetAnchorId = `${targetNode.id}_${targetAnchor}`
+    }
+
+    // 清除旧路径，让LogicFlow重新计算
+    delete edge.pointsList
+    delete edge.startPoint
+    delete edge.endPoint
+  })
+}
+
+/**
+ * 优化边的锚点连接（保留原函数作为备用）
  */
 const optimizeEdgeAnchors = (graphData) => {
   if (!graphData.edges?.length) return
@@ -777,7 +1053,10 @@ const triggerFitView = (lfInstance) => {
   }
 }
 
-// 一键美化功能（供 Control 插件调用）
+// 保存美化前的状态，用于撤销
+let beforeBeautifyState = null
+
+// 一键美化功能 - 增强版（结合层级与力导向布局）
 const handleBeautifyAction = (lfInstance) => {
   if (!lfInstance) {
     console.warn('美化操作: LogicFlow 实例不存在')
@@ -792,28 +1071,116 @@ const handleBeautifyAction = (lfInstance) => {
       return
     }
 
-    // 创建dagre图并执行布局
-    const g = createDagreGraph()
-    populateDagreGraph(g, graphData)
-    dagre.layout(g)
+    const nodeCount = graphData.nodes.length
+    const edgeCount = graphData.edges?.length || 0
 
-    // 更新节点位置和边的锚点
-    updateNodePositions(graphData, g)
-    optimizeEdgeAnchors(graphData)
+    // 保存美化前的状态
+    beforeBeautifyState = JSON.parse(JSON.stringify(graphData))
 
-    // 重新渲染图
-    lfInstance.render(graphData)
+    // 根据节点数量显示不同的加载提示
+    let loadingMsg = '正在智能布局优化，请稍候...'
+    if (nodeCount > 100) {
+      loadingMsg = `正在使用Barnes-Hut算法优化 ${nodeCount} 个节点...`
+    } else if (nodeCount > 50) {
+      loadingMsg = `正在优化 ${nodeCount} 个节点的层次结构...`
+    }
 
-    // 适应视图并居中
-    nextTick(() => {
-      triggerFitView(lfInstance)
-      handleCenterView(lf)
-    })
+    const hideLoading = message.loading(loadingMsg, 0)
 
-    message.success('布局美化完成')
+    // 异步执行布局算法
+    const doLayout = () => {
+      try {
+        const startTime = performance.now()
+
+        // 1. 检测网络层级结构
+        const { nodeMap, maxLevel } = detectNetworkHierarchy(graphData)
+
+        // 2. 选择布局算法
+        let positions
+        const useBarnesHut = nodeCount > 100
+
+        positions = calculateHybridLayout(
+          graphData,
+          nodeMap,
+          maxLevel,
+          useBarnesHut
+        )
+
+        // 3. 更新节点位置
+        graphData.nodes.forEach((node) => {
+          const pos = positions.get(node.id)
+          if (pos) {
+            node.x = Number(pos.x.toFixed(2))
+            node.y = Number(pos.y.toFixed(2))
+
+            if (node.text && typeof node.text === 'object') {
+              node.text.x = Number(pos.x.toFixed(2))
+              node.text.y = Number(pos.y.toFixed(2))
+            }
+          }
+        })
+
+        // 4. 解决节点重叠（确保可读性）
+        resolveNodeOverlaps(graphData, positions)
+
+        // 同步节点位置
+        graphData.nodes.forEach((node) => {
+          const pos = positions.get(node.id)
+          if (pos) {
+            node.x = Number(pos.x.toFixed(2))
+            node.y = Number(pos.y.toFixed(2))
+            if (node.text && typeof node.text === 'object') {
+              node.text.x = Number(pos.x.toFixed(2))
+              node.text.y = Number(pos.y.toFixed(2))
+            }
+          }
+        })
+
+        // 5. 优化连线路径，减少交叉
+        optimizeEdgePaths(graphData, nodeMap)
+
+        // 6. 渲染结果
+        lfInstance.render(graphData)
+
+        // 7. 居中显示
+        nextTick(() => {
+          triggerFitView(lfInstance)
+          handleCenterView(lf)
+          hideLoading()
+
+          const endTime = performance.now()
+          const duration = ((endTime - startTime) / 1000).toFixed(2)
+
+          // 显示优化结果
+          const algorithm = useBarnesHut ? 'Barnes-Hut' : '力导向'
+          message.success(
+            `布局完成！算法: ${algorithm} | 耗时: ${duration}秒 | 节点: ${nodeCount} | 边: ${edgeCount} | 层次: ${
+              maxLevel + 1
+            }`,
+            5
+          )
+
+          // 提示撤销功能
+          setTimeout(() => {
+            message.info('按 Ctrl+Z 可撤销美化操作', 2)
+          }, 1500)
+        })
+      } catch (error) {
+        hideLoading()
+        console.error('美化失败:', error)
+        message.error('美化失败：' + error.message)
+      }
+    }
+
+    // 延迟执行，避免阻塞UI
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(doLayout, { timeout: 3000 })
+    } else {
+      setTimeout(doLayout, 100)
+    }
   } catch (error) {
     console.error('美化失败:', error)
-    message.error('美化失败，请确保已安装dagre库')
+    message.error('美化失败')
   }
 }
 
@@ -1088,6 +1455,32 @@ const isEditableElement = (target) => {
 }
 
 /**
+ * 撤销美化操作
+ */
+const undoBeautify = () => {
+  if (!lf || !beforeBeautifyState) {
+    message.warning('没有可撤销的美化操作')
+    return
+  }
+
+  try {
+    const hideLoading = message.loading('正在撤销美化...', 0)
+
+    // 恢复之前的状态
+    lf.render(beforeBeautifyState)
+
+    nextTick(() => {
+      hideLoading()
+      message.success('已撤销美化操作')
+      beforeBeautifyState = null
+    })
+  } catch (error) {
+    console.error('撤销失败:', error)
+    message.error('撤销失败')
+  }
+}
+
+/**
  * 删除选中的节点和边
  * @param {Object} selectElements - 选中的元素
  * @returns {boolean} 是否成功删除
@@ -1119,21 +1512,28 @@ const deleteSelectedElements = (selectElements) => {
   return true
 }
 
-// 处理键盘Delete键删除功能 - 优化健壮性
+// 处理键盘Delete键删除和Ctrl+Z撤销功能
 const handleKeyDown = (event) => {
   // 检查组件是否已挂载和LogicFlow实例是否存在
   if (!isComponentMounted.value || !lf) {
     return false
   }
 
-  // 检查是否按下Delete或Backspace键
-  const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace'
-  if (!isDeleteKey) {
+  // 防止在输入框等元素中触发操作
+  if (isEditableElement(event.target)) {
     return false
   }
 
-  // 防止在输入框等元素中触发删除操作
-  if (isEditableElement(event.target)) {
+  // 处理Ctrl+Z撤销美化
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+    event.preventDefault()
+    undoBeautify()
+    return true
+  }
+
+  // 检查是否按下Delete或Backspace键
+  const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace'
+  if (!isDeleteKey) {
     return false
   }
 

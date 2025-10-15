@@ -20,6 +20,19 @@
           placeholder="请输入设备名称"
         />
       </a-form-item>
+      <a-form-item label="设备类型" name="device_type">
+        <a-select
+          v-model:value="formState.device_type"
+          placeholder="请选择设备类型"
+        >
+          <a-select-option value="">请选择设备类型</a-select-option>
+          <a-select-option value="交换机">交换机</a-select-option>
+          <a-select-option value="路由器">路由器</a-select-option>
+          <a-select-option value="防火墙">防火墙</a-select-option>
+          <a-select-option value="服务器">服务器</a-select-option>
+          <a-select-option value="其他">其他</a-select-option>
+        </a-select>
+      </a-form-item>
       <a-form-item label="IP地址" name="ip">
         <a-input
           v-model:value="formState.ip"
@@ -137,7 +150,8 @@ const formState = reactive({
   priv_key: '',
   priv_protocol: '',
   description: '',
-  device_name: ''
+  device_name: '',
+  device_type: ''
 })
 
 // 表单验证规则
@@ -187,7 +201,7 @@ const resetForm = () => {
   Object.keys(formState).forEach((key) => {
     if (key === 'snmp_version') {
       formState[key] = '2c'
-    } else if (key === 'device_name') {
+    } else if (key === 'device_name' || key === 'device_type') {
       formState[key] = ''
     } else {
       formState[key] = ''

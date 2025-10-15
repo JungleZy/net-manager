@@ -18,10 +18,18 @@
         </a-select>
       </a-form-item>
       <a-form-item label="设备名称">
-        <a-input v-model:value="form.hostname" placeholder="请输入设备名称" />
+        <a-input
+          v-model:value="form.hostname"
+          placeholder="请输入设备名称"
+          :disabled="isEditing"
+        />
       </a-form-item>
       <a-form-item label="IP地址">
-        <a-input v-model:value="form.ip_address" placeholder="请输入IP地址" />
+        <a-input
+          v-model:value="form.ip_address"
+          placeholder="请输入IP地址"
+          :disabled="isEditing"
+        />
       </a-form-item>
       <a-form-item label="设备ID">
         <a-input
@@ -31,10 +39,18 @@
         />
       </a-form-item>
       <a-form-item label="操作系统">
-        <a-input v-model:value="form.os_name" placeholder="请输入操作系统" />
+        <a-input
+          v-model:value="form.os_name"
+          placeholder="请输入操作系统"
+          :disabled="isEditing"
+        />
       </a-form-item>
       <a-form-item label="系统版本">
-        <a-input v-model:value="form.os_version" placeholder="请输入系统版本" />
+        <a-input
+          v-model:value="form.os_version"
+          placeholder="请输入系统版本"
+          :disabled="isEditing"
+        />
       </a-form-item>
     </a-form>
   </a-modal>

@@ -57,6 +57,7 @@ class SwitchCreateHandler(BaseHandler):
                 priv_protocol=data.get("priv_protocol", ""),
                 description=data.get("description", ""),
                 device_name=data.get("device_name", ""),
+                device_type=data.get("device_type", ""),
             )
 
             # 添加交换机
@@ -117,6 +118,7 @@ class SwitchUpdateHandler(BaseHandler):
                 priv_protocol=data.get("priv_protocol", ""),
                 description=data.get("description", ""),
                 device_name=data.get("device_name", ""),
+                device_type=data.get("device_type", ""),
             )
 
             # 更新交换机

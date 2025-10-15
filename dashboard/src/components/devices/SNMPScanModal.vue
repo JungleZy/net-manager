@@ -1,11 +1,11 @@
 <template>
   <a-modal
     :open="modalVisible"
-    title="发现交换机"
+    title="自动发现"
     :confirm-loading="confirmLoading"
     @ok="handleOk"
     @cancel="handleCancel"
-    :width="660"
+    :width="700"
     centered
     :destroy-on-close="true"
     :mask-closable="false"
@@ -137,6 +137,22 @@
             <template v-if="column.dataIndex === 'description'">
               <div class="whitespace-pre-line">{{ record.description }}</div>
             </template>
+            <template v-else-if="column.dataIndex === 'type'">
+              <a-select
+                v-model:value="record.deviceType"
+                size="small"
+                style="width: 100%"
+              >
+                <a-select-option value="台式机">台式机</a-select-option>
+                <a-select-option value="笔记本">笔记本</a-select-option>
+                <a-select-option value="服务器">服务器</a-select-option>
+                <a-select-option value="打印机">打印机</a-select-option>
+                <a-select-option value="防火墙">防火墙</a-select-option>
+                <a-select-option value="路由器">路由器</a-select-option>
+                <a-select-option value="交换机">交换机</a-select-option>
+                <a-select-option value="其他">其他</a-select-option>
+              </a-select>
+            </template>
             <template v-else-if="column.dataIndex === 'action'">
               <a-button
                 type="primary"
@@ -163,7 +179,7 @@ import { useWindowSize } from '@vueuse/core'
 import localforage from 'localforage'
 import { wsCode } from '@/common/ws/Ws.js'
 import { PubSub } from '@/common/utils/PubSub.js'
-import { deriveDeviceName } from '@/common/utils/Utils.js'
+import { deriveDeviceName, deriveDeviceType } from '@/common/utils/Utils.js'
 
 const { height } = useWindowSize()
 
@@ -237,7 +253,11 @@ onMounted(() => {
   })
   PubSub.subscribe(wsCode.SCAN_TASK, (data) => {
     if (data.event === 'scan_completed') {
-      scanTaskData.value = data.data
+      // 为每条扫描数据初始化设备类型
+      scanTaskData.value = data.data.map((item) => ({
+        ...item,
+        deviceType: deriveDeviceType(item.description)
+      }))
       scanTaskId.value = undefined
       confirmLoading.value = false
       okText.value = '发起扫描'
@@ -274,6 +294,13 @@ const columns = [
     dataIndex: 'description',
     key: 'description',
     align: 'center'
+  },
+  {
+    title: '设备类型',
+    dataIndex: 'type',
+    key: 'type',
+    align: 'center',
+    width: 120
   },
   {
     title: '操作',
@@ -397,7 +424,8 @@ const addToSwitches = async (record) => {
       snmp_version: formState.snmp_version,
       community: record.community || formState.community,
       description: record.description || '',
-      device_name: deriveDeviceName(record.description)
+      device_name: deriveDeviceName(record.description),
+      device_type: record.deviceType || deriveDeviceType(record.description)
     }
 
     // 如果是SNMPv3，添加相关字段
