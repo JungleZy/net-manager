@@ -1,569 +1,92 @@
 <template>
   <div class="p-[12px] size-full topology-area">
     <div class="size-full bg-white rounded-lg shadow p-[6px] relative">
-      <div class="w-full h-full project-grid" ref="container"></div>
-
-      <!-- 左侧菜单空状态提示 -->
-      <div v-if="leftMenus.length === 0" class="left-menu-empty layout-center">
-        <div class="empty-content">
-          <div class="empty-icon">📦</div>
-          <div class="empty-text">暂无数据</div>
-        </div>
+      <!-- 测试数据生成面板 -->
+      <div v-show="showTestPanel" class="test-data-panel">
+        <a-space direction="vertical" size="small">
+          <a-button type="primary" size="small" @click="handleGenerateTestData">
+            🎨 生成测试数据
+          </a-button>
+          <a-button size="small" @click="handleGenerateSimpleData">
+            📊 简化版(8交换机+50设备)
+          </a-button>
+          <a-button size="small" @click="handleGenerateLargeData" danger>
+            🚀 大规模(30交换机+1000设备)
+          </a-button>
+          <a-button size="small" @click="handleExportData">
+            💾 导出JSON
+          </a-button>
+          <a-button size="small" @click="handleClearData" danger>
+            🗑️ 清空
+          </a-button>
+        </a-space>
       </div>
 
-      <!-- 保存按钮 -->
-      <div class="absolute bottom-[24px] right-[24px]">
-        <a-button type="primary" @click="handleAddNode" :loading="isSaving">
-          {{ isSaving ? '保存中...' : '保存' }}
-        </a-button>
-      </div>
+      <!-- D3 拓扑图组件 -->
+      <D3Topology
+        ref="topologyRef"
+        :devices="devices"
+        :switches="switches"
+        :initial-data="data"
+        :show-device-panel="true"
+        @save="handleSave"
+        @node-click="handleNodeClick"
+        @node-delete="handleNodeDelete"
+        @data-change="handleDataChange"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import {
-  onMounted,
-  onUnmounted,
-  nextTick,
-  ref,
-  useTemplateRef,
-  shallowRef
-} from 'vue'
-import { LogicFlow } from '@logicflow/core'
-import dagre from 'dagre'
-import {
-  Control,
-  DndPanel,
-  SelectionSelect,
-  MiniMap,
-  Highlight
-} from '@logicflow/extension'
-import '@logicflow/core/lib/style/index.css'
-import '@logicflow/extension/lib/style/index.css'
-import CustomHtml from '@/common/node/HtmlNode'
-import { default as customNodes } from '@/common/node/index'
+import { ref, onMounted, onUnmounted, shallowRef } from 'vue'
+import { message, Modal } from 'ant-design-vue'
+import D3Topology from '@/components/topology/D3Topology.vue'
 import DeviceApi from '@/common/api/device'
 import SwitchApi from '@/common/api/switch'
 import TopologyApi from '@/common/api/topology'
-import { message } from 'ant-design-vue'
-import Firewall from '@/assets/firewall.png'
-import Laptop from '@/assets/laptop.png'
-import Pc from '@/assets/pc.png'
-import Router from '@/assets/router.png'
-import Server from '@/assets/server.png'
-import Switches from '@/assets/switches.png'
-import { deriveDeviceName } from '@/common/utils/Utils.js'
+import {
+  generateThreeTierTopology,
+  generateSimpleTestData,
+  generateLargeScaleTestData,
+  exportToJSON
+} from '@/utils/topologyTestDataGenerator'
 
-const containerRef = useTemplateRef('container')
-// 使用 shallowRef 避免深度响应式带来的性能开销
-let lf = null
+// Refs
+const topologyRef = ref(null)
 const devices = shallowRef([])
 const switches = shallowRef([])
+const data = shallowRef({ nodes: [], links: [] })
 const currentTopologyId = ref(null)
 const isSaving = ref(false)
-const leftMenus = shallowRef([])
-const isComponentMounted = ref(false)
-
-// 设备类型映射 - 移到外部作为常量,避免重复创建
-const DEVICE_TYPE_MAP = Object.freeze({
-  台式机: { icon: Pc, type: 'pc' },
-  笔记本: { icon: Laptop, type: 'laptop' },
-  服务器: { icon: Server, type: 'server' },
-  路由器: { icon: Router, type: 'router' },
-  交换机: { icon: Switches, type: 'switch' },
-  防火墙: { icon: Firewall, type: 'firewall' }
-})
-
-// 锚点索引常量
-const ANCHOR = Object.freeze({
-  TOP: 0,
-  RIGHT: 1,
-  BOTTOM: 2,
-  LEFT: 3
-})
-
-// 使用 shallowRef 减少响应式开销,拓扑数据不需要深度响应
-const data = shallowRef({
-  // nodes: [
-  //   {
-  //     id: '3',
-  //     type: 'firewall',
-  //     x: 200,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 200, y: 300, value: '防火墙防火墙防火墙' }
-  //   },
-  //   {
-  //     id: '31',
-  //     type: 'firewall',
-  //     x: 652,
-  //     y: 658,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 652, y: 658, value: '防火墙防火墙防火墙' }
-  //   },
-  //   {
-  //     id: '4',
-  //     type: 'laptop',
-  //     x: 350,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 350, y: 300, value: '笔记本防火墙台式机路由器' }
-  //   },
-  //   {
-  //     id: '41',
-  //     type: 'laptop',
-  //     x: 451,
-  //     y: 173,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 451, y: 173, value: '笔记本防火墙台式机路由器' }
-  //   },
-  //   {
-  //     id: '5',
-  //     type: 'pc',
-  //     x: 500,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 500, y: 300, value: '台式机' }
-  //   },
-  //   {
-  //     id: '51',
-  //     type: 'pc',
-  //     x: 767,
-  //     y: 201,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 767, y: 201, value: '台式机' }
-  //   },
-  //   {
-  //     id: '6',
-  //     type: 'router',
-  //     x: 656,
-  //     y: 536,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 656, y: 536, value: '路由器' }
-  //   },
-  //   {
-  //     id: '61',
-  //     type: 'router',
-  //     x: 282,
-  //     y: 604,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 282, y: 604, value: '路由器' }
-  //   },
-  //   {
-  //     id: '7',
-  //     type: 'server',
-  //     x: 654,
-  //     y: 824,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 654, y: 824, value: '服务器' }
-  //   },
-  //   {
-  //     id: '71',
-  //     type: 'server',
-  //     x: 432,
-  //     y: 643,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 432, y: 643, value: '服务器' }
-  //   },
-  //   {
-  //     id: '8',
-  //     type: 'switch',
-  //     x: 673,
-  //     y: 380,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 673, y: 380, value: '交换机' }
-  //   },
-  //   {
-  //     id: '81',
-  //     type: 'switch',
-  //     x: 473,
-  //     y: 417,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 473, y: 417, value: '交换机' }
-  //   }
-  // ],
-  // edges: [
-  //   {
-  //     id: '5a93be03-4a83-4e0d-9f51-66dc35b91c69',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '41',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '41_1',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 481, y: 173 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 481, y: 173 },
-  //       { x: 673, y: 173 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '3927ff57-8721-4b14-93dc-614dc359f864',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '51',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '51_2',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 767, y: 231 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 767, y: 231 },
-  //       { x: 767, y: 320 },
-  //       { x: 673, y: 320 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '214ca0b3-1a1f-43f7-a00b-f1e01183b82a',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '5',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '5_1',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 530, y: 300 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 530, y: 300 },
-  //       { x: 673, y: 300 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '007d8b7b-f77b-4891-8e55-f2515bdb133a',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '4',
-  //     targetNodeId: '81',
-  //     sourceAnchorId: '4_2',
-  //     targetAnchorId: '81_0',
-  //     startPoint: { x: 350, y: 330 },
-  //     endPoint: { x: 473, y: 387 },
-  //     pointsList: [
-  //       { x: 350, y: 330 },
-  //       { x: 350, y: 357 },
-  //       { x: 473, y: 357 },
-  //       { x: 473, y: 387 }
-  //     ]
-  //   },
-  //   {
-  //     id: 'e440b0ea-f69a-4c3a-bdbf-778049faf7bc',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '81',
-  //     targetNodeId: '6',
-  //     sourceAnchorId: '81_2',
-  //     targetAnchorId: '6_0',
-  //     startPoint: { x: 473, y: 447 },
-  //     endPoint: { x: 656, y: 506 },
-  //     pointsList: [
-  //       { x: 473, y: 447 },
-  //       { x: 473, y: 476 },
-  //       { x: 656, y: 476 },
-  //       { x: 656, y: 506 }
-  //     ]
-  //   },
-  //   {
-  //     id: '7cfd444b-04ba-4383-b282-7da9726800cf',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '8',
-  //     targetNodeId: '6',
-  //     sourceAnchorId: '8_2',
-  //     targetAnchorId: '6_0',
-  //     startPoint: { x: 673, y: 410 },
-  //     endPoint: { x: 656, y: 506 },
-  //     pointsList: [
-  //       { x: 673, y: 410 },
-  //       { x: 673, y: 458 },
-  //       { x: 656, y: 458 },
-  //       { x: 656, y: 506 }
-  //     ]
-  //   },
-  //   {
-  //     id: '3d5c2846-9e14-4110-9952-d623541cc55f',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '6',
-  //     targetNodeId: '31',
-  //     sourceAnchorId: '6_2',
-  //     targetAnchorId: '31_0',
-  //     startPoint: { x: 656, y: 566 },
-  //     endPoint: { x: 652, y: 628 },
-  //     pointsList: [
-  //       { x: 656, y: 566 },
-  //       { x: 656, y: 597 },
-  //       { x: 652, y: 597 },
-  //       { x: 652, y: 628 }
-  //     ]
-  //   },
-  //   {
-  //     id: '15c820d6-2265-47ec-85e8-69ffd631f068',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '31',
-  //     targetNodeId: '7',
-  //     sourceAnchorId: '31_2',
-  //     targetAnchorId: '7_0',
-  //     startPoint: { x: 652, y: 688 },
-  //     endPoint: { x: 654, y: 794 },
-  //     pointsList: [
-  //       { x: 652, y: 688 },
-  //       { x: 652, y: 741 },
-  //       { x: 654, y: 741 },
-  //       { x: 654, y: 794 }
-  //     ]
-  //   }
-  // ]
-})
-
-onMounted(() => {
-  nextTick(() => {
-    isComponentMounted.value = true
-    initTopology()
-  })
-})
-
-onUnmounted(() => {
-  // 组件销毁时清理资源
-  cleanup()
-})
-
-// 资源清理函数
-const cleanup = () => {
-  document.removeEventListener('keydown', handleKeyDown)
-  isComponentMounted.value = false
-
-  // 销毁 LogicFlow 实例,释放内存
-  if (lf) {
-    try {
-      lf.destroy()
-    } catch (error) {
-      console.warn('LogicFlow 实例销毁失败:', error)
-    }
-    lf = null
-  }
-}
-
-// 插件配置移到外部常量,避免重复创建对象
-const PLUGINS_OPTIONS = Object.freeze({
-  miniMap: {
-    width: 137,
-    height: 121,
-    rightPosition: 8,
-    bottomPosition: 8
-  },
-  label: {
-    isMultiple: true,
-    textOverflowMode: 'ellipsis'
-  }
-})
-
-const initTopology = () => {
-  // 清理旧实例
-  if (lf) {
-    try {
-      lf.destroy()
-    } catch (error) {
-      console.warn('清理旧 LogicFlow 实例失败:', error)
-    }
-    lf = null
-  }
-
-  // 确保container已正确挂载并获取其尺寸
-  const container = containerRef.value
-  if (!container) {
-    console.error('容器元素未找到')
-    return
-  }
-
-  const width = container.offsetWidth || 800
-  const height = container.offsetHeight || 600
-
-  try {
-    lf = new LogicFlow({
-      grid: true,
-      container: container,
-      width: width,
-      height: height,
-      keyboard: {
-        enabled: true
-      },
-      // 边的默认样式配置
-      edgeType: 'polyline',
-      style: {
-        edge: {
-          stroke: '#afafaf',
-          strokeWidth: 2
-        },
-        arrow: {
-          offset: 0,
-          verticalLength: 0
-        }
-      },
-      plugins: [Control, DndPanel, SelectionSelect, MiniMap, Highlight],
-      pluginsOptions: PLUGINS_OPTIONS,
-      adjustEdgeStartAndEnd: true,
-      // 性能优化配置
-      stopScrollGraph: true,
-      stopZoomGraph: false,
-      partial: true // 启用局部渲染
-    })
-
-    lf.register(CustomHtml)
-    // 注册所有自定义节点
-    customNodes.forEach((node) => {
-      lf.register(node)
-    })
-  } catch (error) {
-    console.error('LogicFlow 初始化失败:', error)
-    message.error('拓扑图初始化失败')
-    return
-  }
-
-  lf.extension.dndPanel.setPatternItems([])
-
-  // 添加一键美化按钮
-  lf.extension.control.addItem({
-    key: 'beautify',
-    iconClass: 'lf-control-beautify',
-    title: '一键美化',
-    text: '美化',
-    onClick: (lf) => {
-      handleBeautifyAction(lf)
-    }
-  })
-
-  // 添加居中按钮
-  lf.extension.control.addItem({
-    key: 'center',
-    iconClass: 'lf-control-center',
-    title: '居中显示',
-    text: '居中',
-    onClick: (lf) => {
-      handleCenterView(lf)
-    }
-  })
-
-  lf.render(data.value)
-
-  // 添加键盘Delete键监听
-  document.addEventListener('keydown', handleKeyDown)
-
-  // 监听节点拖拽添加事件，添加后从leftMenus中移除
-  lf.on('node:dnd-add', (nodeData) => {
-    try {
-      const dataId = nodeData?.data?.properties?.data?.id
-      if (!dataId) return
-
-      // 查找匹配的菜单项并移除
-      const index = leftMenus.value.findIndex(
-        (item) => item?.properties?.data?.id === dataId
-      )
-
-      if (index !== -1) {
-        // 创建新数组，移除匹配项
-        const newMenus = [...leftMenus.value]
-        newMenus.splice(index, 1)
-        leftMenus.value = newMenus
-
-        // 更新拖拽面板项
-        if (lf?.extension?.dndPanel) {
-          lf.extension.dndPanel.setPatternItems(leftMenus.value)
-        }
-      }
-    } catch (error) {
-      console.warn('处理节点添加事件失败:', error)
-    }
-  })
-
-  // 监听节点删除事件，删除后重新添加到左侧菜单
-  lf.on('node:delete', ({ data }) => {
-    try {
-      // 延迟更新菜单，确保节点已完全删除
-      nextTick(() => {
-        updateLeftMenus()
-        // 更新拖拽面板项
-        if (lf?.extension?.dndPanel) {
-          lf.extension.dndPanel.setPatternItems(leftMenus.value)
-        }
-      })
-    } catch (error) {
-      console.warn('处理节点删除事件失败:', error)
-    }
-  })
-
-  // 获取设备和交换机数据并设置拖拽面板项
-  Promise.all([loadLatestTopology()])
-    .then(() => {
-      fetchDevices()
-      fetchSwitches()
-    })
-    .catch((error) => {
-      console.error('初始化数据加载失败:', error)
-    })
-}
+const showTestPanel = ref(false) // 测试面板显示状态
 
 // 加载最新的拓扑图
 const loadLatestTopology = async () => {
-  if (!lf) {
-    console.warn('LogicFlow 实例未初始化')
-    return
-  }
-
   try {
     const response = await TopologyApi.getLatestTopology()
     if (response?.data?.content) {
-      const topologyData = response.data.content
       currentTopologyId.value = response.data.id
-      data.value = topologyData
-      lf.render(data.value)
-    } else {
-      // 没有保存的拓扑图,使用默认数据
-      lf.render(data.value)
+      // 直接使用 D3 数据格式
+      data.value = response.data.content
     }
-    handleCenterView(lf)
   } catch (error) {
-    // 如果是404错误(没有拓扑图),使用默认数据
-    if (error?.response?.status === 404) {
-      lf.render(data.value)
-    } else {
+    if (error?.response?.status !== 404) {
       console.error('加载拓扑图失败:', error)
       message.error('加载拓扑图失败')
-      lf.render(data.value)
     }
   }
 }
 
-const handleAddNode = async () => {
-  if (isSaving.value) {
-    return
-  }
-
-  if (!lf) {
-    message.error('拓扑图未初始化')
-    return
-  }
+// 保存拓扑图
+const handleSave = async (topologyData) => {
+  if (isSaving.value) return
 
   try {
     isSaving.value = true
 
-    // 获取当前拓扑图数据
-    let graphData = lf.getGraphData()
-
-    if (!graphData) {
-      throw new Error('无法获取拓扑图数据')
-    }
-
-    // 格式化坐标,保留2位小数
-    graphData = formatGraphData(graphData)
-
-    // 如果当前已有拓扑图ID,则更新;否则创建新的
-    const response = await TopologyApi.createTopology(graphData)
+    // 直接保存 D3 数据格式
+    const response = await TopologyApi.createTopology(topologyData)
     if (response?.data?.id) {
       currentTopologyId.value = response.data.id
     }
@@ -576,12 +99,26 @@ const handleAddNode = async () => {
   }
 }
 
+// 节点点击事件
+const handleNodeClick = (node) => {
+  console.log('节点点击:', node)
+}
+
+// 节点删除事件
+const handleNodeDelete = (nodeId) => {
+  console.log('节点删除:', nodeId)
+}
+
+// 数据变化事件
+const handleDataChange = (newData) => {
+  data.value = newData
+}
+
 // 获取设备列表
 const fetchDevices = async () => {
   try {
     const response = await DeviceApi.getDevicesList()
     devices.value = response?.data || []
-    updateLeftMenus()
   } catch (error) {
     console.error('获取设备列表失败:', error)
     message.error('获取设备列表失败')
@@ -593,1091 +130,212 @@ const fetchSwitches = async () => {
   try {
     const response = await SwitchApi.getSwitchesList()
     switches.value = response?.data || []
-    updateLeftMenus()
   } catch (error) {
     console.error('获取交换机列表失败:', error)
     message.error('获取交换机列表失败')
   }
 }
 
-/**
- * 格式化图数据，将所有坐标保留2位小数
- * 优化: 添加空值检查,减少不必要的计算
- */
-const formatGraphData = (graphData) => {
-  if (!graphData) return graphData
-
-  // 格式化节点坐标 - 使用for-of循环提升可读性
-  if (graphData.nodes?.length > 0) {
-    for (const node of graphData.nodes) {
-      if (typeof node.x === 'number') {
-        node.x = Number(node.x.toFixed(2))
-      }
-      if (typeof node.y === 'number') {
-        node.y = Number(node.y.toFixed(2))
-      }
-      // 格式化文本坐标
-      if (node.text && typeof node.text === 'object') {
-        if (typeof node.text.x === 'number') {
-          node.text.x = Number(node.text.x.toFixed(2))
-        }
-        if (typeof node.text.y === 'number') {
-          node.text.y = Number(node.text.y.toFixed(2))
-        }
-      }
-    }
-  }
-
-  // 格式化边的坐标点 - 使用for-of循环提升可读性
-  if (graphData.edges?.length > 0) {
-    for (const edge of graphData.edges) {
-      // 格式化起点
-      if (edge.startPoint) {
-        if (typeof edge.startPoint.x === 'number') {
-          edge.startPoint.x = Number(edge.startPoint.x.toFixed(2))
-        }
-        if (typeof edge.startPoint.y === 'number') {
-          edge.startPoint.y = Number(edge.startPoint.y.toFixed(2))
-        }
-      }
-      // 格式化终点
-      if (edge.endPoint) {
-        if (typeof edge.endPoint.x === 'number') {
-          edge.endPoint.x = Number(edge.endPoint.x.toFixed(2))
-        }
-        if (typeof edge.endPoint.y === 'number') {
-          edge.endPoint.y = Number(edge.endPoint.y.toFixed(2))
-        }
-      }
-      // 格式化路径点列表
-      if (edge.pointsList?.length > 0) {
-        for (const point of edge.pointsList) {
-          if (typeof point.x === 'number') {
-            point.x = Number(point.x.toFixed(2))
-          }
-          if (typeof point.y === 'number') {
-            point.y = Number(point.y.toFixed(2))
-          }
-        }
-      }
-    }
-  }
-
-  return graphData
-}
-
-/**
- * 创建并配置dagre图布局
- */
-const createDagreGraph = () => {
-  const g = new dagre.graphlib.Graph()
-  g.setGraph({
-    rankdir: 'TB', // 从上到下布局
-    nodesep: 100, // 节点间距
-    ranksep: 100, // 层级间距
-    marginx: 50,
-    marginy: 50
-  })
-  g.setDefaultEdgeLabel(() => ({}))
-  return g
-}
-
-/**
- * 将节点和边添加到dagre图中
- */
-const populateDagreGraph = (g, graphData) => {
-  // 添加节点
-  for (const node of graphData.nodes) {
-    g.setNode(node.id, {
-      width: node.properties?.width || 60,
-      height: node.properties?.height || 60
-    })
-  }
-
-  // 添加边
-  if (graphData.edges?.length > 0) {
-    for (const edge of graphData.edges) {
-      g.setEdge(edge.sourceNodeId, edge.targetNodeId)
-    }
-  }
-}
-
-/**
- * 根据dagre布局结果更新节点位置
- */
-const updateNodePositions = (graphData, g) => {
-  for (const node of graphData.nodes) {
-    const dagreNode = g.node(node.id)
-    if (!dagreNode) continue
-
-    // 保留2位小数
-    node.x = Number(dagreNode.x.toFixed(2))
-    node.y = Number(dagreNode.y.toFixed(2))
-
-    // 更新文本位置
-    if (node.text && typeof node.text === 'object') {
-      node.text.x = Number(dagreNode.x.toFixed(2))
-      node.text.y = Number(dagreNode.y.toFixed(2))
-    }
-  }
-}
-
-/**
- * 检测网络层级结构
- * 返回每个节点的层级信息
- */
-const detectNetworkHierarchy = (graphData) => {
-  const nodeMap = new Map()
-  const visited = new Set()
-
-  // 初始化节点信息
-  graphData.nodes.forEach((node) => {
-    nodeMap.set(node.id, {
-      level: -1,
-      inDegree: 0,
-      outDegree: 0,
-      children: [],
-      parents: []
-    })
-  })
-
-  // 构建连接关系
-  if (graphData.edges?.length) {
-    graphData.edges.forEach((edge) => {
-      const sourceInfo = nodeMap.get(edge.sourceNodeId)
-      const targetInfo = nodeMap.get(edge.targetNodeId)
-
-      if (sourceInfo && targetInfo) {
-        sourceInfo.children.push(edge.targetNodeId)
-        sourceInfo.outDegree++
-        targetInfo.parents.push(edge.sourceNodeId)
-        targetInfo.inDegree++
-      }
-    })
-  }
-
-  // 找出根节点（入度为0）
-  const rootNodes = []
-  nodeMap.forEach((info, nodeId) => {
-    if (info.inDegree === 0) {
-      rootNodes.push(nodeId)
-    }
-  })
-
-  // 如果没有根节点（存在环），选择出度最大的节点作为根
-  if (rootNodes.length === 0) {
-    let maxOutDegree = -1
-    nodeMap.forEach((info, nodeId) => {
-      if (info.outDegree > maxOutDegree) {
-        maxOutDegree = info.outDegree
-        rootNodes.length = 0
-        rootNodes.push(nodeId)
-      } else if (info.outDegree === maxOutDegree) {
-        rootNodes.push(nodeId)
-      }
-    })
-  }
-
-  // BFS 分配层级
-  const queue = rootNodes.map((id) => ({ id, level: 0 }))
-
-  while (queue.length > 0) {
-    const { id, level } = queue.shift()
-
-    if (visited.has(id)) continue
-    visited.add(id)
-
-    const nodeInfo = nodeMap.get(id)
-    nodeInfo.level = level
-
-    // 将子节点加入队列
-    nodeInfo.children.forEach((childId) => {
-      if (!visited.has(childId)) {
-        queue.push({ id: childId, level: level + 1 })
-      }
-    })
-  }
-
-  // 处理未访问的节点（孤立节点）
-  nodeMap.forEach((info, nodeId) => {
-    if (info.level === -1) {
-      info.level = 0
-    }
-  })
-
-  const maxLevel = Math.max(...Array.from(nodeMap.values()).map((n) => n.level))
-  return { nodeMap, maxLevel }
-}
-
-/**
- * 计算力导向布局（结合层级约束）
- * 对于大规模图（>100节点）使用Barnes-Hut优化
- */
-const calculateHybridLayout = (
-  graphData,
-  nodeMap,
-  maxLevel,
-  useBarnesHut = false
-) => {
-  const positions = new Map()
-  const velocities = new Map()
-  const nodeCount = graphData.nodes.length
-
-  // 初始化位置（基于层级）
-  const levelGroups = new Map()
-  nodeMap.forEach((info, nodeId) => {
-    if (!levelGroups.has(info.level)) {
-      levelGroups.set(info.level, [])
-    }
-    levelGroups.get(info.level).push(nodeId)
-  })
-
-  const levelHeight = 150
-  const nodeSpacing = 120
-
-  levelGroups.forEach((nodes, level) => {
-    const totalWidth = nodes.length * nodeSpacing
-    nodes.forEach((nodeId, index) => {
-      const x = (index - nodes.length / 2) * nodeSpacing
-      const y = level * levelHeight
-      positions.set(nodeId, { x, y })
-      velocities.set(nodeId, { vx: 0, vy: 0 })
-    })
-  })
-
-  // 力导向参数
-  const iterations = useBarnesHut ? 200 : 150
-  const repulsionStrength = useBarnesHut ? 5000 : 3000
-  const attractionStrength = 0.01
-  const damping = 0.85
-  const minDistance = 80
-  const levelConstraintStrength = 0.15
-
-  // 迭代计算力
-  for (let iter = 0; iter < iterations; iter++) {
-    const temperature = 1 - iter / iterations
-
-    // 对每个节点计算受力
-    graphData.nodes.forEach((node1) => {
-      const pos1 = positions.get(node1.id)
-      const info1 = nodeMap.get(node1.id)
-      let fx = 0,
-        fy = 0
-
-      // 排斥力（所有节点对之间）
-      graphData.nodes.forEach((node2) => {
-        if (node1.id === node2.id) return
-
-        const pos2 = positions.get(node2.id)
-        const dx = pos1.x - pos2.x
-        const dy = pos1.y - pos2.y
-        const distance = Math.max(Math.sqrt(dx * dx + dy * dy), minDistance)
-
-        const force = repulsionStrength / (distance * distance)
-        fx += (dx / distance) * force
-        fy += (dy / distance) * force
-      })
-
-      // 吸引力（连接的节点之间）
-      info1.children.forEach((childId) => {
-        const pos2 = positions.get(childId)
-        if (!pos2) return
-
-        const dx = pos2.x - pos1.x
-        const dy = pos2.y - pos1.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        const force = distance * attractionStrength
-        fx += (dx / distance) * force
-        fy += (dy / distance) * force
-      })
-
-      // 层级约束力（保持y轴层次结构）
-      const targetY = info1.level * levelHeight
-      const yDiff = targetY - pos1.y
-      fy += yDiff * levelConstraintStrength
-
-      // 更新速度和位置
-      const vel = velocities.get(node1.id)
-      vel.vx = (vel.vx + fx) * damping
-      vel.vy = (vel.vy + fy) * damping
-
-      pos1.x += vel.vx * temperature
-      pos1.y += vel.vy * temperature
-    })
-  }
-
-  return positions
-}
-
-/**
- * 解决节点重叠问题
- */
-const resolveNodeOverlaps = (graphData, positions) => {
-  const minDistance = 85 // 最小节点间距
-  const maxIterations = 15
-
-  for (let iter = 0; iter < maxIterations; iter++) {
-    let hasOverlap = false
-
-    for (let i = 0; i < graphData.nodes.length; i++) {
-      for (let j = i + 1; j < graphData.nodes.length; j++) {
-        const node1 = graphData.nodes[i]
-        const node2 = graphData.nodes[j]
-        const pos1 = positions.get(node1.id)
-        const pos2 = positions.get(node2.id)
-
-        if (!pos1 || !pos2) continue
-
-        const dx = pos2.x - pos1.x
-        const dy = pos2.y - pos1.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        if (distance < minDistance) {
-          hasOverlap = true
-          const angle = Math.atan2(dy, dx)
-          const pushDistance = (minDistance - distance) / 2
-
-          pos1.x -= Math.cos(angle) * pushDistance
-          pos1.y -= Math.sin(angle) * pushDistance
-          pos2.x += Math.cos(angle) * pushDistance
-          pos2.y += Math.sin(angle) * pushDistance
-        }
-      }
-    }
-
-    if (!hasOverlap) break
-  }
-}
-
-/**
- * 优化连线路径，减少交叉
- */
-const optimizeEdgePaths = (graphData, nodeMap) => {
-  if (!graphData.edges?.length) return
-
-  graphData.edges.forEach((edge) => {
-    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
-    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
-
-    if (sourceNode && targetNode) {
-      const sourceInfo = nodeMap.get(edge.sourceNodeId)
-      const targetInfo = nodeMap.get(edge.targetNodeId)
-
-      // 基于层级关系选择最佳锚点
-      let sourceAnchor, targetAnchor
-
-      if (sourceInfo.level < targetInfo.level) {
-        // 父子关系：上下连接
-        sourceAnchor = ANCHOR.BOTTOM
-        targetAnchor = ANCHOR.TOP
-      } else if (sourceInfo.level > targetInfo.level) {
-        // 反向关系
-        sourceAnchor = ANCHOR.TOP
-        targetAnchor = ANCHOR.BOTTOM
-      } else {
-        // 同层关系：左右连接
-        const dx = targetNode.x - sourceNode.x
-        if (dx > 0) {
-          sourceAnchor = ANCHOR.RIGHT
-          targetAnchor = ANCHOR.LEFT
-        } else {
-          sourceAnchor = ANCHOR.LEFT
-          targetAnchor = ANCHOR.RIGHT
-        }
-      }
-
-      edge.sourceAnchorId = `${sourceNode.id}_${sourceAnchor}`
-      edge.targetAnchorId = `${targetNode.id}_${targetAnchor}`
-    }
-
-    // 清除旧路径，让LogicFlow重新计算
-    delete edge.pointsList
-    delete edge.startPoint
-    delete edge.endPoint
-  })
-}
-
-/**
- * 优化边的锚点连接（保留原函数作为备用）
- */
-const optimizeEdgeAnchors = (graphData) => {
-  if (!graphData.edges?.length) return
-
-  for (const edge of graphData.edges) {
-    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
-    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
-
-    if (sourceNode && targetNode) {
-      const bestAnchors = calculateBestAnchors(sourceNode, targetNode)
-      edge.sourceAnchorId = bestAnchors.sourceAnchor
-      edge.targetAnchorId = bestAnchors.targetAnchor
-    }
-
-    // 删除旧的路径点信息，让LogicFlow重新计算
-    delete edge.pointsList
-    delete edge.startPoint
-    delete edge.endPoint
-  }
-}
-
-/**
- * 触发画布适应视图
- */
-const triggerFitView = (lfInstance) => {
-  const control = lfInstance.extension?.control
-  if (!control) {
-    lfInstance.fitView(20)
-    return
-  }
-
-  const controlItems = control.controlItems
-  if (!controlItems) {
-    lfInstance.fitView(20)
-    return
-  }
-
-  // 查找适应画布按钮
-  const fitItem = controlItems.find(
-    (item) =>
-      item.key === 'reset' ||
-      item.key === 'fit' ||
-      item.key === 'lf-control-fit'
-  )
-
-  const hasFitFunction = fitItem?.onClick
-  if (hasFitFunction) {
-    fitItem.onClick(lfInstance)
-  } else {
-    lfInstance.fitView(20)
-  }
-}
-
-// 保存美化前的状态，用于撤销
-let beforeBeautifyState = null
-
-// 一键美化功能 - 增强版（结合层级与力导向布局）
-const handleBeautifyAction = (lfInstance) => {
-  if (!lfInstance) {
-    console.warn('美化操作: LogicFlow 实例不存在')
-    return
-  }
-
-  try {
-    const graphData = lfInstance.getGraphData()
-
-    if (!graphData?.nodes?.length) {
-      message.warning('画布中没有节点')
-      return
-    }
-
-    const nodeCount = graphData.nodes.length
-    const edgeCount = graphData.edges?.length || 0
-
-    // 保存美化前的状态
-    beforeBeautifyState = JSON.parse(JSON.stringify(graphData))
-
-    // 根据节点数量显示不同的加载提示
-    let loadingMsg = '正在智能布局优化，请稍候...'
-    if (nodeCount > 100) {
-      loadingMsg = `正在使用Barnes-Hut算法优化 ${nodeCount} 个节点...`
-    } else if (nodeCount > 50) {
-      loadingMsg = `正在优化 ${nodeCount} 个节点的层次结构...`
-    }
-
-    const hideLoading = message.loading(loadingMsg, 0)
-
-    // 异步执行布局算法
-    const doLayout = () => {
+// 生成标准测试数据（20个交换机，500个设备）
+const handleGenerateTestData = () => {
+  Modal.confirm({
+    title: '生成测试数据',
+    content:
+      '将生成三层网络架构：2个核心交换机 + 6个汇聚交换机 + 12个接入交换机 + 500个终端设备',
+    okText: '确认生成',
+    cancelText: '取消',
+    onOk() {
       try {
-        const startTime = performance.now()
+        const hideLoading = message.loading('正在生成测试数据...', 0)
 
-        // 1. 检测网络层级结构
-        const { nodeMap, maxLevel } = detectNetworkHierarchy(graphData)
-
-        // 2. 选择布局算法
-        let positions
-        const useBarnesHut = nodeCount > 100
-
-        positions = calculateHybridLayout(
-          graphData,
-          nodeMap,
-          maxLevel,
-          useBarnesHut
-        )
-
-        // 3. 更新节点位置
-        graphData.nodes.forEach((node) => {
-          const pos = positions.get(node.id)
-          if (pos) {
-            node.x = Number(pos.x.toFixed(2))
-            node.y = Number(pos.y.toFixed(2))
-
-            if (node.text && typeof node.text === 'object') {
-              node.text.x = Number(pos.x.toFixed(2))
-              node.text.y = Number(pos.y.toFixed(2))
-            }
-          }
+        const testData = generateThreeTierTopology({
+          switchCount: 20,
+          deviceCount: 500
         })
 
-        // 4. 解决节点重叠（确保可读性）
-        resolveNodeOverlaps(graphData, positions)
+        data.value = testData
 
-        // 同步节点位置
-        graphData.nodes.forEach((node) => {
-          const pos = positions.get(node.id)
-          if (pos) {
-            node.x = Number(pos.x.toFixed(2))
-            node.y = Number(pos.y.toFixed(2))
-            if (node.text && typeof node.text === 'object') {
-              node.text.x = Number(pos.x.toFixed(2))
-              node.text.y = Number(pos.y.toFixed(2))
-            }
-          }
-        })
-
-        // 5. 优化连线路径，减少交叉
-        optimizeEdgePaths(graphData, nodeMap)
-
-        // 6. 渲染结果
-        lfInstance.render(graphData)
-
-        // 7. 居中显示
-        nextTick(() => {
-          triggerFitView(lfInstance)
-          handleCenterView(lf)
+        setTimeout(() => {
           hideLoading()
+          topologyRef.value?.fitView()
 
-          const endTime = performance.now()
-          const duration = ((endTime - startTime) / 1000).toFixed(2)
-
-          // 显示优化结果
-          const algorithm = useBarnesHut ? 'Barnes-Hut' : '力导向'
           message.success(
-            `布局完成！算法: ${algorithm} | 耗时: ${duration}秒 | 节点: ${nodeCount} | 边: ${edgeCount} | 层次: ${
-              maxLevel + 1
-            }`,
+            `测试数据生成完成！\n` +
+              `节点: ${testData.nodes.length} | ` +
+              `连线: ${testData.links.length}`,
             5
           )
-
-          // 提示撤销功能
-          setTimeout(() => {
-            message.info('按 Ctrl+Z 可撤销美化操作', 2)
-          }, 1500)
-        })
+        }, 300)
       } catch (error) {
-        hideLoading()
-        console.error('美化失败:', error)
-        message.error('美化失败：' + error.message)
+        console.error('生成测试数据失败:', error)
+        message.error('生成测试数据失败: ' + error.message)
       }
     }
-
-    // 延迟执行，避免阻塞UI
-    if (window.requestIdleCallback) {
-      window.requestIdleCallback(doLayout, { timeout: 3000 })
-    } else {
-      setTimeout(doLayout, 100)
-    }
-  } catch (error) {
-    console.error('美化失败:', error)
-    message.error('美化失败')
-  }
+  })
 }
 
-// 居中显示功能（供 Control 插件调用）
-const handleCenterView = (lfInstance) => {
-  if (!lfInstance) {
-    console.warn('居中操作: LogicFlow 实例不存在')
-    return
-  }
-
+// 生成简化版测试数据
+const handleGenerateSimpleData = () => {
   try {
-    const graphData = lfInstance.getGraphData()
+    const hideLoading = message.loading('正在生成简化测试数据...', 0)
 
-    if (!graphData?.nodes?.length) {
-      message.warning('画布中没有节点')
-      return
-    }
+    const testData = generateSimpleTestData()
+    data.value = testData
 
-    // 计算所有节点的边界框
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-
-    for (const node of graphData.nodes) {
-      const nodeWidth = node.properties?.width || 60
-      const nodeHeight = node.properties?.height || 60
-
-      minX = Math.min(minX, node.x - nodeWidth / 2)
-      minY = Math.min(minY, node.y - nodeHeight / 2)
-      maxX = Math.max(maxX, node.x + nodeWidth / 2)
-      maxY = Math.max(maxY, node.y + nodeHeight / 2)
-    }
-
-    // 计算内容中心点
-    const contentCenterX = (minX + maxX) / 2
-    const contentCenterY = (minY + maxY) / 2
-
-    // 获取画布尺寸和变换
-    const transform = lfInstance.getTransform()
-    const canvasWidth = lfInstance.graphModel.width
-    const canvasHeight = lfInstance.graphModel.height
-
-    // 计算画布中心点（在逻辑坐标系中，考虑当前缩放和平移）
-    const canvasCenterX =
-      (canvasWidth / 2 - transform.TRANSLATE_X) / transform.SCALE_X
-    const canvasCenterY =
-      (canvasHeight / 2 - transform.TRANSLATE_Y) / transform.SCALE_Y
-
-    // 计算需要移动的距离
-    const offsetX = canvasCenterX - contentCenterX
-    const offsetY = canvasCenterY - contentCenterY
-
-    // 移动所有节点 - 使用for-of循环提升可读性
-    for (const node of graphData.nodes) {
-      node.x = Number((node.x + offsetX).toFixed(2))
-      node.y = Number((node.y + offsetY).toFixed(2))
-      // 更新文本位置
-      if (node.text && typeof node.text === 'object') {
-        node.text.x = Number((node.text.x + offsetX).toFixed(2))
-        node.text.y = Number((node.text.y + offsetY).toFixed(2))
-      }
-    }
-
-    // 清空边的路径点，让LogicFlow自动重新计算
-    if (graphData.edges?.length > 0) {
-      for (const edge of graphData.edges) {
-        delete edge.pointsList
-        delete edge.startPoint
-        delete edge.endPoint
-      }
-    }
-
-    // 重新渲染图
-    lfInstance.render(graphData)
-  } catch (error) {
-    console.error('居中失败:', error)
-    message.error('居中失败')
-  }
-}
-
-/**
- * 根据角度确定锚点方向
- * @param {number} angle - 角度值（度数）
- * @returns {Array} [源锚点索引, 目标锚点索引]
- */
-const getAnchorsByAngle = (angle) => {
-  // 角度区间到锚点的映射表
-  const angleRanges = [
-    { min: -22.5, max: 22.5, anchors: [ANCHOR.RIGHT, ANCHOR.LEFT] }, // 正右
-    { min: 22.5, max: 157.5, anchors: [ANCHOR.BOTTOM, ANCHOR.TOP] }, // 下半圆
-    { min: 157.5, max: 180, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（正值）
-    { min: -180, max: -157.5, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（负值）
-    { min: -157.5, max: -22.5, anchors: [ANCHOR.TOP, ANCHOR.BOTTOM] } // 上半圆
-  ]
-
-  for (const range of angleRanges) {
-    if (angle >= range.min && angle < range.max) {
-      return range.anchors
-    }
-  }
-
-  // 默认返回右侧连接
-  return [ANCHOR.RIGHT, ANCHOR.LEFT]
-}
-
-/**
- * 根据距离差值确定主方向的锚点
- * @param {number} dx - x轴差值
- * @param {number} dy - y轴差值
- * @param {number} absDx - x轴距离绝对值
- * @param {number} absDy - y轴距离绝对值
- * @returns {Array|null} [源锚点索引, 目标锚点索引] 或 null（表示需要用角度计算）
- */
-const getAnchorsByDistance = (dx, dy, absDx, absDy) => {
-  const horizontalDominant = absDx > absDy * 1.5
-  const verticalDominant = absDy > absDx * 1.5
-
-  if (horizontalDominant) {
-    return dx > 0 ? [ANCHOR.RIGHT, ANCHOR.LEFT] : [ANCHOR.LEFT, ANCHOR.RIGHT]
-  }
-
-  if (verticalDominant) {
-    return dy > 0 ? [ANCHOR.BOTTOM, ANCHOR.TOP] : [ANCHOR.TOP, ANCHOR.BOTTOM]
-  }
-
-  return null
-}
-
-/**
- * 格式化锚点ID
- * @param {string} nodeId - 节点ID
- * @param {number} anchorIndex - 锚点索引
- * @returns {string} 格式化的锚点ID
- */
-const formatAnchorId = (nodeId, anchorIndex) => `${nodeId}_${anchorIndex}`
-
-/**
- * 计算两个节点之间的最佳锚点连接
- * 锚点索引: 0-上, 1-右, 2-下, 3-左
- * 原则：目标在源的某个方向，源节点就用该方向的锚点，目标节点用相反方向的锚点
- */
-const calculateBestAnchors = (sourceNode, targetNode) => {
-  if (!sourceNode || !targetNode) {
-    console.warn('计算锚点: 节点不存在')
-    return {
-      sourceAnchor: `${sourceNode?.id}_0`,
-      targetAnchor: `${targetNode?.id}_0`
-    }
-  }
-
-  // 计算节点中心点之间的差值
-  const dx = targetNode.x - sourceNode.x
-  const dy = targetNode.y - sourceNode.y
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
-
-  // 优先根据距离判断主方向
-  let anchors = getAnchorsByDistance(dx, dy, absDx, absDy)
-
-  // 如果距离无法确定主方向，则根据角度判断
-  if (!anchors) {
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI)
-    anchors = getAnchorsByAngle(angle)
-  }
-
-  const [sourceAnchorIndex, targetAnchorIndex] = anchors
-
-  return {
-    sourceAnchor: formatAnchorId(sourceNode.id, sourceAnchorIndex),
-    targetAnchor: formatAnchorId(targetNode.id, targetAnchorIndex)
-  }
-}
-
-// 更新左侧菜单项 - 优化性能
-const updateLeftMenus = () => {
-  // 获取当前拓扑图中已存在的节点ID集合
-  const existingNodeIds = new Set()
-  if (lf) {
-    try {
-      const graphData = lf.getGraphData()
-      if (graphData?.nodes?.length > 0) {
-        // 使用for-of循环提升可读性
-        for (const node of graphData.nodes) {
-          const dataId = node?.properties?.data?.id
-          if (dataId) {
-            existingNodeIds.add(dataId)
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('获取拓扑图节点失败:', error)
-    }
-  }
-
-  // 构建新的菜单项列表
-  const newMenus = []
-
-  // 添加设备项（过滤已在拓扑图中的设备） - 使用for-of循环
-  const devicesArray = devices.value
-  for (const device of devicesArray) {
-    // 检查设备是否已在拓扑图中
-    if (existingNodeIds.has(device.client_id)) {
-      continue // 跳过已存在的设备
-    }
-
-    const deviceType = device.type || '未知设备'
-    const typeConfig = DEVICE_TYPE_MAP[deviceType] || { icon: Pc, type: 'pc' }
-
-    newMenus.push({
-      type: typeConfig.type,
-      label: device.hostname || device.ip_address || '未知设备',
-      text: device.hostname || device.ip_address || '未知设备',
-      properties: {
-        width: 60,
-        height: 60,
-        data: {
-          id: device.client_id
-        }
-      },
-      icon: typeConfig.icon
-    })
-  }
-
-  // 添加交换机项（过滤已在拓扑图中的交换机） - 使用for-of循环
-  const switchesArray = switches.value
-  for (const switchItem of switchesArray) {
-    // 检查交换机是否已在拓扑图中
-    if (existingNodeIds.has(switchItem.id)) {
-      continue // 跳过已存在的交换机
-    }
-
-    // 使用 deriveDeviceName 函数从描述推导设备名称
-    const deviceName =
-      switchItem.device_name ||
-      deriveDeviceName(switchItem.description) ||
-      '未知交换机'
-
-    newMenus.push({
-      type: 'switch',
-      label: deviceName,
-      text: deviceName,
-      properties: {
-        width: 60,
-        height: 60,
-        data: {
-          id: switchItem.id
-        }
-      },
-      icon: Switches
-    })
-  }
-
-  // 更新 leftMenus
-  leftMenus.value = newMenus
-  if (lf?.extension?.dndPanel) {
-    lf.extension.dndPanel.setPatternItems(leftMenus.value)
-  }
-}
-
-/**
- * 检查事件目标是否为可编辑元素
- * @param {EventTarget} target - 事件目标
- * @returns {boolean} 是否为可编辑元素
- */
-const isEditableElement = (target) => {
-  return (
-    target?.tagName === 'INPUT' ||
-    target?.tagName === 'TEXTAREA' ||
-    target?.isContentEditable
-  )
-}
-
-/**
- * 撤销美化操作
- */
-const undoBeautify = () => {
-  if (!lf || !beforeBeautifyState) {
-    message.warning('没有可撤销的美化操作')
-    return
-  }
-
-  try {
-    const hideLoading = message.loading('正在撤销美化...', 0)
-
-    // 恢复之前的状态
-    lf.render(beforeBeautifyState)
-
-    nextTick(() => {
+    setTimeout(() => {
       hideLoading()
-      message.success('已撤销美化操作')
-      beforeBeautifyState = null
-    })
+      topologyRef.value?.fitView()
+      message.success(
+        `简化版数据生成完成！\n` +
+          `节点: ${testData.nodes.length} | ` +
+          `连线: ${testData.links.length}`,
+        3
+      )
+    }, 200)
   } catch (error) {
-    console.error('撤销失败:', error)
-    message.error('撤销失败')
+    console.error('生成简化数据失败:', error)
+    message.error('生成数据失败: ' + error.message)
   }
 }
 
-/**
- * 删除选中的节点和边
- * @param {Object} selectElements - 选中的元素
- * @returns {boolean} 是否成功删除
- */
-const deleteSelectedElements = (selectElements) => {
-  const nodesCount = selectElements.nodes?.length || 0
-  const edgesCount = selectElements.edges?.length || 0
+// 生成大规模测试数据
+const handleGenerateLargeData = () => {
+  Modal.confirm({
+    title: '⚠️ 生成大规模测试数据',
+    content: '将生成30个交换机和1000个设备，可能会影响性能，确认继续？',
+    okText: '确认生成',
+    cancelText: '取消',
+    okType: 'danger',
+    onOk() {
+      try {
+        const hideLoading = message.loading(
+          '正在生成大规模测试数据，请稍候...',
+          0
+        )
 
-  if (nodesCount === 0 && edgesCount === 0) {
-    return false
-  }
+        // 使用 setTimeout 避免阻塞 UI
+        setTimeout(() => {
+          try {
+            const testData = generateLargeScaleTestData()
+            data.value = testData
 
-  // 删除选中的节点
-  if (nodesCount > 0) {
-    for (const node of selectElements.nodes) {
-      lf.deleteNode(node.id)
+            hideLoading()
+
+            setTimeout(() => {
+              topologyRef.value?.fitView()
+              message.success(
+                `大规模数据生成完成！\n` +
+                  `节点: ${testData.nodes.length} | ` +
+                  `连线: ${testData.links.length}`,
+                5
+              )
+            }, 500)
+          } catch (error) {
+            hideLoading()
+            console.error('生成大规模数据失败:', error)
+            message.error('生成数据失败: ' + error.message)
+          }
+        }, 100)
+      } catch (error) {
+        console.error('生成大规模数据失败:', error)
+        message.error('生成数据失败: ' + error.message)
+      }
     }
-    message.success(`已删除 ${nodesCount} 个节点`)
-  }
-
-  // 删除选中的边
-  if (edgesCount > 0) {
-    for (const edge of selectElements.edges) {
-      lf.deleteEdge(edge.id)
-    }
-    message.success(`已删除 ${edgesCount} 条边`)
-  }
-
-  return true
+  })
 }
 
-// 处理键盘Delete键删除和Ctrl+Z撤销功能
-const handleKeyDown = (event) => {
-  // 检查组件是否已挂载和LogicFlow实例是否存在
-  if (!isComponentMounted.value || !lf) {
-    return false
+// 导出数据为JSON
+const handleExportData = () => {
+  if (!data.value || data.value.nodes.length === 0) {
+    message.warning('当前没有数据可导出')
+    return
   }
-
-  // 防止在输入框等元素中触发操作
-  if (isEditableElement(event.target)) {
-    return false
-  }
-
-  // 处理Ctrl+Z撤销美化
-  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
-    event.preventDefault()
-    undoBeautify()
-    return true
-  }
-
-  // 检查是否按下Delete或Backspace键
-  const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace'
-  if (!isDeleteKey) {
-    return false
-  }
-
-  // 阻止默认行为（如浏览器后退）
-  event.preventDefault()
 
   try {
-    // 获取选中的元素
-    const selectElements = lf.getSelectElements(true)
-
-    if (!selectElements) {
-      return false
-    }
-
-    // 删除选中的元素
-    const deleted = deleteSelectedElements(selectElements)
-    return deleted
+    const filename = `topology-${new Date().getTime()}.json`
+    exportToJSON(data.value, filename)
+    message.success('数据导出成功')
   } catch (error) {
-    console.error('删除元素失败:', error)
-    message.error('删除失败')
-    return false
+    console.error('导出数据失败:', error)
+    message.error('导出数据失败')
+  }
+}
+
+// 清空数据
+const handleClearData = () => {
+  Modal.confirm({
+    title: '清空拓扑图',
+    content: '确认要清空当前拓扑图的所有数据吗？',
+    okText: '确认清空',
+    cancelText: '取消',
+    okType: 'danger',
+    onOk() {
+      data.value = { nodes: [], links: [] }
+      message.success('拓扑图已清空')
+    }
+  })
+}
+
+// 组件挂载时加载数据
+onMounted(async () => {
+  await Promise.all([loadLatestTopology(), fetchDevices(), fetchSwitches()])
+
+  // 添加快捷键监听
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+// 组件卸载时移除监听
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
+
+// 快捷键处理
+const handleKeyDown = (event) => {
+  // Ctrl+Shift+K
+  if (event.ctrlKey && event.shiftKey && event.key === 'K') {
+    event.preventDefault() // 阻止默认行为
+    showTestPanel.value = !showTestPanel.value
+
+    if (showTestPanel.value) {
+      message.success('测试面板已展开', 1)
+    } else {
+      message.info('测试面板已隐藏', 1)
+    }
   }
 }
 </script>
 
-<style lang="less">
+<style lang="less" scoped>
 .topology-area {
-  // 左侧菜单空状态样式
-  .left-menu-empty {
-    background: hsla(0, 0%, 100%, 0.8);
-    border-radius: 5px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-    margin: 5px;
-    padding: 15px 5px;
-    position: absolute;
-    z-index: 999;
-    top: 6px;
-    bottom: 6px;
-    width: 120px;
-    overflow: auto;
-
-    .empty-content {
-      text-align: center;
-      padding: 20px;
-
-      .empty-icon {
-        font-size: 38px;
-        margin-bottom: 8px;
-      }
-
-      .empty-text {
-        font-size: 12px;
-        color: #999;
-      }
-    }
+  // 确保容器填充父元素
+  :deep(.d3-topology-container) {
+    width: 100%;
+    height: 100%;
   }
+}
 
-  .lf-dndpanel {
-    top: 0;
-    bottom: 0;
-    width: 120px;
-    overflow: auto;
+// 测试数据面板
+.test-data-panel {
+  position: absolute;
+  bottom: 73px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease-in-out;
 
-    .lf-dnd-text {
-      font-size: 12px;
+  :deep(.ant-btn) {
+    width: 100%;
+    font-size: 12px;
+    height: 28px;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
-  }
-
-  // Control插件样式自定义
-  .lf-control {
-    top: 12px;
-    right: 2px;
-    padding: 0 12px;
-    margin: 0;
-    // 一键美化按钮样式
-    .lf-control-item {
-      .lf-control-text {
-        font-size: 12px;
-      }
-      i {
-        width: 16px;
-        height: 16px;
-      }
-      &[data-key='beautify'],
-      &[data-key='center'] {
-        width: 32px;
-        height: 32px;
-        background-color: #fff;
-        border: 1px solid #e8e8e8;
-        border-radius: 4px;
-        cursor: pointer;
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 8px;
-        transition: all 0.3s;
-        position: relative;
-
-        &:hover {
-          background-color: #f5f5f5;
-          border-color: #1890ff;
-        }
-
-        // 隐藏可能的文本
-        .lf-control-text {
-          display: none;
-        }
-      }
-    }
-
-    // 美化按钮图标
-    .lf-control-beautify {
-      &::before {
-        content: '✨';
-        font-size: 16px;
-        line-height: 1;
-        display: block;
-      }
-    }
-
-    // 居中按钮图标
-    .lf-control-center {
-      &::before {
-        content: '◉';
-        font-size: 16px;
-        line-height: 1;
-        display: block;
-      }
-    }
-  }
-
-  // 取消边的箭头
-  :deep(.lf-edge) {
-    .lf-arrow {
-      display: none !important;
-    }
-  }
-
-  // 确保所有类型的边都没有箭头
-  :deep(.lf-edge-polyline),
-  :deep(.lf-edge-line),
-  :deep(.lf-edge-bezier) {
-    marker-end: none !important;
-    marker-start: none !important;
   }
 }
 </style>
