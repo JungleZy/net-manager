@@ -57,10 +57,24 @@ class StateManager:
         try:
             is_frozen = getattr(sys, "frozen", False)
             is_nuitka = "__compiled__" in globals()
+
             if is_frozen or is_nuitka:
-                # 打包后的exe路径
-                application_path = Path(sys.executable).parent
-                logger.info(f"检测到打包环境，应用路径: {application_path}")
+                # 打包后的可执行文件路径
+                # 在Linux下Nuitka onefile模式，sys.executable指向临时目录
+                # 需要使用sys.argv[0]获取真实的可执行文件路径
+                if os.name != "nt":
+                    # Linux/Unix系统：使用realpath解析符号链接，获取真实路径
+                    executable_path = os.path.realpath(sys.argv[0])
+                    application_path = Path(executable_path).parent
+                    logger.info(f"检测到Linux打包环境，使用argv[0]: {executable_path}")
+                else:
+                    # Windows系统：sys.executable是可靠的
+                    application_path = Path(sys.executable).parent
+                    logger.info(
+                        f"检测到Windows打包环境，使用executable: {sys.executable}"
+                    )
+
+                logger.info(f"应用路径: {application_path}")
             else:
                 # 开发环境路径
                 application_path = Path(__file__).parent.parent.parent
@@ -78,7 +92,7 @@ class StateManager:
                     logger.warning(f"设置应用目录权限失败: {chmod_err}")
 
             logger.info(
-                f"应用程序路径: {application_path} (可写: {os.access(application_path, os.W_OK)})"
+                f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})"
             )
             return application_path
         except PermissionError as e:

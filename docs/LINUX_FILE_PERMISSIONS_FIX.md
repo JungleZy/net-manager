@@ -2,15 +2,16 @@
 
 ## 问题描述
 
-在 Linux 环境下运行打包后的客户端程序时，`client_state.json` 文件未能成功创建。
+在 Linux 环境下运行打包后的客户端程序时，`client_state.json` 文件未能成功创建，或者被创建在临时目录下而不是可执行文件所在目录。
 
 ## 问题原因
 
 该问题主要由以下几个原因导致：
 
-1. **文件权限不足**：Linux 系统对文件和目录有严格的权限控制，打包后的程序可能没有足够的权限在程序所在目录创建文件
-2. **目录权限未设置**：即使程序有写入权限，新创建的文件和目录可能没有正确的权限设置
-3. **异常处理不够详细**：原代码中的异常处理没有区分权限错误和其他类型的错误，难以定位问题
+1. **Nuitka onefile 模式的特殊性**：在 Linux 下，Nuitka 的 `--onefile` 模式会将程序解压到临时目录执行，`sys.executable` 指向的是临时目录而不是实际的可执行文件位置
+2. **文件权限不足**：Linux 系统对文件和目录有严格的权限控制，打包后的程序可能没有足够的权限在程序所在目录创建文件
+3. **目录权限未设置**：即使程序有写入权限，新创建的文件和目录可能没有正确的权限设置
+4. **异常处理不够详细**：原代码中的异常处理没有区分权限错误和其他类型的错误，难以定位问题
 
 ## 解决方案
 
@@ -26,9 +27,20 @@ def _get_application_path(self) -> Path:
     try:
         is_frozen = getattr(sys, 'frozen', False)
         is_nuitka = '__compiled__' in globals()
+        
         if is_frozen or is_nuitka:
-            application_path = Path(sys.executable).parent
-            logger.info(f"检测到打包环境，应用路径: {application_path}")
+            # 打包后的可执行文件路径
+            # 在Linux下Nuitka onefile模式，sys.executable指向临时目录
+            # 需要使用sys.argv[0]获取真实的可执行文件路径
+            if os.name != 'nt':
+                # Linux/Unix系统：使用realpath解析符号链接，获取真实路径
+                executable_path = os.path.realpath(sys.argv[0])
+                application_path = Path(executable_path).parent
+                logger.info(f"检测到Linux打包环境，使用argv[0]: {executable_path}")
+            else:
+                # Windows系统：sys.executable是可靠的
+                application_path = Path(sys.executable).parent
+                logger.info(f"检测到Windows打包环境，使用executable: {sys.executable}")
         else:
             application_path = Path(__file__).parent.parent.parent
             logger.info(f"检测到开发环境，应用路径: {application_path}")
@@ -44,7 +56,7 @@ def _get_application_path(self) -> Path:
             except Exception as chmod_err:
                 logger.warning(f"设置应用目录权限失败: {chmod_err}")
         
-        logger.info(f"应用程序路径: {application_path} (可写: {os.access(application_path, os.W_OK)})")
+        logger.info(f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})")
         return application_path
     except PermissionError as e:
         logger.error(f"获取应用程序路径失败 - 权限不足: {e}")
@@ -52,7 +64,8 @@ def _get_application_path(self) -> Path:
 ```
 
 **改进点：**
-- 添加了详细的日志输出，记录检测到的环境类型
+- **修复Nuitka onefile路径问题**：在 Linux 下使用 `os.path.realpath(sys.argv[0])` 而不是 `sys.executable`，避免指向临时目录
+- 添加了详细的日志输出，记录检测到的环境类型和使用的路径获取方式
 - 在 Linux 下自动设置目录权限为 `755`（所有者可读写执行，组和其他用户可读执行）
 - 记录目录是否可写，便于问题诊断
 - 单独处理 `PermissionError`，提供明确的错误信息
