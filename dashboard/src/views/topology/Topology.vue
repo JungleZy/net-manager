@@ -1036,6 +1036,18 @@ const handleCenterView = (lfInstance) => {
 }
 
 // 创建分组功能
+// 分组默认配置常量（冻结以防止运行时修改）
+const GROUP_DEFAULT_CONFIG = Object.freeze({
+  PADDING: 30, // 分组边距
+  DEFAULT_NODE_SIZE: 60, // 默认节点尺寸
+  FILL_COLOR: '#cccccc', // 默认填充色
+  FILL_OPACITY: 0.3, // 默认透明度
+  STROKE_COLOR: '#2196F3', // 默认边框色
+  STROKE_WIDTH: 2, // 默认边框宽度
+  DEFAULT_NAME: '新建分组', // 默认名称
+  MIN_NODES: 2 // 最小节点数
+})
+
 const handleCreateGroup = (lfInstance) => {
   if (!lfInstance) {
     console.warn('创建分组: LogicFlow 实例不存在')
@@ -1045,46 +1057,70 @@ const handleCreateGroup = (lfInstance) => {
   try {
     // 获取选中的节点
     const selectElements = lfInstance.getSelectElements(true)
+    const selectedNodes = selectElements?.nodes
 
-    if (!selectElements?.nodes || selectElements.nodes.length < 2) {
+    // 提前返回：检查节点数量
+    if (
+      !selectedNodes ||
+      selectedNodes.length < GROUP_DEFAULT_CONFIG.MIN_NODES
+    ) {
       message.warning('请至少选择2个节点来创建分组')
       return
     }
 
-    // 过滤掉group类型的节点，避免嵌套分组
-    const normalNodes = selectElements.nodes.filter(
-      (node) => node.type !== 'group'
-    )
-
-    if (normalNodes.length < 2) {
-      message.warning('请选择至少两个非分组节点')
-      return
-    }
-
-    // 计算选中节点的边界
+    // 优化：一次遍历完成过滤和边界计算，减少数组操作
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
+    const normalNodes = []
+    const childrenIds = []
 
-    for (const node of normalNodes) {
-      const nodeWidth = node.properties?.width || 60
-      const nodeHeight = node.properties?.height || 60
+    for (let i = 0, len = selectedNodes.length; i < len; i++) {
+      const node = selectedNodes[i]
 
-      minX = Math.min(minX, node.x - nodeWidth / 2)
-      minY = Math.min(minY, node.y - nodeHeight / 2)
-      maxX = Math.max(maxX, node.x + nodeWidth / 2)
-      maxY = Math.max(maxY, node.y + nodeHeight / 2)
+      // 过滤掉group类型的节点，避免嵌套分组
+      if (node.type === 'group') {
+        continue
+      }
+
+      normalNodes.push(node)
+      childrenIds.push(node.id)
+
+      // 同时计算边界（避免二次遍历）
+      const nodeWidth =
+        node.properties?.width || GROUP_DEFAULT_CONFIG.DEFAULT_NODE_SIZE
+      const nodeHeight =
+        node.properties?.height || GROUP_DEFAULT_CONFIG.DEFAULT_NODE_SIZE
+      const halfWidth = nodeWidth / 2
+      const halfHeight = nodeHeight / 2
+
+      const nodeLeft = node.x - halfWidth
+      const nodeRight = node.x + halfWidth
+      const nodeTop = node.y - halfHeight
+      const nodeBottom = node.y + halfHeight
+
+      // 使用条件判断代替 Math.min/max，减少函数调用开销
+      if (nodeLeft < minX) minX = nodeLeft
+      if (nodeRight > maxX) maxX = nodeRight
+      if (nodeTop < minY) minY = nodeTop
+      if (nodeBottom > maxY) maxY = nodeBottom
     }
 
-    // 计算分组中心点和尺寸，留出一些边距
-    const padding = 30
+    // 提前返回：检查有效节点数量
+    if (normalNodes.length < GROUP_DEFAULT_CONFIG.MIN_NODES) {
+      message.warning('请选择至少两个非分组节点')
+      return
+    }
+
+    // 计算分组中心点和尺寸
+    const padding2 = GROUP_DEFAULT_CONFIG.PADDING * 2
     const groupX = (minX + maxX) / 2
     const groupY = (minY + maxY) / 2
-    const groupWidth = maxX - minX + padding * 2
-    const groupHeight = maxY - minY + padding * 2
+    const groupWidth = maxX - minX + padding2
+    const groupHeight = maxY - minY + padding2
 
-    // 创建分组节点
+    // 创建分组节点（直接使用已收集的 childrenIds，避免 map 操作）
     lfInstance.addNode({
       type: 'customGroup',
       x: groupX,
@@ -1092,16 +1128,16 @@ const handleCreateGroup = (lfInstance) => {
       width: groupWidth,
       height: groupHeight,
       properties: {
-        fillColor: '#cccccc', // 浅蓝色
-        fillOpacity: 0.3, // 50% 透明度
-        strokeColor: '#2196F3', // 蓝色边框
-        strokeWidth: 2,
+        fillColor: GROUP_DEFAULT_CONFIG.FILL_COLOR,
+        fillOpacity: GROUP_DEFAULT_CONFIG.FILL_OPACITY,
+        strokeColor: GROUP_DEFAULT_CONFIG.STROKE_COLOR,
+        strokeWidth: GROUP_DEFAULT_CONFIG.STROKE_WIDTH,
         isRestrict: true // 默认不限制子节点移动
       },
       text: {
-        value: '新建分组'
+        value: GROUP_DEFAULT_CONFIG.DEFAULT_NAME
       },
-      children: normalNodes.map((node) => node.id)
+      children: childrenIds
     })
 
     // 清除选中状态
