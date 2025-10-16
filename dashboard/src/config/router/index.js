@@ -22,6 +22,11 @@ const routes = [
         path: '/topology',
         name: 'Topology',
         component: () => import('../../views/topology/Topology.vue')
+      },
+      {
+        path: '/test',
+        name: 'Test',
+        component: () => import('../../views/test/Demo.vue')
       }
     ]
   }

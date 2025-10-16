@@ -210,7 +210,6 @@ import {
   computed
 } from 'vue'
 import { LogicFlow } from '@logicflow/core'
-import dagre from 'dagre'
 import { Control, DndPanel, SelectionSelect, Group } from '@logicflow/extension'
 import { Dagre } from '@logicflow/layout'
 import '@logicflow/core/lib/style/index.css'
@@ -889,6 +888,9 @@ const formatGraphData = (graphData) => {
   // 格式化节点坐标 - 使用for-of循环提升可读性
   if (graphData.nodes?.length > 0) {
     for (const node of graphData.nodes) {
+      if (node.type === 'customGroup') {
+        delete node.properties.nodeSize
+      }
       if (typeof node.x === 'number') {
         node.x = Number(node.x.toFixed(2))
       }
@@ -1087,20 +1089,17 @@ const handleCreateGroup = (lfInstance) => {
       type: 'customGroup',
       x: groupX,
       y: groupY,
+      width: groupWidth,
+      height: groupHeight,
       properties: {
-        width: groupWidth,
-        height: groupHeight,
         fillColor: '#cccccc', // 浅蓝色
         fillOpacity: 0.3, // 50% 透明度
         strokeColor: '#2196F3', // 蓝色边框
         strokeWidth: 2,
-        isRestrict: false // 默认不限制子节点移动
+        isRestrict: true // 默认不限制子节点移动
       },
       text: {
-        x: groupX,
-        y: minY - 20, // 将文本放在分组顶部
-        value: '新建分组',
-        editable: true
+        value: '新建分组'
       },
       children: normalNodes.map((node) => node.id)
     })

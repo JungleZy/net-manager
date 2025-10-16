@@ -39,6 +39,15 @@
         >
           拓扑图
         </div>
+        <div
+          class="h-full layout-left-center px-[12px] cursor-pointer menu-item border-b-2"
+          :class="
+            $route.path === '/test' ? 'text-white menu-item-active' : ''
+          "
+          @click="switchTo('/test')"
+        >
+          测试
+        </div>
       </div>
     </div>
     <div class="h-[calc(100vh-52px)]">
