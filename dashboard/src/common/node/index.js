@@ -6,6 +6,7 @@ import PrinterNode from './PrinterNode';
 import RouterNode from './RouterNode';
 import ServerNode from './ServerNode';
 import SwitchNode from './SwitchNode';
+import GroupNode from './GroupNode';
 
 export {
   SvgNode,
@@ -15,7 +16,8 @@ export {
   PrinterNode,
   RouterNode,
   ServerNode,
-  SwitchNode
+  SwitchNode,
+  GroupNode
 };
 
 export default [
@@ -26,5 +28,6 @@ export default [
   PrinterNode,
   RouterNode,
   ServerNode,
-  SwitchNode
+  SwitchNode,
+  GroupNode
 ];

@@ -11,6 +11,180 @@
         </div>
       </div>
 
+      <!-- 调试面板 -->
+      <div v-if="showDebugPanel" class="debug-panel">
+        <div class="debug-panel-header">
+          <span class="debug-panel-title">🔧 拓扑调试面板</span>
+          <span class="debug-panel-close" @click="toggleDebugPanel">×</span>
+        </div>
+        <div class="debug-panel-content">
+          <div class="debug-section">
+            <h4 class="debug-section-title">生成测试拓扑</h4>
+            <div class="debug-buttons">
+              <button
+                class="debug-btn debug-btn-micro"
+                @click="generateTestTopology('micro')"
+                :disabled="isGenerating"
+              >
+                <span class="debug-btn-icon">🏠</span>
+                <span class="debug-btn-text">微型</span>
+                <span class="debug-btn-desc">20设备/2交换机</span>
+              </button>
+              <button
+                class="debug-btn debug-btn-standard"
+                @click="generateTestTopology('standard')"
+                :disabled="isGenerating"
+              >
+                <span class="debug-btn-icon">🏢</span>
+                <span class="debug-btn-text">标准</span>
+                <span class="debug-btn-desc">100设备/5交换机</span>
+              </button>
+              <button
+                class="debug-btn debug-btn-large"
+                @click="generateTestTopology('large')"
+                :disabled="isGenerating"
+              >
+                <span class="debug-btn-icon">🏭</span>
+                <span class="debug-btn-text">大型</span>
+                <span class="debug-btn-desc">500设备/10交换机</span>
+              </button>
+              <button
+                class="debug-btn debug-btn-huge"
+                @click="generateTestTopology('huge')"
+                :disabled="isGenerating"
+              >
+                <span class="debug-btn-icon">🌐</span>
+                <span class="debug-btn-text">巨型</span>
+                <span class="debug-btn-desc">1000设备/50交换机</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="topologyStats" class="debug-section">
+            <h4 class="debug-section-title">当前拓扑统计</h4>
+            <div class="debug-stats">
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">总节点:</span>
+                <span class="debug-stat-value">{{
+                  topologyStats.totalNodes
+                }}</span>
+              </div>
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">总连线:</span>
+                <span class="debug-stat-value">{{
+                  topologyStats.totalEdges
+                }}</span>
+              </div>
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">交换机:</span>
+                <span class="debug-stat-value">{{
+                  topologyStats.switches
+                }}</span>
+              </div>
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">设备:</span>
+                <span class="debug-stat-value">{{
+                  topologyStats.devices
+                }}</span>
+              </div>
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">在线:</span>
+                <span class="debug-stat-value success">{{
+                  topologyStats.online
+                }}</span>
+              </div>
+              <div class="debug-stat-item">
+                <span class="debug-stat-label">离线:</span>
+                <span class="debug-stat-value error">{{
+                  topologyStats.offline
+                }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="debug-section">
+            <button
+              class="debug-btn-clear"
+              @click="clearTopology"
+              :disabled="isGenerating"
+            >
+              🗑️ 清空拓扑
+            </button>
+          </div>
+        </div>
+        <div class="debug-panel-footer">
+          <span class="debug-hint">提示: 按 Ctrl+Shift+K 关闭面板</span>
+        </div>
+      </div>
+
+      <!-- 分组编辑模态框 -->
+      <a-modal
+        v-model:open="showGroupEditModal"
+        title="编辑分组"
+        :width="500"
+        centered
+        @ok="handleGroupEditConfirm"
+        @cancel="handleGroupEditCancel"
+      >
+        <div class="group-edit-form">
+          <div class="form-item layout-left-center mb-[12px]">
+            <label class="form-label">分组名称：</label>
+            <a-input
+              v-model:value="groupEditForm.name"
+              placeholder="请输入分组名称"
+              style="width: calc(100% - 70px)"
+            />
+          </div>
+          <div class="form-item layout-left-center">
+            <label class="form-label">背景颜色：</label>
+            <div class="color-picker-wrapper">
+              <input
+                type="color"
+                v-model="groupEditForm.fillColor"
+                class="color-input"
+              />
+            </div>
+          </div>
+          <div class="form-item layout-left-center">
+            <label class="form-label">背景透明度</label>
+            <div class="w-full">
+              <a-slider
+                v-model:value="groupEditForm.fillOpacity"
+                :min="0"
+                :max="1"
+                :step="0.1"
+                :marks="{ 0: '0', 0.5: '0.5', 1: '1' }"
+              />
+            </div>
+          </div>
+          <div class="form-item layout-left-center mb-[12px]">
+            <label class="form-label">边框颜色：</label>
+            <div class="color-picker-wrapper">
+              <input
+                type="color"
+                v-model="groupEditForm.strokeColor"
+                class="color-input"
+              />
+            </div>
+          </div>
+          <div class="form-item layout-left-center mb-[12px]">
+            <label class="form-label">边框宽度：</label>
+            <a-input-number
+              size="small"
+              v-model:value="groupEditForm.strokeWidth"
+              :min="1"
+              :max="10"
+            />
+          </div>
+          <div class="form-item layout-left-center">
+            <label class="form-label">边框样式：</label>
+            <a-radio-group v-model:value="groupEditForm.strokeDasharray">
+              <a-radio value="">实线</a-radio>
+              <a-radio value="5,5">虚线</a-radio>
+              <a-radio value="2,2">点线</a-radio>
+            </a-radio-group>
+          </div>
+        </div>
+      </a-modal>
+
       <!-- 保存按钮 -->
       <div class="absolute bottom-[24px] right-[24px]">
         <a-button type="primary" @click="handleAddNode" :loading="isSaving">
@@ -28,17 +202,13 @@ import {
   nextTick,
   ref,
   useTemplateRef,
-  shallowRef
+  shallowRef,
+  computed
 } from 'vue'
 import { LogicFlow } from '@logicflow/core'
 import dagre from 'dagre'
-import {
-  Control,
-  DndPanel,
-  SelectionSelect,
-  MiniMap,
-  Highlight
-} from '@logicflow/extension'
+import { Control, DndPanel, SelectionSelect, Group } from '@logicflow/extension'
+import { Dagre } from '@logicflow/layout'
 import '@logicflow/core/lib/style/index.css'
 import '@logicflow/extension/lib/style/index.css'
 import CustomHtml from '@/common/node/HtmlNode'
@@ -53,7 +223,12 @@ import Pc from '@/assets/pc.png'
 import Router from '@/assets/router.png'
 import Server from '@/assets/server.png'
 import Switches from '@/assets/switches.png'
+import Printer from '@/assets/printer.png'
 import { deriveDeviceName } from '@/common/utils/Utils.js'
+import {
+  generateTopologyByScale,
+  getTopologyStats
+} from '@/utils/topologyTestDataGenerator.js'
 
 const containerRef = useTemplateRef('container')
 // 使用 shallowRef 避免深度响应式带来的性能开销
@@ -65,6 +240,33 @@ const isSaving = ref(false)
 const leftMenus = shallowRef([])
 const isComponentMounted = ref(false)
 
+// 调试面板相关状态
+const showDebugPanel = ref(false)
+const isGenerating = ref(false)
+
+// 分组编辑模态框相关状态
+const showGroupEditModal = ref(false)
+const currentEditingGroupId = ref(null)
+const groupEditForm = ref({
+  name: '',
+  fillColor: '#F4F5F6',
+  fillOpacity: 0.3,
+  strokeColor: '#CECECE',
+  strokeWidth: 2,
+  strokeDasharray: '' // 空字符串表示实线，'5,5'表示虚线
+})
+
+// 计算拓扑统计信息
+const topologyStats = computed(() => {
+  if (!lf) return null
+  try {
+    const graphData = lf.getGraphData()
+    return getTopologyStats(graphData)
+  } catch (error) {
+    return null
+  }
+})
+
 // 设备类型映射 - 移到外部作为常量,避免重复创建
 const DEVICE_TYPE_MAP = Object.freeze({
   台式机: { icon: Pc, type: 'pc' },
@@ -72,7 +274,8 @@ const DEVICE_TYPE_MAP = Object.freeze({
   服务器: { icon: Server, type: 'server' },
   路由器: { icon: Router, type: 'router' },
   交换机: { icon: Switches, type: 'switch' },
-  防火墙: { icon: Firewall, type: 'firewall' }
+  防火墙: { icon: Firewall, type: 'firewall' },
+  打印机: { icon: Printer, type: 'printer' }
 })
 
 // 锚点索引常量
@@ -84,7 +287,7 @@ const ANCHOR = Object.freeze({
 })
 
 // 使用 shallowRef 减少响应式开销,拓扑数据不需要深度响应
-const data = shallowRef({
+let data = {
   // nodes: [
   //   {
   //     id: '3',
@@ -319,7 +522,7 @@ const data = shallowRef({
   //     ]
   //   }
   // ]
-})
+}
 
 onMounted(() => {
   nextTick(() => {
@@ -336,6 +539,8 @@ onUnmounted(() => {
 // 资源清理函数
 const cleanup = () => {
   document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('keydown', handleCtrlKeyDown)
+  document.removeEventListener('keyup', handleCtrlKeyUp)
   isComponentMounted.value = false
 
   // 销毁 LogicFlow 实例,释放内存
@@ -351,12 +556,6 @@ const cleanup = () => {
 
 // 插件配置移到外部常量,避免重复创建对象
 const PLUGINS_OPTIONS = Object.freeze({
-  miniMap: {
-    width: 137,
-    height: 121,
-    rightPosition: 8,
-    bottomPosition: 8
-  },
   label: {
     isMultiple: true,
     textOverflowMode: 'ellipsis'
@@ -394,7 +593,7 @@ const initTopology = () => {
         enabled: true
       },
       // 边的默认样式配置
-      edgeType: 'polyline',
+      edgeType: 'line',
       style: {
         edge: {
           stroke: '#afafaf',
@@ -405,13 +604,19 @@ const initTopology = () => {
           verticalLength: 0
         }
       },
-      plugins: [Control, DndPanel, SelectionSelect, MiniMap, Highlight],
+      plugins: [Control, DndPanel, SelectionSelect, Dagre, Group],
+      multipleSelectKey: 'shift',
+      disabledTools: ['multipleSelect'],
       pluginsOptions: PLUGINS_OPTIONS,
       adjustEdgeStartAndEnd: true,
       // 性能优化配置
       stopScrollGraph: true,
       stopZoomGraph: false,
-      partial: true // 启用局部渲染
+      partial: true, // 启用局部渲染
+      // 启用文本编辑
+      textEdit: true,
+      // 允许双击文本编辑
+      textDblClickEdit: true
     })
 
     lf.register(CustomHtml)
@@ -449,10 +654,23 @@ const initTopology = () => {
     }
   })
 
-  lf.render(data.value)
+  // 添加创建分组按钮
+  lf.extension.control.addItem({
+    key: 'createGroup',
+    iconClass: 'lf-control-create-group',
+    title: '创建分组',
+    text: '分组',
+    onClick: (lf) => {
+      handleCreateGroup(lf)
+    }
+  })
 
-  // 添加键盘Delete键监听
+  lf.render(data)
+
+  // 添加键盘Delete键监听和Ctrl键框选监听
   document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keydown', handleCtrlKeyDown)
+  document.addEventListener('keyup', handleCtrlKeyUp)
 
   // 监听节点拖拽添加事件，添加后从leftMenus中移除
   lf.on('node:dnd-add', (nodeData) => {
@@ -497,6 +715,64 @@ const initTopology = () => {
     }
   })
 
+  // 监听分组创建事件，为新分组添加名称
+  lf.on('node-selection:group-create', ({ groupData }) => {
+    try {
+      console.log('分组创建事件:', groupData)
+      if (groupData && groupData.id) {
+        // 为分组添加默认名称
+        const groupModel = lf.getNodeModelById(groupData.id)
+        if (groupModel) {
+          // 设置分组文本
+          groupModel.updateText({
+            value: '新建分组',
+            editable: true,
+            draggable: true
+          })
+        }
+      }
+    } catch (error) {
+      console.warn('处理分组创建事件失败:', error)
+    }
+  })
+
+  // 监听group类型节点的创建，为其添加默认名称
+  lf.on('node:add', ({ data }) => {
+    try {
+      // 检查是否为group类型节点
+      if (data && data.type === 'group') {
+        console.log('Group节点创建:', data)
+        // 延迟执行以确保节点已完全创建
+        nextTick(() => {
+          const groupModel = lf.getNodeModelById(data.id)
+          if (groupModel && !groupModel.text?.value) {
+            // 如果还没有文本，添加默认文本
+            groupModel.updateText({
+              value: '新建分组',
+              editable: true,
+              draggable: true
+            })
+          }
+        })
+      }
+    } catch (error) {
+      console.warn('处理节点添加事件失败:', error)
+    }
+  })
+
+  // 监听节点右键点击事件，处理分组编辑
+  lf.on('node:contextmenu', ({ data, e }) => {
+    try {
+      // 只处理customGroup类型的节点
+      if (data && data.type === 'customGroup') {
+        e.preventDefault() // 阻止默认右键菜单
+        handleGroupRightClick(data)
+      }
+    } catch (error) {
+      console.warn('处理节点右键事件失败:', error)
+    }
+  })
+
   // 获取设备和交换机数据并设置拖拽面板项
   Promise.all([loadLatestTopology()])
     .then(() => {
@@ -520,21 +796,21 @@ const loadLatestTopology = async () => {
     if (response?.data?.content) {
       const topologyData = response.data.content
       currentTopologyId.value = response.data.id
-      data.value = topologyData
-      lf.render(data.value)
+      data = topologyData
+      lf.render(data)
     } else {
       // 没有保存的拓扑图,使用默认数据
-      lf.render(data.value)
+      lf.render(data)
     }
     handleCenterView(lf)
   } catch (error) {
     // 如果是404错误(没有拓扑图),使用默认数据
     if (error?.response?.status === 404) {
-      lf.render(data.value)
+      lf.render(data)
     } else {
       console.error('加载拓扑图失败:', error)
       message.error('加载拓扑图失败')
-      lf.render(data.value)
+      lf.render(data)
     }
   }
 }
@@ -666,522 +942,14 @@ const formatGraphData = (graphData) => {
   return graphData
 }
 
-/**
- * 创建并配置dagre图布局
- */
-const createDagreGraph = () => {
-  const g = new dagre.graphlib.Graph()
-  g.setGraph({
-    rankdir: 'TB', // 从上到下布局
-    nodesep: 100, // 节点间距
-    ranksep: 100, // 层级间距
-    marginx: 50,
-    marginy: 50
-  })
-  g.setDefaultEdgeLabel(() => ({}))
-  return g
-}
-
-/**
- * 将节点和边添加到dagre图中
- */
-const populateDagreGraph = (g, graphData) => {
-  // 添加节点
-  for (const node of graphData.nodes) {
-    g.setNode(node.id, {
-      width: node.properties?.width || 60,
-      height: node.properties?.height || 60
-    })
-  }
-
-  // 添加边
-  if (graphData.edges?.length > 0) {
-    for (const edge of graphData.edges) {
-      g.setEdge(edge.sourceNodeId, edge.targetNodeId)
-    }
-  }
-}
-
-/**
- * 根据dagre布局结果更新节点位置
- */
-const updateNodePositions = (graphData, g) => {
-  for (const node of graphData.nodes) {
-    const dagreNode = g.node(node.id)
-    if (!dagreNode) continue
-
-    // 保留2位小数
-    node.x = Number(dagreNode.x.toFixed(2))
-    node.y = Number(dagreNode.y.toFixed(2))
-
-    // 更新文本位置
-    if (node.text && typeof node.text === 'object') {
-      node.text.x = Number(dagreNode.x.toFixed(2))
-      node.text.y = Number(dagreNode.y.toFixed(2))
-    }
-  }
-}
-
-/**
- * 检测网络层级结构
- * 返回每个节点的层级信息
- */
-const detectNetworkHierarchy = (graphData) => {
-  const nodeMap = new Map()
-  const visited = new Set()
-
-  // 初始化节点信息
-  graphData.nodes.forEach((node) => {
-    nodeMap.set(node.id, {
-      level: -1,
-      inDegree: 0,
-      outDegree: 0,
-      children: [],
-      parents: []
-    })
-  })
-
-  // 构建连接关系
-  if (graphData.edges?.length) {
-    graphData.edges.forEach((edge) => {
-      const sourceInfo = nodeMap.get(edge.sourceNodeId)
-      const targetInfo = nodeMap.get(edge.targetNodeId)
-
-      if (sourceInfo && targetInfo) {
-        sourceInfo.children.push(edge.targetNodeId)
-        sourceInfo.outDegree++
-        targetInfo.parents.push(edge.sourceNodeId)
-        targetInfo.inDegree++
-      }
-    })
-  }
-
-  // 找出根节点（入度为0）
-  const rootNodes = []
-  nodeMap.forEach((info, nodeId) => {
-    if (info.inDegree === 0) {
-      rootNodes.push(nodeId)
-    }
-  })
-
-  // 如果没有根节点（存在环），选择出度最大的节点作为根
-  if (rootNodes.length === 0) {
-    let maxOutDegree = -1
-    nodeMap.forEach((info, nodeId) => {
-      if (info.outDegree > maxOutDegree) {
-        maxOutDegree = info.outDegree
-        rootNodes.length = 0
-        rootNodes.push(nodeId)
-      } else if (info.outDegree === maxOutDegree) {
-        rootNodes.push(nodeId)
-      }
-    })
-  }
-
-  // BFS 分配层级
-  const queue = rootNodes.map((id) => ({ id, level: 0 }))
-
-  while (queue.length > 0) {
-    const { id, level } = queue.shift()
-
-    if (visited.has(id)) continue
-    visited.add(id)
-
-    const nodeInfo = nodeMap.get(id)
-    nodeInfo.level = level
-
-    // 将子节点加入队列
-    nodeInfo.children.forEach((childId) => {
-      if (!visited.has(childId)) {
-        queue.push({ id: childId, level: level + 1 })
-      }
-    })
-  }
-
-  // 处理未访问的节点（孤立节点）
-  nodeMap.forEach((info, nodeId) => {
-    if (info.level === -1) {
-      info.level = 0
-    }
-  })
-
-  const maxLevel = Math.max(...Array.from(nodeMap.values()).map((n) => n.level))
-  return { nodeMap, maxLevel }
-}
-
-/**
- * 计算力导向布局（结合层级约束）
- * 对于大规模图（>100节点）使用Barnes-Hut优化
- */
-const calculateHybridLayout = (
-  graphData,
-  nodeMap,
-  maxLevel,
-  useBarnesHut = false
-) => {
-  const positions = new Map()
-  const velocities = new Map()
-  const nodeCount = graphData.nodes.length
-
-  // 初始化位置（基于层级）
-  const levelGroups = new Map()
-  nodeMap.forEach((info, nodeId) => {
-    if (!levelGroups.has(info.level)) {
-      levelGroups.set(info.level, [])
-    }
-    levelGroups.get(info.level).push(nodeId)
-  })
-
-  const levelHeight = 150
-  const nodeSpacing = 120
-
-  levelGroups.forEach((nodes, level) => {
-    const totalWidth = nodes.length * nodeSpacing
-    nodes.forEach((nodeId, index) => {
-      const x = (index - nodes.length / 2) * nodeSpacing
-      const y = level * levelHeight
-      positions.set(nodeId, { x, y })
-      velocities.set(nodeId, { vx: 0, vy: 0 })
-    })
-  })
-
-  // 力导向参数
-  const iterations = useBarnesHut ? 200 : 150
-  const repulsionStrength = useBarnesHut ? 5000 : 3000
-  const attractionStrength = 0.01
-  const damping = 0.85
-  const minDistance = 80
-  const levelConstraintStrength = 0.15
-
-  // 迭代计算力
-  for (let iter = 0; iter < iterations; iter++) {
-    const temperature = 1 - iter / iterations
-
-    // 对每个节点计算受力
-    graphData.nodes.forEach((node1) => {
-      const pos1 = positions.get(node1.id)
-      const info1 = nodeMap.get(node1.id)
-      let fx = 0,
-        fy = 0
-
-      // 排斥力（所有节点对之间）
-      graphData.nodes.forEach((node2) => {
-        if (node1.id === node2.id) return
-
-        const pos2 = positions.get(node2.id)
-        const dx = pos1.x - pos2.x
-        const dy = pos1.y - pos2.y
-        const distance = Math.max(Math.sqrt(dx * dx + dy * dy), minDistance)
-
-        const force = repulsionStrength / (distance * distance)
-        fx += (dx / distance) * force
-        fy += (dy / distance) * force
-      })
-
-      // 吸引力（连接的节点之间）
-      info1.children.forEach((childId) => {
-        const pos2 = positions.get(childId)
-        if (!pos2) return
-
-        const dx = pos2.x - pos1.x
-        const dy = pos2.y - pos1.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        const force = distance * attractionStrength
-        fx += (dx / distance) * force
-        fy += (dy / distance) * force
-      })
-
-      // 层级约束力（保持y轴层次结构）
-      const targetY = info1.level * levelHeight
-      const yDiff = targetY - pos1.y
-      fy += yDiff * levelConstraintStrength
-
-      // 更新速度和位置
-      const vel = velocities.get(node1.id)
-      vel.vx = (vel.vx + fx) * damping
-      vel.vy = (vel.vy + fy) * damping
-
-      pos1.x += vel.vx * temperature
-      pos1.y += vel.vy * temperature
-    })
-  }
-
-  return positions
-}
-
-/**
- * 解决节点重叠问题
- */
-const resolveNodeOverlaps = (graphData, positions) => {
-  const minDistance = 85 // 最小节点间距
-  const maxIterations = 15
-
-  for (let iter = 0; iter < maxIterations; iter++) {
-    let hasOverlap = false
-
-    for (let i = 0; i < graphData.nodes.length; i++) {
-      for (let j = i + 1; j < graphData.nodes.length; j++) {
-        const node1 = graphData.nodes[i]
-        const node2 = graphData.nodes[j]
-        const pos1 = positions.get(node1.id)
-        const pos2 = positions.get(node2.id)
-
-        if (!pos1 || !pos2) continue
-
-        const dx = pos2.x - pos1.x
-        const dy = pos2.y - pos1.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        if (distance < minDistance) {
-          hasOverlap = true
-          const angle = Math.atan2(dy, dx)
-          const pushDistance = (minDistance - distance) / 2
-
-          pos1.x -= Math.cos(angle) * pushDistance
-          pos1.y -= Math.sin(angle) * pushDistance
-          pos2.x += Math.cos(angle) * pushDistance
-          pos2.y += Math.sin(angle) * pushDistance
-        }
-      }
-    }
-
-    if (!hasOverlap) break
-  }
-}
-
-/**
- * 优化连线路径，减少交叉
- */
-const optimizeEdgePaths = (graphData, nodeMap) => {
-  if (!graphData.edges?.length) return
-
-  graphData.edges.forEach((edge) => {
-    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
-    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
-
-    if (sourceNode && targetNode) {
-      const sourceInfo = nodeMap.get(edge.sourceNodeId)
-      const targetInfo = nodeMap.get(edge.targetNodeId)
-
-      // 基于层级关系选择最佳锚点
-      let sourceAnchor, targetAnchor
-
-      if (sourceInfo.level < targetInfo.level) {
-        // 父子关系：上下连接
-        sourceAnchor = ANCHOR.BOTTOM
-        targetAnchor = ANCHOR.TOP
-      } else if (sourceInfo.level > targetInfo.level) {
-        // 反向关系
-        sourceAnchor = ANCHOR.TOP
-        targetAnchor = ANCHOR.BOTTOM
-      } else {
-        // 同层关系：左右连接
-        const dx = targetNode.x - sourceNode.x
-        if (dx > 0) {
-          sourceAnchor = ANCHOR.RIGHT
-          targetAnchor = ANCHOR.LEFT
-        } else {
-          sourceAnchor = ANCHOR.LEFT
-          targetAnchor = ANCHOR.RIGHT
-        }
-      }
-
-      edge.sourceAnchorId = `${sourceNode.id}_${sourceAnchor}`
-      edge.targetAnchorId = `${targetNode.id}_${targetAnchor}`
-    }
-
-    // 清除旧路径，让LogicFlow重新计算
-    delete edge.pointsList
-    delete edge.startPoint
-    delete edge.endPoint
-  })
-}
-
-/**
- * 优化边的锚点连接（保留原函数作为备用）
- */
-const optimizeEdgeAnchors = (graphData) => {
-  if (!graphData.edges?.length) return
-
-  for (const edge of graphData.edges) {
-    const sourceNode = graphData.nodes.find((n) => n.id === edge.sourceNodeId)
-    const targetNode = graphData.nodes.find((n) => n.id === edge.targetNodeId)
-
-    if (sourceNode && targetNode) {
-      const bestAnchors = calculateBestAnchors(sourceNode, targetNode)
-      edge.sourceAnchorId = bestAnchors.sourceAnchor
-      edge.targetAnchorId = bestAnchors.targetAnchor
-    }
-
-    // 删除旧的路径点信息，让LogicFlow重新计算
-    delete edge.pointsList
-    delete edge.startPoint
-    delete edge.endPoint
-  }
-}
-
-/**
- * 触发画布适应视图
- */
-const triggerFitView = (lfInstance) => {
-  const control = lfInstance.extension?.control
-  if (!control) {
-    lfInstance.fitView(20)
-    return
-  }
-
-  const controlItems = control.controlItems
-  if (!controlItems) {
-    lfInstance.fitView(20)
-    return
-  }
-
-  // 查找适应画布按钮
-  const fitItem = controlItems.find(
-    (item) =>
-      item.key === 'reset' ||
-      item.key === 'fit' ||
-      item.key === 'lf-control-fit'
-  )
-
-  const hasFitFunction = fitItem?.onClick
-  if (hasFitFunction) {
-    fitItem.onClick(lfInstance)
-  } else {
-    lfInstance.fitView(20)
-  }
-}
-
-// 保存美化前的状态，用于撤销
-let beforeBeautifyState = null
-
-// 一键美化功能 - 增强版（结合层级与力导向布局）
+// 一键美化功能
 const handleBeautifyAction = (lfInstance) => {
-  if (!lfInstance) {
-    console.warn('美化操作: LogicFlow 实例不存在')
-    return
-  }
-
-  try {
-    const graphData = lfInstance.getGraphData()
-
-    if (!graphData?.nodes?.length) {
-      message.warning('画布中没有节点')
-      return
-    }
-
-    const nodeCount = graphData.nodes.length
-    const edgeCount = graphData.edges?.length || 0
-
-    // 保存美化前的状态
-    beforeBeautifyState = JSON.parse(JSON.stringify(graphData))
-
-    // 根据节点数量显示不同的加载提示
-    let loadingMsg = '正在智能布局优化，请稍候...'
-    if (nodeCount > 100) {
-      loadingMsg = `正在使用Barnes-Hut算法优化 ${nodeCount} 个节点...`
-    } else if (nodeCount > 50) {
-      loadingMsg = `正在优化 ${nodeCount} 个节点的层次结构...`
-    }
-
-    const hideLoading = message.loading(loadingMsg, 0)
-
-    // 异步执行布局算法
-    const doLayout = () => {
-      try {
-        const startTime = performance.now()
-
-        // 1. 检测网络层级结构
-        const { nodeMap, maxLevel } = detectNetworkHierarchy(graphData)
-
-        // 2. 选择布局算法
-        let positions
-        const useBarnesHut = nodeCount > 100
-
-        positions = calculateHybridLayout(
-          graphData,
-          nodeMap,
-          maxLevel,
-          useBarnesHut
-        )
-
-        // 3. 更新节点位置
-        graphData.nodes.forEach((node) => {
-          const pos = positions.get(node.id)
-          if (pos) {
-            node.x = Number(pos.x.toFixed(2))
-            node.y = Number(pos.y.toFixed(2))
-
-            if (node.text && typeof node.text === 'object') {
-              node.text.x = Number(pos.x.toFixed(2))
-              node.text.y = Number(pos.y.toFixed(2))
-            }
-          }
-        })
-
-        // 4. 解决节点重叠（确保可读性）
-        resolveNodeOverlaps(graphData, positions)
-
-        // 同步节点位置
-        graphData.nodes.forEach((node) => {
-          const pos = positions.get(node.id)
-          if (pos) {
-            node.x = Number(pos.x.toFixed(2))
-            node.y = Number(pos.y.toFixed(2))
-            if (node.text && typeof node.text === 'object') {
-              node.text.x = Number(pos.x.toFixed(2))
-              node.text.y = Number(pos.y.toFixed(2))
-            }
-          }
-        })
-
-        // 5. 优化连线路径，减少交叉
-        optimizeEdgePaths(graphData, nodeMap)
-
-        // 6. 渲染结果
-        lfInstance.render(graphData)
-
-        // 7. 居中显示
-        nextTick(() => {
-          triggerFitView(lfInstance)
-          handleCenterView(lf)
-          hideLoading()
-
-          const endTime = performance.now()
-          const duration = ((endTime - startTime) / 1000).toFixed(2)
-
-          // 显示优化结果
-          const algorithm = useBarnesHut ? 'Barnes-Hut' : '力导向'
-          message.success(
-            `布局完成！算法: ${algorithm} | 耗时: ${duration}秒 | 节点: ${nodeCount} | 边: ${edgeCount} | 层次: ${
-              maxLevel + 1
-            }`,
-            5
-          )
-
-          // 提示撤销功能
-          setTimeout(() => {
-            message.info('按 Ctrl+Z 可撤销美化操作', 2)
-          }, 1500)
-        })
-      } catch (error) {
-        hideLoading()
-        console.error('美化失败:', error)
-        message.error('美化失败：' + error.message)
-      }
-    }
-
-    // 延迟执行，避免阻塞UI
-    if (window.requestIdleCallback) {
-      window.requestIdleCallback(doLayout, { timeout: 3000 })
-    } else {
-      setTimeout(doLayout, 100)
-    }
-  } catch (error) {
-    console.error('美化失败:', error)
-    message.error('美化失败')
-  }
+  lf.extension.dagre.layout({
+    rankdir: 'TB', // 从上到下的布局方向
+    align: '', // 上左对齐
+    ranker: 'network-simplex'
+  })
+  lf.fitView()
 }
 
 // 居中显示功能（供 Control 插件调用）
@@ -1262,96 +1030,84 @@ const handleCenterView = (lfInstance) => {
   }
 }
 
-/**
- * 根据角度确定锚点方向
- * @param {number} angle - 角度值（度数）
- * @returns {Array} [源锚点索引, 目标锚点索引]
- */
-const getAnchorsByAngle = (angle) => {
-  // 角度区间到锚点的映射表
-  const angleRanges = [
-    { min: -22.5, max: 22.5, anchors: [ANCHOR.RIGHT, ANCHOR.LEFT] }, // 正右
-    { min: 22.5, max: 157.5, anchors: [ANCHOR.BOTTOM, ANCHOR.TOP] }, // 下半圆
-    { min: 157.5, max: 180, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（正值）
-    { min: -180, max: -157.5, anchors: [ANCHOR.LEFT, ANCHOR.RIGHT] }, // 正左（负值）
-    { min: -157.5, max: -22.5, anchors: [ANCHOR.TOP, ANCHOR.BOTTOM] } // 上半圆
-  ]
+// 创建分组功能
+const handleCreateGroup = (lfInstance) => {
+  if (!lfInstance) {
+    console.warn('创建分组: LogicFlow 实例不存在')
+    return
+  }
 
-  for (const range of angleRanges) {
-    if (angle >= range.min && angle < range.max) {
-      return range.anchors
+  try {
+    // 获取选中的节点
+    const selectElements = lfInstance.getSelectElements(true)
+
+    if (!selectElements?.nodes || selectElements.nodes.length < 2) {
+      message.warning('请至少选择2个节点来创建分组')
+      return
     }
-  }
 
-  // 默认返回右侧连接
-  return [ANCHOR.RIGHT, ANCHOR.LEFT]
-}
+    // 过滤掉group类型的节点，避免嵌套分组
+    const normalNodes = selectElements.nodes.filter(
+      (node) => node.type !== 'group'
+    )
 
-/**
- * 根据距离差值确定主方向的锚点
- * @param {number} dx - x轴差值
- * @param {number} dy - y轴差值
- * @param {number} absDx - x轴距离绝对值
- * @param {number} absDy - y轴距离绝对值
- * @returns {Array|null} [源锚点索引, 目标锚点索引] 或 null（表示需要用角度计算）
- */
-const getAnchorsByDistance = (dx, dy, absDx, absDy) => {
-  const horizontalDominant = absDx > absDy * 1.5
-  const verticalDominant = absDy > absDx * 1.5
-
-  if (horizontalDominant) {
-    return dx > 0 ? [ANCHOR.RIGHT, ANCHOR.LEFT] : [ANCHOR.LEFT, ANCHOR.RIGHT]
-  }
-
-  if (verticalDominant) {
-    return dy > 0 ? [ANCHOR.BOTTOM, ANCHOR.TOP] : [ANCHOR.TOP, ANCHOR.BOTTOM]
-  }
-
-  return null
-}
-
-/**
- * 格式化锚点ID
- * @param {string} nodeId - 节点ID
- * @param {number} anchorIndex - 锚点索引
- * @returns {string} 格式化的锚点ID
- */
-const formatAnchorId = (nodeId, anchorIndex) => `${nodeId}_${anchorIndex}`
-
-/**
- * 计算两个节点之间的最佳锚点连接
- * 锚点索引: 0-上, 1-右, 2-下, 3-左
- * 原则：目标在源的某个方向，源节点就用该方向的锚点，目标节点用相反方向的锚点
- */
-const calculateBestAnchors = (sourceNode, targetNode) => {
-  if (!sourceNode || !targetNode) {
-    console.warn('计算锚点: 节点不存在')
-    return {
-      sourceAnchor: `${sourceNode?.id}_0`,
-      targetAnchor: `${targetNode?.id}_0`
+    if (normalNodes.length < 2) {
+      message.warning('请选择至少两个非分组节点')
+      return
     }
-  }
 
-  // 计算节点中心点之间的差值
-  const dx = targetNode.x - sourceNode.x
-  const dy = targetNode.y - sourceNode.y
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
+    // 计算选中节点的边界
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
 
-  // 优先根据距离判断主方向
-  let anchors = getAnchorsByDistance(dx, dy, absDx, absDy)
+    for (const node of normalNodes) {
+      const nodeWidth = node.properties?.width || 60
+      const nodeHeight = node.properties?.height || 60
 
-  // 如果距离无法确定主方向，则根据角度判断
-  if (!anchors) {
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI)
-    anchors = getAnchorsByAngle(angle)
-  }
+      minX = Math.min(minX, node.x - nodeWidth / 2)
+      minY = Math.min(minY, node.y - nodeHeight / 2)
+      maxX = Math.max(maxX, node.x + nodeWidth / 2)
+      maxY = Math.max(maxY, node.y + nodeHeight / 2)
+    }
 
-  const [sourceAnchorIndex, targetAnchorIndex] = anchors
+    // 计算分组中心点和尺寸，留出一些边距
+    const padding = 30
+    const groupX = (minX + maxX) / 2
+    const groupY = (minY + maxY) / 2
+    const groupWidth = maxX - minX + padding * 2
+    const groupHeight = maxY - minY + padding * 2
 
-  return {
-    sourceAnchor: formatAnchorId(sourceNode.id, sourceAnchorIndex),
-    targetAnchor: formatAnchorId(targetNode.id, targetAnchorIndex)
+    // 创建分组节点
+    lfInstance.addNode({
+      type: 'customGroup',
+      x: groupX,
+      y: groupY,
+      properties: {
+        width: groupWidth,
+        height: groupHeight,
+        fillColor: '#cccccc', // 浅蓝色
+        fillOpacity: 0.3, // 50% 透明度
+        strokeColor: '#2196F3', // 蓝色边框
+        strokeWidth: 2
+      },
+      text: {
+        x: groupX,
+        y: minY - 20, // 将文本放在分组顶部
+        value: '新建分组',
+        editable: true
+      },
+      children: normalNodes.map((node) => node.id)
+    })
+
+    // 清除选中状态
+    lfInstance.clearSelectElements()
+
+    message.success('分组创建成功')
+  } catch (error) {
+    console.error('创建分组失败:', error)
+    message.error('创建分组失败')
   }
 }
 
@@ -1418,9 +1174,14 @@ const updateLeftMenus = () => {
       switchItem.device_name ||
       deriveDeviceName(switchItem.description) ||
       '未知交换机'
+    const deviceType = switchItem.device_type || '未知设备'
+    const typeConfig = DEVICE_TYPE_MAP[deviceType] || {
+      icon: Switches,
+      type: 'switch'
+    }
 
     newMenus.push({
-      type: 'switch',
+      type: typeConfig.type,
       label: deviceName,
       text: deviceName,
       properties: {
@@ -1430,10 +1191,9 @@ const updateLeftMenus = () => {
           id: switchItem.id
         }
       },
-      icon: Switches
+      icon: typeConfig.icon
     })
   }
-
   // 更新 leftMenus
   leftMenus.value = newMenus
   if (lf?.extension?.dndPanel) {
@@ -1452,32 +1212,6 @@ const isEditableElement = (target) => {
     target?.tagName === 'TEXTAREA' ||
     target?.isContentEditable
   )
-}
-
-/**
- * 撤销美化操作
- */
-const undoBeautify = () => {
-  if (!lf || !beforeBeautifyState) {
-    message.warning('没有可撤销的美化操作')
-    return
-  }
-
-  try {
-    const hideLoading = message.loading('正在撤销美化...', 0)
-
-    // 恢复之前的状态
-    lf.render(beforeBeautifyState)
-
-    nextTick(() => {
-      hideLoading()
-      message.success('已撤销美化操作')
-      beforeBeautifyState = null
-    })
-  } catch (error) {
-    console.error('撤销失败:', error)
-    message.error('撤销失败')
-  }
 }
 
 /**
@@ -1512,7 +1246,154 @@ const deleteSelectedElements = (selectElements) => {
   return true
 }
 
-// 处理键盘Delete键删除和Ctrl+Z撤销功能
+/**
+ * 切换调试面板显示状态
+ */
+const toggleDebugPanel = () => {
+  showDebugPanel.value = !showDebugPanel.value
+  if (showDebugPanel.value) {
+    message.info('调试面板已打开', 1)
+  }
+}
+
+/**
+ * 生成测试拓扑数据
+ * @param {string} scale - 规模类型: 'micro' | 'standard' | 'large' | 'huge'
+ */
+const generateTestTopology = async (scale) => {
+  if (!lf) {
+    message.error('拓扑图未初始化')
+    return
+  }
+
+  if (isGenerating.value) {
+    return
+  }
+
+  const scaleNames = {
+    micro: '微型',
+    standard: '标准',
+    large: '大型',
+    huge: '巨型'
+  }
+
+  const scaleName = scaleNames[scale] || scale
+
+  try {
+    isGenerating.value = true
+    const hideLoading = message.loading(`正在生成${scaleName}拓扑数据...`, 0)
+
+    // 异步生成数据以避免阻塞UI
+    await nextTick()
+
+    const startTime = performance.now()
+    const testData = generateTopologyByScale(scale)
+    const endTime = performance.now()
+    const duration = ((endTime - startTime) / 1000).toFixed(2)
+
+    // 渲染数据
+    lf.render(testData)
+
+    // 等待渲染完成后居中显示
+    await nextTick()
+    handleCenterView(lf)
+
+    hideLoading()
+
+    const stats = getTopologyStats(testData)
+    message.success(
+      `${scaleName}拓扑生成成功！节点: ${stats.totalNodes} | 连线: ${stats.totalEdges} | 耗时: ${duration}秒`,
+      4
+    )
+  } catch (error) {
+    console.error('生成测试拓扑失败:', error)
+    message.error('生成拓扑数据失败: ' + error.message)
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+/**
+ * 清空拓扑图
+ */
+const clearTopology = () => {
+  if (!lf) {
+    message.error('拓扑图未初始化')
+    return
+  }
+
+  try {
+    const graphData = lf.getGraphData()
+    const nodeCount = graphData?.nodes?.length || 0
+
+    if (nodeCount === 0) {
+      message.info('拓扑图已经是空的')
+      return
+    }
+
+    lf.render({ nodes: [], edges: [] })
+    message.success(`已清空拓扑图 (${nodeCount} 个节点)`)
+  } catch (error) {
+    console.error('清空拓扑失败:', error)
+    message.error('清空拓扑失败')
+  }
+}
+
+// 处理Ctrl键按下触发框选
+const handleCtrlKeyDown = (event) => {
+  // 检查组件是否已挂载和LogicFlow实例是否存在
+  if (!isComponentMounted.value || !lf) {
+    return false
+  }
+
+  // 防止在输入框等元素中触发操作
+  if (isEditableElement(event.target)) {
+    return false
+  }
+
+  // 检查是否按下Ctrl键（排除其他修饰键的组合）
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+    // 防止重复触发
+    if (event.repeat) {
+      return false
+    }
+
+    try {
+      const selectionSelect = lf.extension.selectionSelect
+      if (selectionSelect) {
+        selectionSelect.openSelectionSelect()
+        // 添加样式指示器，让用户知道框选模式已激活
+        document.body.style.cursor = 'crosshair'
+      }
+    } catch (error) {
+      console.error('开启框选模式失败:', error)
+    }
+  }
+}
+
+// 处理Ctrl键松开关闭框选
+const handleCtrlKeyUp = (event) => {
+  // 检查组件是否已挂载和LogicFlow实例是否存在
+  if (!isComponentMounted.value || !lf) {
+    return false
+  }
+
+  // 检查是否松开Ctrl键
+  if (event.key === 'Control' || event.key === 'Meta') {
+    try {
+      const selectionSelect = lf.extension.selectionSelect
+      if (selectionSelect) {
+        selectionSelect.closeSelectionSelect()
+        // 恢复默认鼠标样式
+        document.body.style.cursor = ''
+      }
+    } catch (error) {
+      console.error('关闭框选模式失败:', error)
+    }
+  }
+}
+
+// 处理键盘Delete键删除、Ctrl+Z撤销和Ctrl+Shift+K调试面板功能
 const handleKeyDown = (event) => {
   // 检查组件是否已挂载和LogicFlow实例是否存在
   if (!isComponentMounted.value || !lf) {
@@ -1524,10 +1405,14 @@ const handleKeyDown = (event) => {
     return false
   }
 
-  // 处理Ctrl+Z撤销美化
-  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+  // 处理Ctrl+Shift+K切换调试面板
+  if (
+    (event.ctrlKey || event.metaKey) &&
+    event.shiftKey &&
+    event.key.toLowerCase() === 'k'
+  ) {
     event.preventDefault()
-    undoBeautify()
+    toggleDebugPanel()
     return true
   }
 
@@ -1556,6 +1441,89 @@ const handleKeyDown = (event) => {
     message.error('删除失败')
     return false
   }
+}
+
+/**
+ * 处理分组节点右键点击
+ */
+const handleGroupRightClick = (nodeData) => {
+  if (!lf || !nodeData) return
+
+  try {
+    const groupModel = lf.getNodeModelById(nodeData.id)
+    if (!groupModel) return
+
+    // 获取当前分组的属性
+    const properties = groupModel.properties || {}
+    const text = groupModel.text?.value || ''
+
+    // 填充表单数据
+    groupEditForm.value = {
+      name: text,
+      fillColor: properties.fillColor || '#F4F5F6',
+      fillOpacity:
+        properties.fillOpacity !== undefined ? properties.fillOpacity : 0.3,
+      strokeColor: properties.strokeColor || '#CECECE',
+      strokeWidth: properties.strokeWidth || 2,
+      strokeDasharray: properties.strokeDasharray || ''
+    }
+
+    // 保存当前编辑的分组ID
+    currentEditingGroupId.value = nodeData.id
+
+    // 显示模态框
+    showGroupEditModal.value = true
+  } catch (error) {
+    console.error('打开分组编辑失败:', error)
+    message.error('打开编辑失败')
+  }
+}
+
+/**
+ * 确认分组编辑
+ */
+const handleGroupEditConfirm = () => {
+  if (!lf || !currentEditingGroupId.value) return
+
+  try {
+    const groupModel = lf.getNodeModelById(currentEditingGroupId.value)
+    if (!groupModel) {
+      message.error('未找到分组节点')
+      return
+    }
+
+    // 使用 setProperties 方法直接更新分组属性，避免删除重建导致子节点丢失
+    groupModel.setProperties({
+      ...groupModel.properties,
+      fillColor: groupEditForm.value.fillColor,
+      fillOpacity: groupEditForm.value.fillOpacity,
+      strokeColor: groupEditForm.value.strokeColor,
+      strokeWidth: groupEditForm.value.strokeWidth,
+      strokeDasharray: groupEditForm.value.strokeDasharray
+    })
+
+    // 更新分组名称
+    if (groupEditForm.value.name) {
+      groupModel.updateText(groupEditForm.value.name)
+    }
+
+    message.success('分组更新成功')
+
+    // 关闭模态框
+    showGroupEditModal.value = false
+    currentEditingGroupId.value = null
+  } catch (error) {
+    console.error('更新分组失败:', error)
+    message.error('更新分组失败')
+  }
+}
+
+/**
+ * 取消分组编辑
+ */
+const handleGroupEditCancel = () => {
+  showGroupEditModal.value = false
+  currentEditingGroupId.value = null
 }
 </script>
 
@@ -1604,21 +1572,23 @@ const handleKeyDown = (event) => {
 
   // Control插件样式自定义
   .lf-control {
-    top: 12px;
+    top: 2px;
     right: 2px;
-    padding: 0 12px;
+    padding: 0 8px;
     margin: 0;
     // 一键美化按钮样式
     .lf-control-item {
+      padding: 4px 8px;
       .lf-control-text {
-        font-size: 12px;
+        font-size: 11px;
       }
       i {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
       }
       &[data-key='beautify'],
-      &[data-key='center'] {
+      &[data-key='center'],
+      &[data-key='createGroup'] {
         width: 32px;
         height: 32px;
         background-color: #fff;
@@ -1648,7 +1618,7 @@ const handleKeyDown = (event) => {
     .lf-control-beautify {
       &::before {
         content: '✨';
-        font-size: 16px;
+        font-size: 12px;
         line-height: 1;
         display: block;
       }
@@ -1658,7 +1628,17 @@ const handleKeyDown = (event) => {
     .lf-control-center {
       &::before {
         content: '◉';
-        font-size: 16px;
+        font-size: 12px;
+        line-height: 1;
+        display: block;
+      }
+    }
+
+    // 创建分组按钮图标
+    .lf-control-create-group {
+      &::before {
+        content: '📦';
+        font-size: 12px;
         line-height: 1;
         display: block;
       }
@@ -1678,6 +1658,307 @@ const handleKeyDown = (event) => {
   :deep(.lf-edge-bezier) {
     marker-end: none !important;
     marker-start: none !important;
+  }
+
+  // 分组节点文本样式
+  :deep(.lf-node-group) {
+    .lf-node-text {
+      font-size: 14px;
+      font-weight: 600;
+      fill: #1890ff;
+      cursor: text;
+      user-select: none;
+    }
+
+    .lf-node-text-edit {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1890ff;
+      padding: 4px 8px;
+      border: 1px solid #1890ff;
+      border-radius: 4px;
+      background: white;
+      outline: none;
+
+      &:focus {
+        border-color: #40a9ff;
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+      }
+    }
+  }
+
+  // 分组编辑表单样式
+  .group-edit-form {
+    .form-item {
+      margin-bottom: 16px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+      }
+
+      .color-picker-wrapper {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+
+        .color-input {
+          width: 60px;
+          height: 32px;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.3s;
+
+          &:hover {
+            border-color: #40a9ff;
+          }
+        }
+
+        .color-text {
+          flex: 1;
+        }
+      }
+    }
+  }
+
+  // 调试面板样式
+  .debug-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-height: 80vh;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .debug-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+      .debug-panel-title {
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .debug-panel-close {
+        font-size: 28px;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+        padding: 0 4px;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+
+    .debug-panel-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+
+      .debug-section {
+        margin-bottom: 24px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .debug-section-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+          margin: 0 0 12px 0;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #f0f0f0;
+        }
+
+        .debug-buttons {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        .debug-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 16px 12px;
+          border: 2px solid #e8e8e8;
+          border-radius: 8px;
+          background: white;
+          cursor: pointer;
+          transition: all 0.3s;
+          font-family: inherit;
+
+          &:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+
+          &:active:not(:disabled) {
+            transform: translateY(0);
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .debug-btn-icon {
+            font-size: 32px;
+            line-height: 1;
+          }
+
+          .debug-btn-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+          }
+
+          .debug-btn-desc {
+            font-size: 12px;
+            color: #999;
+          }
+
+          &.debug-btn-micro {
+            border-color: #52c41a;
+
+            &:hover:not(:disabled) {
+              border-color: #52c41a;
+              background: #f6ffed;
+            }
+          }
+
+          &.debug-btn-standard {
+            border-color: #1890ff;
+
+            &:hover:not(:disabled) {
+              border-color: #1890ff;
+              background: #e6f7ff;
+            }
+          }
+
+          &.debug-btn-large {
+            border-color: #fa8c16;
+
+            &:hover:not(:disabled) {
+              border-color: #fa8c16;
+              background: #fff7e6;
+            }
+          }
+
+          &.debug-btn-huge {
+            border-color: #f5222d;
+
+            &:hover:not(:disabled) {
+              border-color: #f5222d;
+              background: #fff1f0;
+            }
+          }
+        }
+
+        .debug-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+
+          .debug-stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            font-size: 13px;
+
+            .debug-stat-label {
+              color: #666;
+              font-weight: 500;
+            }
+
+            .debug-stat-value {
+              color: #333;
+              font-weight: 600;
+
+              &.success {
+                color: #52c41a;
+              }
+
+              &.error {
+                color: #f5222d;
+              }
+            }
+          }
+        }
+
+        .debug-btn-clear {
+          width: 100%;
+          padding: 12px;
+          background: #ff4d4f;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+          font-family: inherit;
+
+          &:hover:not(:disabled) {
+            background: #ff7875;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
+          }
+
+          &:active:not(:disabled) {
+            transform: translateY(0);
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+      }
+    }
+
+    .debug-panel-footer {
+      padding: 12px 20px;
+      background: #f5f5f5;
+      border-top: 1px solid #e8e8e8;
+      text-align: center;
+
+      .debug-hint {
+        font-size: 12px;
+        color: #999;
+      }
+    }
   }
 }
 </style>

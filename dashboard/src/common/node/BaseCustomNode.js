@@ -50,7 +50,7 @@ class BaseCustomNode extends RectNode {
     const { model } = this.props;
     const { x, y, width, height } = model;
     const { text } = model;
-    
+
     // 如果没有文本，直接返回null
     if (!text || !text.value) {
       return null;
@@ -58,9 +58,7 @@ class BaseCustomNode extends RectNode {
 
     // 限制文本长度最多显示9个字
     let displayText = text.value;
-    if (displayText.length > 9) {
-      displayText = displayText.substring(0, 9) + '...';
-    }
+
 
     // 获取文本样式
     const textStyle = model.getTextStyle();
@@ -69,7 +67,7 @@ class BaseCustomNode extends RectNode {
       'text',
       {
         x: x,
-        y: y + height / 2 + 20, // 在节点下方显示文本，距离节点底部20像素
+        y: y + height / 2 + 5, // 在节点下方显示文本，距离节点底部10像素
         textAnchor: 'middle',
         fontSize: textStyle.fontSize || 12,
         fill: textStyle.fill || '#333',
@@ -97,6 +95,17 @@ class BaseCustomNodeModel extends RectNodeModel {
     if (radius) {
       this.radius = radius;
     }
+  }
+
+  getDefaultAnchor() {
+    // 返回一个中心锚点，让所有边都连接到节点中心
+    return [
+      {
+        x: this.x,
+        y: this.y,
+        id: `${this.id}_center`
+      }
+    ];
   }
 
   getTextStyle() {
