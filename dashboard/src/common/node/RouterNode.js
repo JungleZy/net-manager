@@ -1,16 +1,27 @@
 import { BaseCustomNode, BaseCustomNodeModel } from './BaseCustomNode';
 import { h } from '@logicflow/core';
 
+// 冻结颜色配置
+const COLORS = Object.freeze({
+  ONLINE_PRIMARY: '#B5D6FB',
+  ONLINE_SECONDARY: '#1677FF',
+  OFFLINE_PRIMARY: '#ffffff',
+  OFFLINE_SECONDARY: '#999999',
+  WHITE: '#FFFFFF'
+});
+
+const getColors = (status) => {
+  return status === 'offline'
+    ? { primary: COLORS.OFFLINE_PRIMARY, secondary: COLORS.OFFLINE_SECONDARY }
+    : { primary: COLORS.ONLINE_PRIMARY, secondary: COLORS.ONLINE_SECONDARY };
+};
+
 class RouterNode extends BaseCustomNode {
   getSVGContent() {
-    // 获取节点状态以确定颜色
     const { model } = this.props;
     const { status } = model.properties;
-
-    // 根据status设置颜色
-    const primaryColor = status === 'offline' ? '#ffffff' : '#B5D6FB';
-    const secondaryColor = status === 'offline' ? '#999999' : '#1677FF';
-    const whiteColor = '#FFFFFF'; // 白色保持不变
+    const { primary: primaryColor, secondary: secondaryColor } = getColors(status);
+    const whiteColor = COLORS.WHITE;
     return [
       h('path', {
         d: "M872.1 776.5c-14 0-25.5-11.5-25.5-25.5l57.9-440c0-14 11.5-25.5 25.5-25.5s25.5 11.5 25.5 25.5l-57.9 440c0 14-11.5 25.5-25.5 25.5z",

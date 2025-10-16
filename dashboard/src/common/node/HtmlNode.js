@@ -1,6 +1,12 @@
 import { HtmlNode, HtmlNodeModel } from '@logicflow/core';
 import insertCss from 'insert-css';
 
+// 冻结默认配置
+const DEFAULT_CONFIG = Object.freeze({
+  WIDTH: 300,
+  HEIGHT: 150
+});
+
 class CustomHtmlNode extends HtmlNode {
   setHtml(rootEl) {
     const { properties } = this.props.model;
@@ -30,12 +36,12 @@ class CustomHtmlNode extends HtmlNode {
     };
   }
 }
+
 class CustomHtmlNodeModel extends HtmlNodeModel {
   setAttributes() {
-    console.log('this.properties', this.properties);
     const { width, height, radius } = this.properties;
-    this.width = width || 300;
-    this.height = height || 150;
+    this.width = width || DEFAULT_CONFIG.WIDTH;
+    this.height = height || DEFAULT_CONFIG.HEIGHT;
     this.text.editable = false;
     if (radius) {
       this.radius = radius;

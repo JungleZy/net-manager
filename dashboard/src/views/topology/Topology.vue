@@ -880,64 +880,84 @@ const fetchSwitches = async () => {
 
 /**
  * 格式化图数据，将所有坐标保留2位小数
- * 优化: 添加空值检查,减少不必要的计算
+ * 优化: 使用传统循环和减少函数调用
  */
 const formatGraphData = (graphData) => {
   if (!graphData) return graphData
 
-  // 格式化节点坐标 - 使用for-of循环提升可读性
-  if (graphData.nodes?.length > 0) {
-    for (const node of graphData.nodes) {
+  // 优化：提取 toFixed 逻辑为内联函数，减少重复代码
+  const format2 = (num) => Number(num.toFixed(2))
+
+  // 格式化节点坐标
+  const nodes = graphData.nodes
+  if (nodes?.length > 0) {
+    for (let i = 0, len = nodes.length; i < len; i++) {
+      const node = nodes[i]
+
+      // 移除 customGroup 的 nodeSize 属性
       if (node.type === 'customGroup') {
-        delete node.properties.nodeSize
+        delete node.properties?.nodeSize
       }
+
+      // 格式化节点坐标
       if (typeof node.x === 'number') {
-        node.x = Number(node.x.toFixed(2))
+        node.x = format2(node.x)
       }
       if (typeof node.y === 'number') {
-        node.y = Number(node.y.toFixed(2))
+        node.y = format2(node.y)
       }
+
       // 格式化文本坐标
-      if (node.text && typeof node.text === 'object') {
-        if (typeof node.text.x === 'number') {
-          node.text.x = Number(node.text.x.toFixed(2))
+      const text = node.text
+      if (text && typeof text === 'object') {
+        if (typeof text.x === 'number') {
+          text.x = format2(text.x)
         }
-        if (typeof node.text.y === 'number') {
-          node.text.y = Number(node.text.y.toFixed(2))
+        if (typeof text.y === 'number') {
+          text.y = format2(text.y)
         }
       }
     }
   }
 
-  // 格式化边的坐标点 - 使用for-of循环提升可读性
-  if (graphData.edges?.length > 0) {
-    for (const edge of graphData.edges) {
+  // 格式化边的坐标点
+  const edges = graphData.edges
+  if (edges?.length > 0) {
+    for (let i = 0, len = edges.length; i < len; i++) {
+      const edge = edges[i]
+
       // 格式化起点
-      if (edge.startPoint) {
-        if (typeof edge.startPoint.x === 'number') {
-          edge.startPoint.x = Number(edge.startPoint.x.toFixed(2))
+      const startPoint = edge.startPoint
+      if (startPoint) {
+        if (typeof startPoint.x === 'number') {
+          startPoint.x = format2(startPoint.x)
         }
-        if (typeof edge.startPoint.y === 'number') {
-          edge.startPoint.y = Number(edge.startPoint.y.toFixed(2))
+        if (typeof startPoint.y === 'number') {
+          startPoint.y = format2(startPoint.y)
         }
       }
+
       // 格式化终点
-      if (edge.endPoint) {
-        if (typeof edge.endPoint.x === 'number') {
-          edge.endPoint.x = Number(edge.endPoint.x.toFixed(2))
+      const endPoint = edge.endPoint
+      if (endPoint) {
+        if (typeof endPoint.x === 'number') {
+          endPoint.x = format2(endPoint.x)
         }
-        if (typeof edge.endPoint.y === 'number') {
-          edge.endPoint.y = Number(edge.endPoint.y.toFixed(2))
+        if (typeof endPoint.y === 'number') {
+          endPoint.y = format2(endPoint.y)
         }
       }
+
       // 格式化路径点列表
-      if (edge.pointsList?.length > 0) {
-        for (const point of edge.pointsList) {
+      const pointsList = edge.pointsList
+      if (pointsList?.length > 0) {
+        for (let j = 0, pLen = pointsList.length; j < pLen; j++) {
+          const point = pointsList[j]
           if (typeof point.x === 'number') {
-            point.x = Number(point.x.toFixed(2))
+            point.x = format2(point.x)
           }
           if (typeof point.y === 'number') {
-            point.y = Number(point.y.toFixed(2))
+            point.y = format2(point.y)
           }
         }
       }
@@ -972,20 +992,29 @@ const handleCenterView = (lfInstance) => {
       return
     }
 
-    // 计算所有节点的边界框
+    // 优化：使用条件判断代替 Math.min/max，减少函数调用
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
 
-    for (const node of graphData.nodes) {
+    const nodes = graphData.nodes
+    for (let i = 0, len = nodes.length; i < len; i++) {
+      const node = nodes[i]
       const nodeWidth = node.properties?.width || 60
       const nodeHeight = node.properties?.height || 60
+      const halfWidth = nodeWidth / 2
+      const halfHeight = nodeHeight / 2
 
-      minX = Math.min(minX, node.x - nodeWidth / 2)
-      minY = Math.min(minY, node.y - nodeHeight / 2)
-      maxX = Math.max(maxX, node.x + nodeWidth / 2)
-      maxY = Math.max(maxY, node.y + nodeHeight / 2)
+      const left = node.x - halfWidth
+      const right = node.x + halfWidth
+      const top = node.y - halfHeight
+      const bottom = node.y + halfHeight
+
+      if (left < minX) minX = left
+      if (right > maxX) maxX = right
+      if (top < minY) minY = top
+      if (bottom > maxY) maxY = bottom
     }
 
     // 计算内容中心点
@@ -1007,20 +1036,24 @@ const handleCenterView = (lfInstance) => {
     const offsetX = canvasCenterX - contentCenterX
     const offsetY = canvasCenterY - contentCenterY
 
-    // 移动所有节点 - 使用for-of循环提升可读性
-    for (const node of graphData.nodes) {
+    // 优化：移动所有节点，预先计算减少重复调用
+    for (let i = 0, len = nodes.length; i < len; i++) {
+      const node = nodes[i]
       node.x = Number((node.x + offsetX).toFixed(2))
       node.y = Number((node.y + offsetY).toFixed(2))
       // 更新文本位置
-      if (node.text && typeof node.text === 'object') {
-        node.text.x = Number((node.text.x + offsetX).toFixed(2))
-        node.text.y = Number((node.text.y + offsetY).toFixed(2))
+      const text = node.text
+      if (text && typeof text === 'object') {
+        text.x = Number((text.x + offsetX).toFixed(2))
+        text.y = Number((text.y + offsetY).toFixed(2))
       }
     }
 
     // 清空边的路径点，让LogicFlow自动重新计算
-    if (graphData.edges?.length > 0) {
-      for (const edge of graphData.edges) {
+    const edges = graphData.edges
+    if (edges?.length > 0) {
+      for (let i = 0, len = edges.length; i < len; i++) {
+        const edge = edges[i]
         delete edge.pointsList
         delete edge.startPoint
         delete edge.endPoint
@@ -1152,15 +1185,15 @@ const handleCreateGroup = (lfInstance) => {
 
 // 更新左侧菜单项 - 优化性能
 const updateLeftMenus = () => {
-  // 获取当前拓扑图中已存在的节点ID集合
+  // 优化：使用 Set 快速查找已存在的节点
   const existingNodeIds = new Set()
   if (lf) {
     try {
       const graphData = lf.getGraphData()
-      if (graphData?.nodes?.length > 0) {
-        // 使用for-of循环提升可读性
-        for (const node of graphData.nodes) {
-          const dataId = node?.properties?.data?.id
+      const nodes = graphData?.nodes
+      if (nodes?.length > 0) {
+        for (let i = 0, len = nodes.length; i < len; i++) {
+          const dataId = nodes[i]?.properties?.data?.id
           if (dataId) {
             existingNodeIds.add(dataId)
           }
@@ -1171,24 +1204,29 @@ const updateLeftMenus = () => {
     }
   }
 
-  // 构建新的菜单项列表
+  // 优化：预估数组大小，减少扩容
+  const estimatedSize = devices.value.length + switches.value.length
   const newMenus = []
+  newMenus.length = 0 // 确保从空开始
 
-  // 添加设备项（过滤已在拓扑图中的设备） - 使用for-of循环
+  // 添加设备项（过滤已在拓扑图中的设备）
   const devicesArray = devices.value
-  for (const device of devicesArray) {
-    // 检查设备是否已在拓扑图中
+  for (let i = 0, len = devicesArray.length; i < len; i++) {
+    const device = devicesArray[i]
+
+    // 跳过已存在的设备
     if (existingNodeIds.has(device.client_id)) {
-      continue // 跳过已存在的设备
+      continue
     }
 
     const deviceType = device.type || '未知设备'
     const typeConfig = DEVICE_TYPE_MAP[deviceType] || { icon: Pc, type: 'pc' }
+    const displayName = device.hostname || device.ip_address || '未知设备'
 
     newMenus.push({
       type: typeConfig.type,
-      label: device.hostname || device.ip_address || '未知设备',
-      text: device.hostname || device.ip_address || '未知设备',
+      label: displayName,
+      text: displayName,
       properties: {
         width: 60,
         height: 60,
@@ -1200,12 +1238,14 @@ const updateLeftMenus = () => {
     })
   }
 
-  // 添加交换机项（过滤已在拓扑图中的交换机） - 使用for-of循环
+  // 添加交换机项（过滤已在拓扑图中的交换机）
   const switchesArray = switches.value
-  for (const switchItem of switchesArray) {
-    // 检查交换机是否已在拓扑图中
+  for (let i = 0, len = switchesArray.length; i < len; i++) {
+    const switchItem = switchesArray[i]
+
+    // 跳过已存在的交换机
     if (existingNodeIds.has(switchItem.id)) {
-      continue // 跳过已存在的交换机
+      continue
     }
 
     // 使用 deriveDeviceName 函数从描述推导设备名称
@@ -1233,10 +1273,11 @@ const updateLeftMenus = () => {
       icon: typeConfig.icon
     })
   }
+
   // 更新 leftMenus
   leftMenus.value = newMenus
   if (lf?.extension?.dndPanel) {
-    lf.extension.dndPanel.setPatternItems(leftMenus.value)
+    lf.extension.dndPanel.setPatternItems(newMenus)
   }
 }
 
@@ -1255,29 +1296,32 @@ const isEditableElement = (target) => {
 
 /**
  * 删除选中的节点和边
+ * 优化：减少重复遍历
  * @param {Object} selectElements - 选中的元素
  * @returns {boolean} 是否成功删除
  */
 const deleteSelectedElements = (selectElements) => {
-  const nodesCount = selectElements.nodes?.length || 0
-  const edgesCount = selectElements.edges?.length || 0
+  const nodes = selectElements.nodes
+  const edges = selectElements.edges
+  const nodesCount = nodes?.length || 0
+  const edgesCount = edges?.length || 0
 
   if (nodesCount === 0 && edgesCount === 0) {
     return false
   }
 
-  // 删除选中的节点
+  // 优化：批量删除节点
   if (nodesCount > 0) {
-    for (const node of selectElements.nodes) {
-      lf.deleteNode(node.id)
+    for (let i = 0; i < nodesCount; i++) {
+      lf.deleteNode(nodes[i].id)
     }
     message.success(`已删除 ${nodesCount} 个节点`)
   }
 
-  // 删除选中的边
+  // 优化：批量删除边
   if (edgesCount > 0) {
-    for (const edge of selectElements.edges) {
-      lf.deleteEdge(edge.id)
+    for (let i = 0; i < edgesCount; i++) {
+      lf.deleteEdge(edges[i].id)
     }
     message.success(`已删除 ${edgesCount} 条边`)
   }

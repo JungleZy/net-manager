@@ -1,16 +1,27 @@
 import { BaseCustomNode, BaseCustomNodeModel } from './BaseCustomNode';
 import { h } from '@logicflow/core';
 
+// 冻结颜色配置
+const COLORS = Object.freeze({
+  ONLINE_PRIMARY: '#B5D6FB',
+  ONLINE_SECONDARY: '#1677FF',
+  OFFLINE_PRIMARY: '#ffffff',
+  OFFLINE_SECONDARY: '#999999',
+  WHITE: '#FFFFFF'
+});
+
+const getColors = (status) => {
+  return status === 'offline'
+    ? { primary: COLORS.OFFLINE_PRIMARY, secondary: COLORS.OFFLINE_SECONDARY }
+    : { primary: COLORS.ONLINE_PRIMARY, secondary: COLORS.ONLINE_SECONDARY };
+};
+
 class ServerNode extends BaseCustomNode {
   getSVGContent() {
-    // 获取节点状态以确定颜色
     const { model } = this.props;
     const { status } = model.properties;
-
-    // 根据status设置颜色
-    const primaryColor = status === 'offline' ? '#ffffff' : '#B5D6FB';
-    const secondaryColor = status === 'offline' ? '#999999' : '#1677FF';
-    const whiteColor = '#FFFFFF'; // 白色保持不变
+    const { primary: primaryColor, secondary: secondaryColor } = getColors(status);
+    const whiteColor = COLORS.WHITE;
     return [
       h('path', {
         d: "M470.9 954.6c-1.2 0-2.3-0.3-3.4-0.9l-240-132.2c-2.2-1.2-3.6-3.6-3.6-6.1V270.6c0-2.5 1.3-4.7 3.4-6L546.9 70.4c1.1-0.7 2.4-1 3.6-1 1.2 0 2.4 0.3 3.4 0.9l242.6 136.9c2.2 1.2 3.6 3.6 3.6 6.1v552.8c0 2.5-1.4 4.9-3.6 6.1L474.4 953.7c-1.1 0.6-2.3 0.9-3.5 0.9z",

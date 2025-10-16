@@ -1,17 +1,28 @@
 import { RectNode, RectNodeModel, h } from '@logicflow/core';
 import insertCss from 'insert-css';
 
+// 冻结默认样式配置，避免运行时修改
+const DEFAULT_STYLES = Object.freeze({
+  TEXT_FILL: '#333',
+  DEFAULT_FONT_SIZE: 12,
+  ONLINE_COLOR: '#0276F7',
+  OFFLINE_COLOR: 'red'
+});
+
 class BaseCustomNode extends RectNode {
   getCustomIcon = (svgContent) => {
     const { model } = this.props;
     const { x, y, width, height } = model;
-    const style = model.getNodeStyle();
+
+    // 优化：预计算偏移量，减少重复计算
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
 
     return h(
       'svg',
       {
-        x: x - width / 2,
-        y: y - height / 2,
+        x: x - halfWidth,
+        y: y - halfHeight,
         width,
         height,
         viewBox: '0 0 1024 1024',
@@ -22,20 +33,23 @@ class BaseCustomNode extends RectNode {
 
   getShape = () => {
     const { model } = this.props;
-    const { x, y, width, height, radius } = model;
+    const { x, y, width, height, radius, text } = model;
     const style = model.getNodeStyle();
-    const { text } = model;
+
+    // 优化：预计算偏移量
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
 
     // 创建title元素用于鼠标悬停时显示完整文本
-    const titleElement = text && text.value ? h('title', {}, text.value) : null;
+    const titleElement = text?.value ? h('title', {}, text.value) : null;
 
     return h('g', {}, [
       h('rect', {
         ...style,
         stroke: 'transparent',
         fill: 'transparent',
-        x: x - width / 2,
-        y: y - height / 2,
+        x: x - halfWidth,
+        y: y - halfHeight,
         rx: radius,
         ry: radius,
         width,
@@ -48,29 +62,24 @@ class BaseCustomNode extends RectNode {
 
   getText() {
     const { model } = this.props;
-    const { x, y, width, height } = model;
-    const { text } = model;
+    const { x, y, height, text } = model;
 
     // 如果没有文本，直接返回null
-    if (!text || !text.value) {
+    if (!text?.value) {
       return null;
     }
 
-    // 限制文本长度最多显示9个字
-    let displayText = text.value;
-
-
-    // 获取文本样式
+    const displayText = text.value;
     const textStyle = model.getTextStyle();
 
     return h(
       'text',
       {
         x: x,
-        y: y + height / 2 + 5, // 在节点下方显示文本，距离节点底部10像素
+        y: y + height / 2 + 5, // 在节点下方显示文本
         textAnchor: 'middle',
-        fontSize: textStyle.fontSize || 12,
-        fill: textStyle.fill || '#333',
+        fontSize: textStyle.fontSize || DEFAULT_STYLES.DEFAULT_FONT_SIZE,
+        fill: textStyle.fill || DEFAULT_STYLES.TEXT_FILL,
         ...textStyle
       },
       displayText
@@ -109,35 +118,30 @@ class BaseCustomNodeModel extends RectNodeModel {
   }
 
   getTextStyle() {
-    const {
-      textStyle,
-    } = this.properties;
+    const { textStyle } = this.properties;
     const style = super.getTextStyle();
 
+    // 优化：避免 JSON.parse/stringify，直接展开
     return {
       ...style,
-      fill: '#333',
-      ...(textStyle ? JSON.parse(JSON.stringify(textStyle)) : {}),
+      fill: DEFAULT_STYLES.TEXT_FILL,
+      ...textStyle
     };
   }
 
   getNodeStyle() {
     const style = super.getNodeStyle();
-    const {
-      style: customNodeStyle,
-      status,
-    } = this.properties;
+    const { style: customNodeStyle, status } = this.properties;
 
-    // 根据status设置节点颜色
-    let fillColor = '#0276F7'; // 默认在线状态颜色
-    if (status === 'offline') {
-      fillColor = 'red'; // 离线状态颜色
-    }
+    // 优化：根据status设置节点颜色，使用常量
+    const fillColor = status === 'offline'
+      ? DEFAULT_STYLES.OFFLINE_COLOR
+      : DEFAULT_STYLES.ONLINE_COLOR;
 
     return {
       ...style,
       fill: fillColor,
-      ...(customNodeStyle ? JSON.parse(JSON.stringify(customNodeStyle)) : {}),
+      ...customNodeStyle
     };
   }
 }
