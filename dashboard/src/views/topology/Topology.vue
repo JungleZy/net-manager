@@ -609,7 +609,8 @@ const initTopology = () => {
           verticalLength: 0
         }
       },
-      plugins: [Control, DndPanel, SelectionSelect, Dagre, Group],
+      autoExpand: false,
+      plugins: [Group, Control, DndPanel, SelectionSelect, Dagre],
       multipleSelectKey: 'shift',
       disabledTools: ['multipleSelect'],
       pluginsOptions: PLUGINS_OPTIONS,
@@ -618,11 +619,7 @@ const initTopology = () => {
       stopScrollGraph: true,
       stopZoomGraph: false,
       snapToGrid: true,
-      partial: true, // 启用局部渲染
-      // 启用文本编辑
-      textEdit: true,
-      // 允许双击文本编辑
-      textDblClickEdit: true
+      partial: true // 启用局部渲染
     })
 
     lf.register(CustomHtml)
