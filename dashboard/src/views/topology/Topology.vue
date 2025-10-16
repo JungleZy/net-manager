@@ -173,13 +173,18 @@
               :max="10"
             />
           </div>
-          <div class="form-item layout-left-center">
+          <div class="form-item layout-left-center mb-[12px]">
             <label class="form-label">边框样式：</label>
             <a-radio-group v-model:value="groupEditForm.strokeDasharray">
               <a-radio value="">实线</a-radio>
               <a-radio value="5,5">虚线</a-radio>
               <a-radio value="2,2">点线</a-radio>
             </a-radio-group>
+          </div>
+          <div class="form-item layout-left-center">
+            <label class="form-label">限制移动：</label>
+            <a-switch v-model:checked="groupEditForm.isRestrict" />
+            <span class="form-hint">开启后，子节点不能移出分组范围</span>
           </div>
         </div>
       </a-modal>
@@ -252,7 +257,8 @@ const groupEditForm = ref({
   fillOpacity: 0.3,
   strokeColor: '#CECECE',
   strokeWidth: 2,
-  strokeDasharray: '' // 空字符串表示实线，'5,5'表示虚线
+  strokeDasharray: '', // 空字符串表示实线，'5,5'表示虚线
+  isRestrict: false // 是否限制子节点移动到分组外
 })
 
 // 计算拓扑统计信息
@@ -1090,7 +1096,8 @@ const handleCreateGroup = (lfInstance) => {
         fillColor: '#cccccc', // 浅蓝色
         fillOpacity: 0.3, // 50% 透明度
         strokeColor: '#2196F3', // 蓝色边框
-        strokeWidth: 2
+        strokeWidth: 2,
+        isRestrict: false // 默认不限制子节点移动
       },
       text: {
         x: groupX,
@@ -1458,6 +1465,7 @@ const handleGroupRightClick = (nodeData) => {
     const text = groupModel.text?.value || ''
 
     // 填充表单数据
+    // 注意：isRestrict 是 GroupNode 模型的直接属性，优先从模型读取，其次从 properties 读取
     groupEditForm.value = {
       name: text,
       fillColor: properties.fillColor || '#F4F5F6',
@@ -1465,8 +1473,20 @@ const handleGroupRightClick = (nodeData) => {
         properties.fillOpacity !== undefined ? properties.fillOpacity : 0.3,
       strokeColor: properties.strokeColor || '#CECECE',
       strokeWidth: properties.strokeWidth || 2,
-      strokeDasharray: properties.strokeDasharray || ''
+      strokeDasharray: properties.strokeDasharray || '',
+      isRestrict:
+        groupModel.isRestrict !== undefined
+          ? groupModel.isRestrict
+          : properties.isRestrict !== undefined
+          ? properties.isRestrict
+          : false
     }
+
+    console.log('打开分组编辑:', {
+      modelIsRestrict: groupModel.isRestrict,
+      propertiesIsRestrict: properties.isRestrict,
+      formIsRestrict: groupEditForm.value.isRestrict
+    })
 
     // 保存当前编辑的分组ID
     currentEditingGroupId.value = nodeData.id
@@ -1492,14 +1512,18 @@ const handleGroupEditConfirm = () => {
       return
     }
 
-    // 使用 setProperties 方法直接更新分组属性，避免删除重建导致子节点丢失
+    // 更新 isRestrict 属性（这是 GroupNode 的直接属性）
+    groupModel.isRestrict = groupEditForm.value.isRestrict
+
+    // 使用 setProperties 方法直接更新分组样式属性，避免删除重建导致子节点丢失
     groupModel.setProperties({
       ...groupModel.properties,
       fillColor: groupEditForm.value.fillColor,
       fillOpacity: groupEditForm.value.fillOpacity,
       strokeColor: groupEditForm.value.strokeColor,
       strokeWidth: groupEditForm.value.strokeWidth,
-      strokeDasharray: groupEditForm.value.strokeDasharray
+      strokeDasharray: groupEditForm.value.strokeDasharray,
+      isRestrict: groupEditForm.value.isRestrict // 同时保存到 properties 中以便持久化
     })
 
     // 更新分组名称
@@ -1507,7 +1531,10 @@ const handleGroupEditConfirm = () => {
       groupModel.updateText(groupEditForm.value.name)
     }
 
-    console.log('编辑分组 - 更新后的属性:', groupModel.properties)
+    console.log('编辑分组 - 更新后的属性:', {
+      isRestrict: groupModel.isRestrict,
+      properties: groupModel.properties
+    })
     message.success('分组样式更新成功')
 
     // 关闭模态框
@@ -1703,6 +1730,12 @@ const handleGroupEditCancel = () => {
         font-size: 14px;
         font-weight: 500;
         color: #333;
+      }
+
+      .form-hint {
+        margin-left: 12px;
+        font-size: 12px;
+        color: #999;
       }
 
       .color-picker-wrapper {
