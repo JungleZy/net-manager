@@ -128,12 +128,12 @@
           <div class="form-item layout-left-center mb-[12px]">
             <label class="form-label">分组名称：</label>
             <a-input
+              style="width: calc(100% - 70px)"
               v-model:value="groupEditForm.name"
               placeholder="请输入分组名称"
-              style="width: calc(100% - 70px)"
             />
           </div>
-          <div class="form-item layout-left-center">
+          <div class="form-item layout-left-center mb-[12px]">
             <label class="form-label">背景颜色：</label>
             <div class="color-picker-wrapper">
               <input
@@ -143,17 +143,16 @@
               />
             </div>
           </div>
-          <div class="form-item layout-left-center">
-            <label class="form-label">背景透明度</label>
-            <div class="w-full">
-              <a-slider
-                v-model:value="groupEditForm.fillOpacity"
-                :min="0"
-                :max="1"
-                :step="0.1"
-                :marks="{ 0: '0', 0.5: '0.5', 1: '1' }"
-              />
-            </div>
+          <div class="form-item layout-left-center mb-[12px]">
+            <label class="form-label">背景透明：</label>
+            <a-slider
+              v-model:value="groupEditForm.fillOpacity"
+              :min="0"
+              :max="1"
+              :step="0.1"
+              :marks="{ 0: '0', 0.5: '0.5', 1: '1' }"
+              style="margin: 0 0 12px 0; width: calc(100% - 100px)"
+            />
           </div>
           <div class="form-item layout-left-center mb-[12px]">
             <label class="form-label">边框颜色：</label>
@@ -612,6 +611,7 @@ const initTopology = () => {
       // 性能优化配置
       stopScrollGraph: true,
       stopZoomGraph: false,
+      snapToGrid: true,
       partial: true, // 启用局部渲染
       // 启用文本编辑
       textEdit: true,
@@ -1507,7 +1507,8 @@ const handleGroupEditConfirm = () => {
       groupModel.updateText(groupEditForm.value.name)
     }
 
-    message.success('分组更新成功')
+    console.log('编辑分组 - 更新后的属性:', groupModel.properties)
+    message.success('分组样式更新成功')
 
     // 关闭模态框
     showGroupEditModal.value = false
