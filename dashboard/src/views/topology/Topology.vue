@@ -676,6 +676,8 @@ const initTopology = () => {
 
   // 监听节点拖拽添加事件，添加后从leftMenus中移除
   lf.on('node:dnd-add', (nodeData) => {
+    console.log(nodeData);
+    
     try {
       const dataId = nodeData?.data?.properties?.data?.id
       if (!dataId) return
@@ -735,30 +737,6 @@ const initTopology = () => {
       }
     } catch (error) {
       console.warn('处理分组创建事件失败:', error)
-    }
-  })
-
-  // 监听group类型节点的创建，为其添加默认名称
-  lf.on('node:add', ({ data }) => {
-    try {
-      // 检查是否为group类型节点
-      if (data && data.type === 'group') {
-        console.log('Group节点创建:', data)
-        // 延迟执行以确保节点已完全创建
-        nextTick(() => {
-          const groupModel = lf.getNodeModelById(data.id)
-          if (groupModel && !groupModel.text?.value) {
-            // 如果还没有文本，添加默认文本
-            groupModel.updateText({
-              value: '新建分组',
-              editable: true,
-              draggable: true
-            })
-          }
-        })
-      }
-    } catch (error) {
-      console.warn('处理节点添加事件失败:', error)
     }
   })
 
@@ -1204,8 +1182,6 @@ const updateLeftMenus = () => {
     }
   }
 
-  // 优化：预估数组大小，减少扩容
-  const estimatedSize = devices.value.length + switches.value.length
   const newMenus = []
   newMenus.length = 0 // 确保从空开始
 

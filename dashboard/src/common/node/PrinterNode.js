@@ -1,27 +1,13 @@
 import { BaseCustomNode, BaseCustomNodeModel } from './BaseCustomNode';
 import { h } from '@logicflow/core';
-
-// 冻结颜色配置
-const COLORS = Object.freeze({
-  ONLINE_PRIMARY: '#B5D6FB',
-  ONLINE_SECONDARY: '#1677FF',
-  OFFLINE_PRIMARY: '#ffffff',
-  OFFLINE_SECONDARY: '#999999',
-  WHITE: '#FFFFFF'
-});
-
-const getColors = (status) => {
-  return status === 'offline'
-    ? { primary: COLORS.OFFLINE_PRIMARY, secondary: COLORS.OFFLINE_SECONDARY }
-    : { primary: COLORS.ONLINE_PRIMARY, secondary: COLORS.ONLINE_SECONDARY };
-};
+import { NODE_COLORS, getNodeColors } from './nodeConfig';
 
 class PrinterNode extends BaseCustomNode {
   getSVGContent() {
     const { model } = this.props;
     const { status } = model.properties;
-    const { primary: primaryColor, secondary: secondaryColor } = getColors(status);
-    const whiteColor = COLORS.WHITE;
+    const { primary: primaryColor, secondary: secondaryColor } = getNodeColors(status);
+    const whiteColor = NODE_COLORS.WHITE;
 
     return [
       // 主体背景

@@ -1,13 +1,6 @@
 import { RectNode, RectNodeModel, h } from '@logicflow/core';
 import insertCss from 'insert-css';
-
-// 冻结默认样式配置，避免运行时修改
-const DEFAULT_STYLES = Object.freeze({
-  TEXT_FILL: '#333',
-  DEFAULT_FONT_SIZE: 12,
-  ONLINE_COLOR: '#0276F7',
-  OFFLINE_COLOR: 'red'
-});
+import { DEFAULT_STYLES } from './nodeConfig';
 
 class BaseCustomNode extends RectNode {
   getCustomIcon = (svgContent) => {

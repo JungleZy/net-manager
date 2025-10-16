@@ -1,27 +1,13 @@
 import { BaseCustomNode, BaseCustomNodeModel } from './BaseCustomNode';
 import { h } from '@logicflow/core';
-
-// 冻结颜色配置
-const COLORS = Object.freeze({
-  ONLINE_PRIMARY: '#B5D6FB',
-  ONLINE_SECONDARY: '#1677FF',
-  OFFLINE_PRIMARY: '#ffffff',
-  OFFLINE_SECONDARY: '#999999',
-  WHITE: '#FFFFFF'
-});
-
-const getColors = (status) => {
-  return status === 'offline'
-    ? { primary: COLORS.OFFLINE_PRIMARY, secondary: COLORS.OFFLINE_SECONDARY }
-    : { primary: COLORS.ONLINE_PRIMARY, secondary: COLORS.ONLINE_SECONDARY };
-};
+import { NODE_COLORS, getNodeColors } from './nodeConfig';
 
 class LaptopNode extends BaseCustomNode {
   getSVGContent() {
     const { model } = this.props;
     const { status } = model.properties;
-    const { primary: primaryColor, secondary: secondaryColor } = getColors(status);
-    const whiteColor = COLORS.WHITE;
+    const { primary: primaryColor, secondary: secondaryColor } = getNodeColors(status);
+    const whiteColor = NODE_COLORS.WHITE;
     return [
       h('path', {
         d: "M92.9 644.8c-6 3.5-9.7 9.9-9.7 16.9 0 7 3.7 13.5 9.8 17l470.4 271.6L863 776.9c6-3.5 9.7-9.9 9.7-16.9 0-7-3.7-13.5-9.8-17L392.5 471.4 92.9 644.8z",
