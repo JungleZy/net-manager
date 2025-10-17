@@ -18,6 +18,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.resolve()
 CLIENT_DIR = PROJECT_ROOT / "client"
 SERVER_DIR = PROJECT_ROOT / "server"
+DASHBOARD_DIR = PROJECT_ROOT / "dashboard"
 DIST_DIR = PROJECT_ROOT / "dist"
 VENV_DIR = PROJECT_ROOT / "venv"
 
@@ -222,6 +223,15 @@ def _build_application(
         NUITKA_REMOVE_OUTPUT,  # 构建完成后清理临时文件
     ]
 
+    # 如果是server，需要包含static目录
+    if app_type == "server":
+        static_dir = app_dir / "static"
+        if static_dir.exists():
+            cmd.append(f"--include-data-dir={static_dir}=static")
+            print(f"✓ 包含静态文件目录: {static_dir}")
+        else:
+            print(f"⚠ 警告: 静态文件目录不存在: {static_dir}")
+
     # 如果指定了编译器选项，添加到命令中
     if compiler_option:
         cmd.append(compiler_option)
@@ -260,8 +270,107 @@ def build_client():
     )
 
 
+def build_dashboard():
+    """打包前端控制面板"""
+    print("开始打包前端控制面板...")
+
+    # 检查dashboard目录是否存在
+    if not DASHBOARD_DIR.exists():
+        print(f"✗ Dashboard目录不存在: {DASHBOARD_DIR}")
+        return False
+
+    # 检查package.json是否存在
+    package_json = DASHBOARD_DIR / "package.json"
+    if not package_json.exists():
+        print(f"✗ package.json不存在: {package_json}")
+        return False
+
+    # 切换到dashboard目录
+    original_dir = os.getcwd()
+    os.chdir(DASHBOARD_DIR)
+
+    try:
+        # 检查node_modules是否存在，如果不存在则安装依赖
+        node_modules = DASHBOARD_DIR / "node_modules"
+        if not node_modules.exists():
+            print("正在安装前端依赖...")
+            # 检测npm或pnpm或yarn
+            npm_cmd = None
+            for cmd in ["pnpm", "npm", "yarn"]:
+                try:
+                    subprocess.run([cmd, "--version"], capture_output=True, check=True)
+                    npm_cmd = cmd
+                    print(f"✓ 找到包管理器: {cmd}")
+                    break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+
+            if not npm_cmd:
+                print("✗ 未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+                return False
+
+            # 安装依赖
+            install_cmd = [npm_cmd, "install"]
+            subprocess.run(install_cmd, check=True)
+            print("✓ 前端依赖安装完成")
+
+        # 执行构建
+        print("正在构建前端项目...")
+        npm_cmd = None
+        for cmd in ["pnpm", "npm", "yarn"]:
+            try:
+                subprocess.run([cmd, "--version"], capture_output=True, check=True)
+                npm_cmd = cmd
+                break
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                continue
+
+        build_cmd = [npm_cmd, "run", "build"]
+        subprocess.run(build_cmd, check=True)
+        print("✓ 前端构建完成")
+
+        # 检查构建产物
+        dist_dir = DASHBOARD_DIR / "dist"
+        if not dist_dir.exists():
+            print(f"✗ 构建产物不存在: {dist_dir}")
+            return False
+
+        # 移动构建产物到server/static目录
+        server_static_dir = SERVER_DIR / "static"
+        if server_static_dir.exists():
+            print(f"清理旧的静态文件目录: {server_static_dir}")
+            shutil.rmtree(server_static_dir)
+
+        print(f"复制构建产物到: {server_static_dir}")
+        shutil.copytree(dist_dir, server_static_dir)
+        print("✓ 前端构建产物已复制到server/static目录")
+
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"✗ 前端打包失败: {e}")
+        return False
+    except Exception as e:
+        print(f"✗ 打包前端时发生错误: {e}")
+        return False
+    finally:
+        # 恢复原始工作目录
+        os.chdir(original_dir)
+
+
 def build_server():
     """打包服务端"""
+    # 在打包server之前先打包dashboard
+    print("\n" + "=" * 50)
+    print("步骤1: 打包前端控制面板")
+    print("=" * 50)
+    if not build_dashboard():
+        print("✗ 前端打包失败，无法继续打包服务端")
+        return False
+
+    print("\n" + "=" * 50)
+    print("步骤2: 打包服务端")
+    print("=" * 50)
     return _build_application(
         app_type="server",
         app_dir=SERVER_DIR,

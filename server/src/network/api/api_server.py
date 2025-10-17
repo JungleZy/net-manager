@@ -5,6 +5,9 @@
 基于Tornado的RESTful API服务
 提供系统信息查询接口
 """
+import os
+import sys
+from typing import Dict, Any
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
@@ -71,113 +74,143 @@ class APIServer:
 
     def make_app(self):
         """创建Tornado应用"""
-        return tornado.web.Application(
-            [
-                (r"/", MainHandler),
-                (
-                    r"/api/devices",
-                    DevicesHandler,
-                    dict(
-                        db_manager=self.db_manager,
-                        get_tcp_server_func=self.get_tcp_server,
-                    ),
+        # 获取静态文件目录（开发环境和打包后的路径不同）
+        if getattr(sys, "frozen", False):
+            # 如果是打包后的可执行文件
+            static_path = os.path.join(os.path.dirname(sys.executable), "static")
+        else:
+            # 开发环境
+            static_path = os.path.join(
+                os.path.dirname(__file__), "..", "..", "..", "static"
+            )
+
+        # 标准化路径
+        static_path = os.path.abspath(static_path)
+
+        # 检查静态文件目录是否存在
+        static_exists = os.path.exists(static_path)
+        if static_exists:
+            logger.info(f"静态文件目录: {static_path}")
+        else:
+            logger.warning(f"静态文件目录不存在: {static_path}")
+
+        routes = [
+            # 主页重定向到静态文件的index.html
+            (r"/", tornado.web.RedirectHandler, {"url": "/static/index.html"}),
+            (
+                r"/api/devices",
+                DevicesHandler,
+                dict(
+                    db_manager=self.db_manager,
+                    get_tcp_server_func=self.get_tcp_server,
                 ),
-                (
-                    r"/api/devices/(?P<device_id>[^/]+)/type",
-                    DeviceTypeHandler,
-                    dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/devices/(?P<device_id>[^/]+)/type",
+                DeviceTypeHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/devices/create",
+                DeviceCreateHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/devices/update",
+                DeviceUpdateHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/devices/delete",
+                DeviceDeleteHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/devices/(?P<device_id>[^/]+)",
+                DeviceHandler,
+                dict(
+                    db_manager=self.db_manager,
+                    get_tcp_server_func=self.get_tcp_server,
                 ),
-                (
-                    r"/api/devices/create",
-                    DeviceCreateHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/devices/update",
-                    DeviceUpdateHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/devices/delete",
-                    DeviceDeleteHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/devices/(?P<device_id>[^/]+)",
-                    DeviceHandler,
-                    dict(
-                        db_manager=self.db_manager,
-                        get_tcp_server_func=self.get_tcp_server,
-                    ),
-                ),
-                (r"/api/switches", SwitchesHandler, dict(db_manager=self.db_manager)),
-                (
-                    r"/api/switches/create",
-                    SwitchCreateHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/switches/update",
-                    SwitchUpdateHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/switches/delete",
-                    SwitchDeleteHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/switches/scan",
-                    SNMPScanHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/switches/scan/simple",
-                    SNMPScanHandlerSimple,
-                    dict(db_manager=self.db_manager),
-                ),
-                (
-                    r"/api/switches/([^/]+)",
-                    SwitchHandler,
-                    dict(db_manager=self.db_manager),
-                ),
-                # 拓扑图相关路由（注意：具体路径必须放在通配符路由之前）
-                (
-                    r"/api/topologies/latest",
-                    TopologyLatestHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (
-                    r"/api/topologies/create",
-                    TopologyCreateHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (
-                    r"/api/topologies/update",
-                    TopologyUpdateHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (
-                    r"/api/topologies/delete",
-                    TopologyDeleteHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (
-                    r"/api/topologies",
-                    TopologiesHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (
-                    r"/api/topologies/(?P<topology_id>[^/]+)",
-                    TopologyHandler,
-                    dict(topology_manager=self.topology_manager),
-                ),
-                (r"/ws", WebSocketHandler),
-                (r"/health", HealthHandler),
-                (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
-            ],
-            debug=False,
-        )
+            ),
+            (r"/api/switches", SwitchesHandler, dict(db_manager=self.db_manager)),
+            (
+                r"/api/switches/create",
+                SwitchCreateHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/switches/update",
+                SwitchUpdateHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/switches/delete",
+                SwitchDeleteHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/switches/scan",
+                SNMPScanHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/switches/scan/simple",
+                SNMPScanHandlerSimple,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/switches/([^/]+)",
+                SwitchHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            # 拓扑图相关路由（注意：具体路径必须放在通配符路由之前）
+            (
+                r"/api/topologies/latest",
+                TopologyLatestHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (
+                r"/api/topologies/create",
+                TopologyCreateHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (
+                r"/api/topologies/update",
+                TopologyUpdateHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (
+                r"/api/topologies/delete",
+                TopologyDeleteHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (
+                r"/api/topologies",
+                TopologiesHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (
+                r"/api/topologies/(?P<topology_id>[^/]+)",
+                TopologyHandler,
+                dict(topology_manager=self.topology_manager),
+            ),
+            (r"/ws", WebSocketHandler),
+            (r"/health", HealthHandler),
+            (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
+        ]
+
+        # 创建应用配置
+        settings: Dict[str, Any] = {
+            "debug": False,
+        }
+
+        # 如果静态文件目录存在，添加静态文件处理
+        if static_exists:
+            settings["static_path"] = static_path
+            settings["static_url_prefix"] = "/static/"
+
+        return tornado.web.Application(routes, **settings)
 
     def start(self):
         """启动API服务器"""
