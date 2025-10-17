@@ -4,11 +4,9 @@
       <a-tabs class="size-full" v-model:activeKey="activeKey">
         <a-tab-pane class="size-full" key="1" tab="探针设备">
           <ProbeDevicesTab
-            :devices="devices"
             :loading="loading"
             :pagination="pagination"
             v-model:changedTimestamps="changedTimestamps"
-            @fetchDevices="fetchDevices"
             @handleTableChange="handleTableChange"
             @clearFilter="clearFilter"
           />
@@ -33,13 +31,10 @@ import DeviceApi from '@/common/api/device.js'
 import SwitchApi from '@/common/api/switch.js'
 import { message } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import { wsCode } from '@/common/ws/Ws.js'
-import { PubSub } from '@/common/utils/PubSub.js'
 import ProbeDevicesTab from './ProbeDevicesTab.vue'
 import SNMPDevicesTab from './SNMPDevicesTab.vue'
 
 // 设备列表
-const devices = ref([])
 const switches = ref([])
 
 // 从localStorage获取保存的标签页状态，如果没有则默认为'1'
@@ -66,16 +61,6 @@ const handleTableChange = (pag, filters, sorter) => {
   console.log('Table changed:', pag, filters, sorter)
 }
 
-
-const fetchDevices = async () => {
-  try {
-    const response = await DeviceApi.getDevicesList()
-    devices.value = response.data || []
-  } catch (error) {
-    console.error('获取设备列表失败:', error)
-  }
-}
-
 // 监听activeKey变化，保存到localStorage
 watch(activeKey, (newVal) => {
   localStorage.setItem('devices-active-tab', newVal)
@@ -99,7 +84,6 @@ const fetchSwitches = async () => {
 
 // 页面挂载时获取数据
 onMounted(() => {
-  fetchDevices()
   fetchSwitches()
 })
 </script>

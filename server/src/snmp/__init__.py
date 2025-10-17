@@ -9,6 +9,20 @@ SNMP监控模块
 from .snmp_monitor import SNMPMonitor
 from .oid_classifier import OIDClassifier
 from .manager import SNMPManager
+from .continuous_poller import (
+    SNMPContinuousPoller,
+    start_snmp_poller,
+    stop_snmp_poller,
+    get_snmp_poller,
+)
 
-__all__ = ['SNMPMonitor', 'OIDClassifier', 'SNMPManager']
-__version__ = '1.0.0'
+__all__ = [
+    "SNMPMonitor",
+    "OIDClassifier",
+    "SNMPManager",
+    "SNMPContinuousPoller",
+    "start_snmp_poller",
+    "stop_snmp_poller",
+    "get_snmp_poller",
+]
+__version__ = "1.0.0"

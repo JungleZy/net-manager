@@ -80,33 +80,6 @@
           <template v-else-if="column.dataIndex === 'type'">
             {{ record.type || '未设置' }}
           </template>
-          <template v-else-if="column.dataIndex === 'cpu_usage'">
-            {{
-              !record.online
-                ? '0%'
-                : record.cpu_info.usage_percent !== undefined
-                ? record.cpu_info.usage_percent + '%'
-                : '未知'
-            }}
-          </template>
-          <template v-else-if="column.dataIndex === 'memory_usage'">
-            {{
-              !record.online
-                ? '0%'
-                : record.memory_info.percentage !== undefined
-                ? record.memory_info.percentage + '%'
-                : '未知'
-            }}
-          </template>
-          <template v-else-if="column.dataIndex === 'disk_usage'">
-            {{
-              !record.online
-                ? '0%'
-                : record.disk_info.percentage !== undefined
-                ? record.disk_info.percentage + '%'
-                : '未知'
-            }}
-          </template>
           <template v-else-if="column.dataIndex === 'online'">
             <a-tag :color="record.online ? 'green' : 'red'" style="margin: 0">
               {{ record.online ? '在线' : '离线' }}
@@ -182,14 +155,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import {
-  PlusOutlined,
-  DeleteOutlined,
-  EditOutlined
-} from '@ant-design/icons-vue'
+import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons-vue'
 import { formatMachineType } from '@/common/utils/Utils.js'
-import { message, Tooltip, Input } from 'ant-design-vue'
+import { message, Tooltip } from 'ant-design-vue'
 import { h } from 'vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import ServiceDetailModal from '@/components/devices/ServiceDetailModal.vue'
@@ -198,12 +167,19 @@ import DeviceApi from '@/common/api/device.js'
 import { wsCode } from '@/common/ws/Ws.js'
 import { PubSub } from '@/common/utils/PubSub.js'
 
+// 常量定义
+const ANIMATION_DURATION = 3000 // 动画持续时间
+const CHANGE_KEYS = [
+  'timestamp',
+  'cpu_usage',
+  'memory_usage',
+  'disk_usage',
+  'services_count',
+  'processes_count'
+] // 需要监听变化的字段
+
 // 定义组件属性
 const props = defineProps({
-  devices: {
-    type: Array,
-    default: () => []
-  },
   loading: {
     type: Boolean,
     default: false
@@ -222,36 +198,32 @@ const changedTimestamps = defineModel('changedTimestamps', {
 
 // 定义组件事件
 const emit = defineEmits([
-  'update:devices',
   'update:loading',
-  'fetchDevices',
   'handleTableChange',
   'handleShowServices',
   'handleShowProcesses',
   'handleShowNetworks',
   'clearFilter'
 ])
+// 设备数据使用 shallowRef 优化大数组性能
+const devices = shallowRef([])
 
 // 模态框相关
 const showModal = ref(false)
 const isEditing = ref(false)
-const currentDevice = ref({
-  id: '',
-  hostname: '',
-  ip_address: '',
-  device_type: '',
-  os_info: '',
-  last_seen: ''
-})
+const currentDevice = ref(null)
 
 // 详情模态框相关
 const showServicesModal = ref(false)
 const showProcessesModal = ref(false)
-const showNetworksModal = ref(false) // 添加网口详情模态框状态
-const servicesList = ref([])
-const processesList = ref([])
-const networksList = ref([]) // 添加网口列表
+const showNetworksModal = ref(false)
+const servicesList = shallowRef([])
+const processesList = shallowRef([])
+const networksList = shallowRef([])
 const currentDeviceName = ref('')
+
+// 定时器管理 - 用于清理
+const animationTimers = new Map()
 
 // 网口表格列定义
 const networkColumns = [
@@ -302,95 +274,6 @@ const networkColumns = [
     customRender: ({ text }) => formatNetworkRate(text)
   }
 ]
-
-// 格式化网络速率显示
-const formatNetworkRate = (rate) => {
-  if (rate === undefined || rate === null) {
-    return '未知'
-  }
-
-  // 如果速率小于1000，显示为 Kbps
-  if (rate < 1000) {
-    return `${rate} Kbps`
-  }
-
-  // 如果速率小于1000000，显示为 Mbps，保留两位小数
-  if (rate < 1000000) {
-    return `${(rate / 1000).toFixed(2)} Mbps`
-  }
-
-  // 如果速率大于等于1000000，显示为 Gbps，保留两位小数
-  return `${(rate / 1000000).toFixed(2)} Gbps`
-}
-
-// 筛选状态
-const filterType = ref('')
-const filterIP = ref('')
-const filterOS = ref('')
-const filterStatus = ref('')
-
-// 计算筛选后的设备列表
-const filteredDevices = computed(() => {
-  let filtered = props.devices
-
-  // 设备类型筛选
-  if (filterType.value) {
-    // 特殊处理"未设置"类型
-    if (filterType.value === '__unset__') {
-      filtered = filtered.filter((device) => !device.type)
-    } else {
-      filtered = filtered.filter((device) => device.type === filterType.value)
-    }
-  }
-
-  // IP地址模糊匹配筛选
-  if (filterIP.value) {
-    filtered = filtered.filter((device) => {
-      if (!device.ips || !Array.isArray(device.ips)) {
-        return false
-      }
-      // 检查所有IP地址是否包含输入的IP片段
-      return device.ips.some((ip) => {
-        // ip格式为 "接口名: IP地址"，我们只检查IP地址部分
-        const ipAddress = ip.split(': ')[1] || ip
-        return ipAddress && ipAddress.includes(filterIP.value)
-      })
-    })
-  }
-
-  // 操作系统筛选
-  if (filterOS.value) {
-    if (filterOS.value === '__unset__') {
-      // 筛选未设置操作系统的设备
-      filtered = filtered.filter(
-        (device) =>
-          !device.os_name ||
-          device.os_name === 'N/A' ||
-          device.os_name === '未知'
-      )
-    } else {
-      // 筛选指定操作系统的设备
-      filtered = filtered.filter((device) => {
-        if (!device.os_name) return false
-        // 不区分大小写匹配
-        return device.os_name
-          .toLowerCase()
-          .includes(filterOS.value.toLowerCase())
-      })
-    }
-  }
-
-  // 状态筛选
-  if (filterStatus.value) {
-    if (filterStatus.value === 'online') {
-      filtered = filtered.filter((device) => device.online === true)
-    } else if (filterStatus.value === 'offline') {
-      filtered = filtered.filter((device) => device.online === false)
-    }
-  }
-
-  return filtered
-})
 
 // 表格列定义
 const columns = [
@@ -481,7 +364,7 @@ const columns = [
     dataIndex: 'os_name',
     align: 'center',
     key: 'os_name',
-    width: 100
+    width: 80
   },
   {
     title: '系统版本',
@@ -508,21 +391,49 @@ const columns = [
     dataIndex: 'cpu_usage',
     align: 'center',
     key: 'cpu_usage',
-    width: 86
+    width: 86,
+    customRender: ({ record }) => {
+      const displayValue = !record.online
+        ? '0%'
+        : record.cpu_info?.usage_percent != null
+        ? `${record.cpu_info.usage_percent}%`
+        : '未知'
+      return createTextAnimationRenderer(displayValue, 'cpu_usage', record.id)
+    }
   },
   {
     title: '内存使用率',
     dataIndex: 'memory_usage',
     align: 'center',
     key: 'memory_usage',
-    width: 86
+    width: 86,
+    customRender: ({ record }) => {
+      const displayValue = !record.online
+        ? '0%'
+        : record.memory_info?.percentage != null
+        ? `${record.memory_info.percentage}%`
+        : '未知'
+      return createTextAnimationRenderer(
+        displayValue,
+        'memory_usage',
+        record.id
+      )
+    }
   },
   {
     title: '磁盘使用率',
     dataIndex: 'disk_usage',
     align: 'center',
     key: 'disk_usage',
-    width: 86
+    width: 86,
+    customRender: ({ record }) => {
+      const displayValue = !record.online
+        ? '0%'
+        : record.disk_info?.percentage != null
+        ? `${record.disk_info.percentage}%`
+        : '未知'
+      return createTextAnimationRenderer(displayValue, 'disk_usage', record.id)
+    }
   },
   {
     title: '服务数量',
@@ -531,26 +442,12 @@ const columns = [
     key: 'services_count',
     width: 70,
     customRender: ({ text, record }) => {
-      return h(
-        'a',
-        {
-          onClick: () => {
-            if (record.services_count > 0 && record.online) {
-              handleShowServices(record)
-            }
-          },
-          style: {
-            color:
-              record.services_count > 0 && record.online
-                ? '#1890ff'
-                : '#00000040',
-            cursor:
-              record.services_count > 0 && record.online
-                ? 'pointer'
-                : 'not-allowed'
-          }
-        },
-        record.services_count > 0 && record.online ? text : 0
+      return createClickableRenderer(
+        record.services_count,
+        record.online,
+        () => handleShowServices(record),
+        'services_count',
+        record.id
       )
     }
   },
@@ -561,26 +458,12 @@ const columns = [
     key: 'processes_count',
     width: 70,
     customRender: ({ text, record }) => {
-      return h(
-        'a',
-        {
-          onClick: () => {
-            if (record.processes_count > 0 && record.online) {
-              handleShowProcesses(record)
-            }
-          },
-          style: {
-            color:
-              record.processes_count > 0 && record.online
-                ? '#1890ff'
-                : '#00000040',
-            cursor:
-              record.processes_count > 0 && record.online
-                ? 'pointer'
-                : 'not-allowed'
-          }
-        },
-        record.processes_count > 0 && record.online ? text : 0
+      return createClickableRenderer(
+        record.processes_count,
+        record.online,
+        () => handleShowProcesses(record),
+        'processes_count',
+        record.id
       )
     }
   },
@@ -628,26 +511,7 @@ const columns = [
     key: 'timestamp',
     width: 136,
     customRender: ({ text, record }) => {
-      // 生成唯一key用于跟踪变更
-      const key = `timestamp-${record.id}`
-      // 检查是否是新变更的数据
-      const isChanged = changedTimestamps.value[key] || false
-
-      return h(
-        'span',
-        {
-          class: isChanged ? 'timestamp-changed' : '',
-          onAnimationEnd: () => {
-            // 动画结束后清除标记
-            if (changedTimestamps.value[key]) {
-              const newChangedTimestamps = { ...changedTimestamps.value }
-              newChangedTimestamps[key] = false
-              changedTimestamps.value = newChangedTimestamps
-            }
-          }
-        },
-        text
-      )
+      return createTextAnimationRenderer(text, 'timestamp', record.id)
     }
   },
   {
@@ -658,6 +522,144 @@ const columns = [
     width: 60
   }
 ]
+
+// 格式化网络速率显示（优化性能）
+const formatNetworkRate = (rate) => {
+  if (rate == null) return '未知'
+  if (rate < 1000) return `${rate} Kbps`
+  if (rate < 1000000) return `${(rate / 1000).toFixed(2)} Mbps`
+  return `${(rate / 1000000).toFixed(2)} Gbps`
+}
+
+// 创建动画处理器 - 提取公共逻辑
+const createAnimationHandler = (key) => {
+  return () => {
+    if (changedTimestamps.value[key]) {
+      changedTimestamps.value = { ...changedTimestamps.value, [key]: false }
+    }
+  }
+}
+
+// 创建可点击元素渲染器 - 复用逻辑
+const createClickableRenderer = (
+  count,
+  online,
+  handler,
+  fieldKey,
+  deviceId
+) => {
+  const displayValue = count > 0 && online ? count : 0
+  const key = `${fieldKey}-${deviceId}`
+  const isChanged = changedTimestamps.value[key] || false
+
+  return h(
+    'a',
+    {
+      onClick: () => count > 0 && online && handler(),
+      class: isChanged ? 'timestamp-changed' : '',
+      style: {
+        color: count > 0 && online ? '#1890ff' : '#00000040',
+        cursor: count > 0 && online ? 'pointer' : 'not-allowed'
+      },
+      onAnimationEnd: createAnimationHandler(key)
+    },
+    displayValue
+  )
+}
+
+// 创建文本动画渲染器 - 复用逻辑
+const createTextAnimationRenderer = (displayValue, fieldKey, deviceId) => {
+  const key = `${fieldKey}-${deviceId}`
+  const isChanged = changedTimestamps.value[key] || false
+
+  return h(
+    'span',
+    {
+      class: isChanged ? 'timestamp-changed' : '',
+      onAnimationEnd: createAnimationHandler(key)
+    },
+    displayValue
+  )
+}
+
+// 筛选状态
+const filterType = ref('')
+const filterIP = ref('')
+const filterOS = ref('')
+const filterStatus = ref('')
+
+const fetchDevices = async () => {
+  try {
+    const response = await DeviceApi.getDevicesList()
+    devices.value = response?.data || []
+  } catch (error) {
+    console.error('获取设备列表失败:', error)
+    message.error('获取设备列表失败')
+  }
+}
+
+// 计算筛选后的设备列表
+const filteredDevices = computed(() => {
+  let filtered = devices.value
+
+  // 设备类型筛选
+  if (filterType.value) {
+    // 特殊处理"未设置"类型
+    if (filterType.value === '__unset__') {
+      filtered = filtered.filter((device) => !device.type)
+    } else {
+      filtered = filtered.filter((device) => device.type === filterType.value)
+    }
+  }
+
+  // IP地址模糊匹配筛选
+  if (filterIP.value) {
+    filtered = filtered.filter((device) => {
+      if (!device.ips || !Array.isArray(device.ips)) {
+        return false
+      }
+      // 检查所有IP地址是否包含输入的IP片段
+      return device.ips.some((ip) => {
+        // ip格式为 "接口名: IP地址"，我们只检查IP地址部分
+        const ipAddress = ip.split(': ')[1] || ip
+        return ipAddress && ipAddress.includes(filterIP.value)
+      })
+    })
+  }
+
+  // 操作系统筛选
+  if (filterOS.value) {
+    if (filterOS.value === '__unset__') {
+      // 筛选未设置操作系统的设备
+      filtered = filtered.filter(
+        (device) =>
+          !device.os_name ||
+          device.os_name === 'N/A' ||
+          device.os_name === '未知'
+      )
+    } else {
+      // 筛选指定操作系统的设备
+      filtered = filtered.filter((device) => {
+        if (!device.os_name) return false
+        // 不区分大小写匹配
+        return device.os_name
+          .toLowerCase()
+          .includes(filterOS.value.toLowerCase())
+      })
+    }
+  }
+
+  // 状态筛选
+  if (filterStatus.value) {
+    if (filterStatus.value === 'online') {
+      filtered = filtered.filter((device) => device.online === true)
+    } else if (filterStatus.value === 'offline') {
+      filtered = filtered.filter((device) => device.online === false)
+    }
+  }
+
+  return filtered
+})
 
 // 清除筛选
 const clearFilter = () => {
@@ -671,14 +673,7 @@ const clearFilter = () => {
 // 打开创建设备模态框
 const openCreateModal = () => {
   isEditing.value = false
-  currentDevice.value = {
-    id: '',
-    hostname: '',
-    ip_address: '',
-    device_type: '',
-    os_info: '',
-    last_seen: ''
-  }
+  currentDevice.value = null
   showModal.value = true
 }
 
@@ -695,7 +690,7 @@ const deleteDevice = async (id) => {
     const response = await DeviceApi.deleteDevice({ id })
     if (response.status === 'success') {
       message.success('设备删除成功')
-      emit('fetchDevices')
+      fetchDevices()
     } else {
       message.error('设备删除失败: ' + response.message)
     }
@@ -710,49 +705,43 @@ const handleTableChange = (pag, filters, sorter) => {
   emit('handleTableChange', pag, filters, sorter)
 }
 
+// 通用排序函数 - 按PID排序
+const sortByPid = (list) => {
+  return [...list].sort((a, b) => {
+    if (a.pid == null && b.pid == null) return 0
+    if (a.pid == null) return 1
+    if (b.pid == null) return -1
+    return a.pid - b.pid
+  })
+}
+
 // 显示服务详情
 const handleShowServices = async (record) => {
   try {
-    // 获取设备详细信息
     const response = await DeviceApi.getDeviceInfo(record.id)
-    if (response.data && response.data.services) {
-      // 按PID排序服务列表
-      const sortedServices = [...response.data.services].sort((a, b) => {
-        // 处理PID为null的情况，将其排在最后
-        if (a.pid === null && b.pid === null) return 0
-        if (a.pid === null) return 1
-        if (b.pid === null) return -1
-        return a.pid - b.pid
-      })
-      servicesList.value = sortedServices
+    if (response?.data?.services) {
+      servicesList.value = sortByPid(response.data.services)
       currentDeviceName.value = record.hostname || record.id
       showServicesModal.value = true
     }
   } catch (error) {
     console.error('获取服务详情失败:', error)
+    message.error('获取服务详情失败')
   }
 }
 
 // 显示进程详情
 const handleShowProcesses = async (record) => {
   try {
-    // 获取设备详细信息
     const response = await DeviceApi.getDeviceInfo(record.id)
-    if (response.data && response.data.processes) {
-      // 按PID排序进程列表
-      const sortedProcesses = [...response.data.processes].sort((a, b) => {
-        // 处理PID为null的情况，将其排在最后
-        if (a.pid === null && b.pid === null) return 0
-        if (a.pid === null) return 1
-        if (b.pid === null) return -1
-        return a.pid - b.pid
-      })
-      processesList.value = sortedProcesses
+    if (response?.data?.processes) {
+      processesList.value = sortByPid(response.data.processes)
       currentDeviceName.value = record.hostname || record.id
       showProcessesModal.value = true
     }
   } catch (error) {
     console.error('获取进程详情失败:', error)
+    message.error('获取进程详情失败')
   }
 }
 
@@ -769,15 +758,15 @@ const closeProcessesModal = () => {
 // 显示网口详情
 const handleShowNetworks = async (record) => {
   try {
-    // 获取设备详细信息
     const response = await DeviceApi.getDeviceInfo(record.id)
-    if (response.data && response.data.networks) {
+    if (response?.data?.networks) {
       networksList.value = response.data.networks
       currentDeviceName.value = record.hostname || record.id
       showNetworksModal.value = true
     }
   } catch (error) {
     console.error('获取网口详情失败:', error)
+    message.error('获取网口详情失败')
   }
 }
 
@@ -800,7 +789,7 @@ const saveDevice = async (deviceData) => {
       if (response.status === 'success') {
         message.success('设备更新成功')
         closeModal()
-        emit('fetchDevices')
+        fetchDevices()
       } else {
         message.error('设备更新失败: ' + response.message)
       }
@@ -810,7 +799,7 @@ const saveDevice = async (deviceData) => {
       if (response.status === 'success') {
         message.success('设备创建成功')
         closeModal()
-        emit('fetchDevices')
+        fetchDevices()
       } else {
         message.error('设备创建失败: ' + response.message)
       }
@@ -821,61 +810,108 @@ const saveDevice = async (deviceData) => {
   }
 }
 
-// 页面挂载时订阅设备信息和状态更新
-onMounted(() => {
-  PubSub.subscribe(wsCode.DEVICE_INFO, (deviceInfo) => {
-    // 处理设备信息更新
-    const index = props.devices.findIndex((dev) => dev.id === deviceInfo.id)
-    if (index !== -1) {
-      // 检查时间戳是否发生变化
-      const oldTimestamp = props.devices[index].timestamp
-      const newTimestamp = deviceInfo.timestamp
+// 清理所有动画定时器
+const clearAllAnimationTimers = () => {
+  animationTimers.forEach((timerId) => clearTimeout(timerId))
+  animationTimers.clear()
+}
 
-      // 更新设备信息
-      const updatedDevices = [...props.devices]
-      updatedDevices[index] = { ...updatedDevices[index], ...deviceInfo }
-      emit('update:devices', updatedDevices)
+// 设置动画定时器
+const setAnimationTimer = (changeKey) => {
+  // 清除旧的定时器
+  if (animationTimers.has(changeKey)) {
+    clearTimeout(animationTimers.get(changeKey))
+  }
 
-      // 如果时间戳发生变化，标记变更状态
-      if (oldTimestamp !== newTimestamp) {
-        const key = `timestamp-${deviceInfo.id}`
-        const newChangedTimestamps = { ...changedTimestamps.value }
-        newChangedTimestamps[key] = true
-        changedTimestamps.value = newChangedTimestamps
+  // 设置新的定时器
+  const timerId = setTimeout(() => {
+    changedTimestamps.value = { ...changedTimestamps.value, [changeKey]: false }
+    animationTimers.delete(changeKey)
+  }, ANIMATION_DURATION)
 
-        // 3秒后自动清除变更标记
-        setTimeout(() => {
-          const currentChangedTimestamps = { ...changedTimestamps.value }
-          if (currentChangedTimestamps[key]) {
-            currentChangedTimestamps[key] = false
-            changedTimestamps.value = currentChangedTimestamps
-          }
-        }, 3000)
+  animationTimers.set(changeKey, timerId)
+}
+
+// 获取字段值的辅助函数
+const getFieldValue = (device, key) => {
+  switch (key) {
+    case 'timestamp':
+      return device.timestamp
+    case 'cpu_usage':
+      return device.cpu_info?.usage_percent
+    case 'memory_usage':
+      return device.memory_info?.percentage
+    case 'disk_usage':
+      return device.disk_info?.percentage
+    case 'services_count':
+      return device.services_count
+    case 'processes_count':
+      return device.processes_count
+    default:
+      return undefined
+  }
+}
+
+// 处理设备信息更新
+const handleDeviceInfoUpdate = (deviceInfo) => {
+  const index = devices.value.findIndex((dev) => dev.id === deviceInfo.id)
+  if (index === -1) return
+
+  const oldDevice = devices.value[index]
+  const newChangedTimestamps = { ...changedTimestamps.value }
+
+  // 检查字段变化
+  CHANGE_KEYS.forEach((key) => {
+    const oldValue = getFieldValue(oldDevice, key)
+    const newValue = getFieldValue(deviceInfo, key)
+
+    // 严格检查值的变化
+    if (oldValue !== newValue && newValue != null) {
+      const changeKey = `${key}-${deviceInfo.id}`
+
+      // 避免重复触发动画
+      if (!newChangedTimestamps[changeKey]) {
+        newChangedTimestamps[changeKey] = true
+        setAnimationTimer(changeKey)
       }
     }
   })
 
-  PubSub.subscribe(wsCode.DEVICE_STATUS, (data) => {
-    // 处理设备状态更新
-    console.log('收到设备状态更新:', data)
-    // 可以根据需要更新设备列表
-    // 例如：
-    const index = props.devices.findIndex(
-      (dev) => dev.client_id === data.client_id
-    )
-    if (index !== -1) {
-      // 更新设备状态
-      const updatedDevices = [...props.devices]
-      updatedDevices[index].online = data.status === 'online'
-      emit('update:devices', updatedDevices)
-    }
-  })
+  // 更新设备信息（使用浅拷贝优化性能）
+  const updatedDevices = [...devices.value]
+  updatedDevices[index] = { ...oldDevice, ...deviceInfo }
+  devices.value = updatedDevices
+  changedTimestamps.value = newChangedTimestamps
+}
+
+// 处理设备状态更新
+const handleDeviceStatusUpdate = (data) => {
+  const index = devices.value.findIndex(
+    (dev) => dev.client_id === data.client_id
+  )
+  if (index === -1) return
+
+  const updatedDevices = [...devices.value]
+  updatedDevices[index] = {
+    ...updatedDevices[index],
+    online: data.status === 'online'
+  }
+  devices.value = updatedDevices
+}
+
+// 页面挂载时订阅设备信息和状态更新
+onMounted(() => {
+  fetchDevices()
+  PubSub.subscribe(wsCode.DEVICE_INFO, handleDeviceInfoUpdate)
+  PubSub.subscribe(wsCode.DEVICE_STATUS, handleDeviceStatusUpdate)
 })
 
-// 页面卸载时取消订阅
+// 页面卸载时取消订阅并清理资源
 onUnmounted(() => {
   PubSub.unsubscribe(wsCode.DEVICE_INFO)
   PubSub.unsubscribe(wsCode.DEVICE_STATUS)
+  clearAllAnimationTimers() // 清理所有定时器
+  changedTimestamps.value = {} // 清空变化标记
 })
 </script>
 

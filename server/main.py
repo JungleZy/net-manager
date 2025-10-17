@@ -21,32 +21,42 @@ from src.database import DatabaseManager
 from src.core.logger import logger
 from src.core.config import VERSION
 from src.core.singleton_manager import get_server_singleton_manager
+from src.snmp.continuous_poller import start_snmp_poller, stop_snmp_poller
 
 # 获取单例管理器实例
 singleton_manager = get_server_singleton_manager()
 
+
 def print_welcome_banner():
     """打印欢迎条幅和版本号"""
     print("=" * 50)
-    print(r"""
+    print(
+        r"""
  _    _  _____  _____ ______  _____ ___  ___    _   _  _____ ______ 
 | |  | ||_   _|/  ___||  _  \|  _  ||  \/  |   | \ | ||_   _|| ___ \
 | |  | |  | |  \ `--. | | | || | | || .  . |   |  \| |  | |  | |_/ /
 | |/\| |  | |   `--. \| | | || | | || |\/| |   | . ` |  | |  |  __/ 
 \  /\  / _| |_ /\__/ /| |/ / \ \_/ /| |  | | _ | |\  | _| |_ | |    
  \/  \/  \___/ \____/ |___/   \___/ \_|  |_/(_)\_| \_/ \___/ \_|    
-    """)
+    """
+    )
     print("=" * 50)
     print(f"版本: {VERSION}")
     print("=" * 50)
 
+
 def signal_handler(sig, frame):
     """信号处理函数"""
     logger.info("接收到终止信号，正在关闭服务端...")
+    # 停止SNMP轮询器
+    try:
+        stop_snmp_poller()
+    except Exception as e:
+        logger.error(f"停止SNMP轮询器时出错: {e}")
     # 通知所有服务停止运行
-    if 'tcp_server' in globals():
+    if "tcp_server" in globals():
         tcp_server.running = False
-    if 'api_server' in globals():
+    if "api_server" in globals():
         try:
             api_server.stop()
         except Exception as e:
@@ -54,12 +64,14 @@ def signal_handler(sig, frame):
     # 停止UDP服务器
     try:
         from src.network.udp.udp_server import stop_udp_server
+
         stop_udp_server()
     except Exception as e:
         logger.error(f"停止UDP服务器时出错: {e}")
     logger.info("服务端已退出")
     singleton_manager.release_lock()  # 释放锁
     sys.exit(0)
+
 
 def start_tcp_server(tcp_server_instance):
     """启动TCP服务器"""
@@ -68,6 +80,7 @@ def start_tcp_server(tcp_server_instance):
     except Exception as e:
         logger.error(f"TCP服务端运行出错: {e}")
 
+
 def start_api_server(api_server_instance):
     """启动API服务器"""
     try:
@@ -75,73 +88,92 @@ def start_api_server(api_server_instance):
     except Exception as e:
         logger.error(f"API服务端运行出错: {e}")
 
+
 def main():
     """启动服务端"""
     global tcp_server, api_server
-    
+
     # 尝试获取锁
     if not singleton_manager.acquire_lock():
         logger.error("服务端已在运行中，请勿重复启动")
         sys.exit(1)
-    
+
     # 注册信号处理器
     import signal
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     # 打印欢迎条幅和版本号
     print_welcome_banner()
-    
+
     logger.info("Net Manager 服务端启动...")
-    
+
     try:
         # 1. 初始化数据库
         logger.info("数据库初始化...")
         db_manager = DatabaseManager()
-        
+
         # 2. 创建TCP服务器实例
         tcp_server = TCPServer(db_manager)
-        
+
         # 3. 创建API服务器实例
         api_server = APIServer(db_manager)
-        
+
         # 4. 设置API服务器的TCP服务器引用
         api_server.set_tcp_server(tcp_server)
-        
+
         # 5. 启动API服务器线程
         api_thread = threading.Thread(target=start_api_server, args=(api_server,))
         api_thread.daemon = True
         api_thread.start()
-        
+
         # 等待API服务器完全启动
         time.sleep(0.5)
-        
+
         # 6. 启动TCP服务线程
         tcp_thread = threading.Thread(target=start_tcp_server, args=(tcp_server,))
         tcp_thread.daemon = True
         tcp_thread.start()
-        
+
         # 等待TCP服务器完全启动
         time.sleep(0.5)
-        
+
         # 7. 启动UDP服务发现线程
         udp_thread = threading.Thread(target=udp_server)
         udp_thread.daemon = True
         udp_thread.start()
-        
+
         # 等待UDP服务器完全启动
         time.sleep(0.5)
-        
+
+        # 8. 启动SNMP轮询器
+        logger.info("启动SNMP轮询器...")
+        from src.database.managers.switch_manager import SwitchManager
+
+        switch_manager = SwitchManager()
+        # 启动SNMP轮询器：每60秒轮询一次，最多10个并发，单个设备超时10秒
+        start_snmp_poller(
+            switch_manager,
+            poll_interval=10,  # 轮询间隔
+            max_workers=10,  # 最大并发数
+            device_timeout=30,  # 单个设备超时
+        )
+
         logger.info("所有服务已启动完成")
-        
+
         # 保持主线程运行，同时允许信号处理
         while True:
             time.sleep(1)
             # 检查线程是否还在运行
-            if not api_thread.is_alive() and not tcp_thread.is_alive() and not udp_thread.is_alive():
+            if (
+                not api_thread.is_alive()
+                and not tcp_thread.is_alive()
+                and not udp_thread.is_alive()
+            ):
                 logger.warning("服务线程已停止运行")
                 break
-                
+
     except KeyboardInterrupt:
         logger.info("服务端被用户中断")
     except Exception as e:
@@ -150,6 +182,7 @@ def main():
         # 正常退出时释放锁
         singleton_manager.release_lock()
         logger.info("服务端正常退出")
+
 
 if __name__ == "__main__":
     main()

@@ -29,6 +29,17 @@
         <a-select-option value="交换机">交换机</a-select-option>
         <a-select-option value="其他">其他</a-select-option>
       </a-select>
+      <a-select
+        v-model:value="filters.status"
+        placeholder="状态"
+        allow-clear
+        style="width: 120px"
+        @change="handleFilterChange"
+      >
+        <a-select-option value="success">在线</a-select-option>
+        <a-select-option value="error">离线</a-select-option>
+        <a-select-option value="unknown">未知</a-select-option>
+      </a-select>
       <a-button @click="resetFilters">重置</a-button>
       <a-space-compact block>
         <a-button
@@ -66,6 +77,31 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
+          <template v-if="column.dataIndex === 'status'">
+            <a-tag
+              v-if="record.status === 'success'"
+              color="success"
+              style="margin: 0"
+              :title="
+                record.lastUpdate
+                  ? `最后更新: ${new Date(record.lastUpdate).toLocaleString(
+                      'zh-CN'
+                    )}`
+                  : ''
+              "
+            >
+              在线
+            </a-tag>
+            <a-tag
+              v-else-if="record.status === 'error'"
+              style="margin: 0"
+              color="error"
+              :title="record.errorMsg || '设备离线'"
+            >
+              离线
+            </a-tag>
+            <a-tag v-else color="default" style="margin: 0"> 未知 </a-tag>
+          </template>
           <template v-if="column.dataIndex === 'action'">
             <EditOutlined
               @click="openEditSwitchModal(record)"
@@ -106,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   PlusOutlined,
   SearchOutlined,
@@ -116,6 +152,9 @@ import {
 import SNMPScanModal from '@/components/devices/SNMPScanModal.vue'
 import SwitchAddModal from '@/components/devices/SwitchAddModal.vue'
 import SwitchApi from '@/common/api/switch.js'
+import SNMPStorage from '@/common/utils/SNMPStorage.js'
+import { PubSub } from '@/common/utils/PubSub'
+import { wsCode } from '@/common/ws/Ws'
 import { message } from 'ant-design-vue'
 
 // 定义组件属性
@@ -138,12 +177,70 @@ const props = defineProps({
 const filters = ref({
   deviceName: '',
   alias: '',
-  deviceType: undefined
+  deviceType: undefined,
+  status: undefined // 新增状态筛选
 })
+
+// SNMP设备状态数据
+const snmpDevicesStatus = ref({})
+
+// 设备列表增强状态
+const switchesWithStatus = computed(() => {
+  return props.switches.map((sw) => {
+    const snmpData = snmpDevicesStatus.value[sw.ip]
+    return {
+      ...sw,
+      status: snmpData?.type || 'unknown', // success/error/unknown
+      statusText: getStatusText(snmpData?.type),
+      lastUpdate: snmpData?.updateTime || null,
+      errorMsg: snmpData?.error || null,
+      if_count: snmpData?.device_info?.if_count || 0, // 端口数量
+      uptime: snmpData?.device_info?.uptime || '' // 运行时长
+    }
+  })
+})
+
+// 获取状态文本
+const getStatusText = (type) => {
+  if (!type || type === 'unknown') return '未知'
+  return type === 'success' ? '在线' : '离线'
+}
+
+// 格式化运行时长（将SNMP TimeTicks转换为易读格式）
+const formatUptime = (uptime) => {
+  if (!uptime || uptime === '' || uptime === '0') return '-'
+
+  try {
+    // SNMP uptime 是 TimeTicks，单位是百分之一秒（centiseconds）
+    const ticks = parseInt(uptime)
+    if (isNaN(ticks) || ticks === 0) return '-'
+
+    // 转换为秒
+    const totalSeconds = Math.floor(ticks / 100)
+
+    // 计算天、小时、分钟、秒
+    const days = Math.floor(totalSeconds / 86400)
+    const hours = Math.floor((totalSeconds % 86400) / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    // 构建显示字符串
+    const parts = []
+    if (days > 0) parts.push(`${days}天`)
+    if (hours > 0) parts.push(`${hours}时`)
+    if (minutes > 0) parts.push(`${minutes}分`)
+    if (seconds > 0 && days === 0 && hours === 0) parts.push(`${seconds}秒`)
+
+    return parts.length > 0 ? parts.join('') : '-'
+  } catch (error) {
+    console.error('格式化运行时长失败:', error)
+    return uptime
+  }
+}
 
 // 过滤后的交换机列表
 const filteredSwitches = computed(() => {
-  let result = props.switches
+  let result = switchesWithStatus.value
 
   // 按设备名称筛选
   if (filters.value.deviceName) {
@@ -168,6 +265,11 @@ const filteredSwitches = computed(() => {
     )
   }
 
+  // 按状态筛选
+  if (filters.value.status) {
+    result = result.filter((item) => item.status === filters.value.status)
+  }
+
   return result
 })
 
@@ -181,7 +283,8 @@ const resetFilters = () => {
   filters.value = {
     deviceName: '',
     alias: '',
-    deviceType: undefined
+    deviceType: undefined,
+    status: undefined
   }
 }
 
@@ -271,6 +374,27 @@ const switchColumns = [
     width: 60
   },
   {
+    title: '端口数量',
+    dataIndex: 'if_count',
+    align: 'center',
+    key: 'if_count',
+    width: 80,
+    customRender: ({ text }) => {
+      return text || '-'
+    }
+  },
+  {
+    title: '运行时长',
+    dataIndex: 'uptime',
+    align: 'center',
+    key: 'uptime',
+    width: 120,
+    ellipsis: true,
+    customRender: ({ text }) => {
+      return formatUptime(text)
+    }
+  },
+  {
     title: '描述',
     dataIndex: 'description',
     align: 'center',
@@ -278,11 +402,11 @@ const switchColumns = [
     ellipsis: true
   },
   {
-    title: '创建时间',
-    dataIndex: 'created_at',
+    title: '状态',
+    dataIndex: 'status',
     align: 'center',
-    key: 'created_at',
-    width: 136
+    key: 'status',
+    width: 60
   },
   {
     title: '更新时间',
@@ -405,4 +529,35 @@ const deleteSwitch = async (switchId) => {
 const handleTableChange = (pag, filters, sorter) => {
   emit('handleTableChange', pag, filters, sorter)
 }
+
+// 加载SNMP设备状态
+const loadSNMPDevicesStatus = async () => {
+  try {
+    const devices = await SNMPStorage.getAllDevices()
+    snmpDevicesStatus.value = devices
+    console.log('加载SNMP设备状态:', Object.keys(devices).length, '个设备')
+  } catch (error) {
+    console.error('加载SNMP设备状态失败:', error)
+  }
+}
+
+// 组件挂载
+onMounted(async () => {
+  // 初始加载SNMP状态
+  await loadSNMPDevicesStatus()
+
+  // 订阅SNMP设备批量更新
+  PubSub.subscribe(wsCode.SNMP_DEVICE_BATCH, async (data) => {
+    // 重新加载SNMP状态
+    await loadSNMPDevicesStatus()
+  })
+
+  console.log('SNMP设备状态订阅已启动')
+})
+
+// 组件卸载
+onUnmounted(() => {
+  PubSub.unsubscribe(wsCode.SNMP_DEVICE_BATCH)
+  console.log('SNMP设备状态订阅已取消')
+})
 </script>

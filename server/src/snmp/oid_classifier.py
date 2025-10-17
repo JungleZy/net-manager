@@ -62,7 +62,7 @@ class OIDClassifier:
         '1.3.6.1.2.1.1.6.0': 'sysLocation',
         
         # Interface OIDs
-        '1.3.6.1.2.1.2.1.0': 'ifNumber',
+        '1.3.6.1.2.1.2.1': 'ifNumber',
         '1.3.6.1.2.1.2.2.1.1': 'ifIndex',
         '1.3.6.1.2.1.2.2.1.2': 'ifDescr',
         '1.3.6.1.2.1.2.2.1.3': 'ifType',
@@ -277,8 +277,3 @@ class OIDClassifier:
             ])
             
         return base_oids
-
-# 示例用法
-if __name__ == "__main__":
-    # 这里可以添加示例代码
-    pass
