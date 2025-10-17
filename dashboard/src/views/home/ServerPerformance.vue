@@ -654,7 +654,7 @@ const createGaugeConfig = (value, name) => ({
     {
       type: 'gauge',
       center: ['50%', '70%'], // 上移中心位置，增大上方图像区域
-      radius: '140%', // 增大半径至95%
+      radius: '126%', // 增大半径至95%
       startAngle: 180,
       endAngle: 0,
       min: 0,
