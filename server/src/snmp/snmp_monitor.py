@@ -507,10 +507,8 @@ class SNMPMonitor:
             ip, version, self.OIDS["ifNumber"], **kwargs
         )
         if not success:
-            logger.error(f"{ip}: 无法获取接口数量")
             return interfaces
         if_count = int(value) if value else 0
-        print(f"{ip}: 接口数量 {if_count}")
         if if_count <= 0:
             return interfaces
 
