@@ -45,7 +45,7 @@ class SwitchCreateHandler(BaseHandler):
                 )
                 return
 
-            # 创建SwitchInfo对象
+            # 创建SwitchInfo对象（创建时alias为空）
             switch_info = SwitchInfo(
                 ip=data["ip"],
                 snmp_version=data["snmp_version"],
@@ -58,6 +58,7 @@ class SwitchCreateHandler(BaseHandler):
                 description=data.get("description", ""),
                 device_name=data.get("device_name", ""),
                 device_type=data.get("device_type", ""),
+                alias="",  # 创建时alias为空
             )
 
             # 添加交换机
@@ -88,7 +89,7 @@ class SwitchUpdateHandler(BaseHandler):
             data = tornado.escape.json_decode(self.request.body)
 
             # 检查必需字段
-            required_fields = ["id", "ip", "snmp_version"]
+            required_fields = ["id"]
             for field in required_fields:
                 if field not in data or data[field] is None:
                     self.set_status(400)
@@ -105,7 +106,7 @@ class SwitchUpdateHandler(BaseHandler):
                 self.write({"status": "error", "message": "交换机ID必须是有效的整数"})
                 return
 
-            # 创建SwitchInfo对象
+            # 创建SwitchInfo对象（alias可以在UpdateHandler中修改）
             switch_info = SwitchInfo(
                 id=switch_id_int,
                 ip=data["ip"],
@@ -119,6 +120,7 @@ class SwitchUpdateHandler(BaseHandler):
                 description=data.get("description", ""),
                 device_name=data.get("device_name", ""),
                 device_type=data.get("device_type", ""),
+                alias=data.get("alias", ""),  # alias只能通过UpdateHandler修改
             )
 
             # 更新交换机

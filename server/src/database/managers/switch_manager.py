@@ -119,7 +119,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute("PRAGMA cache_size = 10000")
                 cursor.execute("PRAGMA temp_store = MEMORY")
 
-                # 创建交换机配置表
+                # 创建交换机配置表，时间使用本地时间
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS switch_info (
@@ -135,8 +135,9 @@ class SwitchManager(BaseDatabaseManager):
                         description TEXT,
                         device_name TEXT,
                         device_type TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        alias TEXT DEFAULT '',
+                        created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+                        updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
                     )
                 """
                 )
@@ -192,13 +193,13 @@ class SwitchManager(BaseDatabaseManager):
                         f"交换机IP地址已存在: {switch_info.ip}"
                     )
 
-                # 插入新的交换机配置
+                # 插入新的交换机配置（使用本地时间）
                 cursor.execute(
                     """
                     INSERT INTO switch_info (
                         ip, snmp_version, community, user, auth_key, auth_protocol,
-                        priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                        priv_key, priv_protocol, description, device_name, device_type, alias, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', datetime('now', 'localtime'), datetime('now', 'localtime'))
                 """,
                     (
                         switch_info.ip,
@@ -254,13 +255,13 @@ class SwitchManager(BaseDatabaseManager):
                 if count == 0:
                     raise DeviceNotFoundError(f"交换机不存在，ID: {switch_info.id}")
 
-                # 更新交换机配置
+                # 更新交换机配置（注意：alias字段只能通过UpdateHandler修改，使用本地时间）
                 cursor.execute(
                     """
                     UPDATE switch_info SET 
                         ip = ?, snmp_version = ?, community = ?, user = ?, 
                         auth_key = ?, auth_protocol = ?, priv_key = ?, 
-                        priv_protocol = ?, description = ?, device_name = ?, device_type = ?, updated_at = datetime('now')
+                        priv_protocol = ?, description = ?, device_name = ?, device_type = ?, alias = ?, updated_at = datetime('now', 'localtime')
                     WHERE id = ?
                 """,
                     (
@@ -275,6 +276,7 @@ class SwitchManager(BaseDatabaseManager):
                         switch_info.description,
                         switch_info.device_name,
                         switch_info.device_type,
+                        switch_info.alias,  # alias只能通过UpdateHandler修改
                         switch_info.id,
                     ),
                 )
@@ -356,7 +358,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, alias, created_at, updated_at
                     FROM switch_info
                     WHERE id = ?
                 """,
@@ -379,8 +381,9 @@ class SwitchManager(BaseDatabaseManager):
                         "description": row[9],
                         "device_name": row[10],
                         "device_type": row[11],
-                        "created_at": row[12],
-                        "updated_at": row[13],
+                        "alias": row[12],
+                        "created_at": row[13],
+                        "updated_at": row[14],
                     }
                 return None
         except Exception as e:
@@ -407,7 +410,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, alias, created_at, updated_at
                     FROM switch_info
                     WHERE ip = ?
                 """,
@@ -430,8 +433,9 @@ class SwitchManager(BaseDatabaseManager):
                         "description": row[9],
                         "device_name": row[10],
                         "device_type": row[11],
-                        "created_at": row[12],
-                        "updated_at": row[13],
+                        "alias": row[12],
+                        "created_at": row[13],
+                        "updated_at": row[14],
                     }
                 return None
         except Exception as e:
@@ -455,7 +459,7 @@ class SwitchManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, ip, snmp_version, community, user, auth_key, auth_protocol,
-                           priv_key, priv_protocol, description, device_name, device_type, created_at, updated_at
+                           priv_key, priv_protocol, description, device_name, device_type, alias, created_at, updated_at
                     FROM switch_info
                     ORDER BY created_at DESC
                 """
@@ -480,8 +484,9 @@ class SwitchManager(BaseDatabaseManager):
                             "description": row[9],
                             "device_name": row[10],
                             "device_type": row[11],
-                            "created_at": row[12],
-                            "updated_at": row[13],
+                            "alias": row[12],
+                            "created_at": row[13],
+                            "updated_at": row[14],
                         }
                     )
 

@@ -14,12 +14,6 @@
       :label-col="{ span: 6 }"
       :wrapper-col="{ span: 16 }"
     >
-      <a-form-item label="设备名称" name="device_name">
-        <a-input
-          v-model:value="formState.device_name"
-          placeholder="请输入设备名称"
-        />
-      </a-form-item>
       <a-form-item label="设备类型" name="device_type">
         <a-select
           v-model:value="formState.device_type"
@@ -32,6 +26,15 @@
           <a-select-option value="服务器">服务器</a-select-option>
           <a-select-option value="其他">其他</a-select-option>
         </a-select>
+      </a-form-item>
+      <a-form-item label="设备名称" name="device_name">
+        <a-input
+          v-model:value="formState.device_name"
+          placeholder="请输入设备名称"
+        />
+      </a-form-item>
+      <a-form-item label="设备别名" name="alias">
+        <a-input v-model:value="formState.alias" placeholder="请输入设备别名" />
       </a-form-item>
       <a-form-item label="IP地址" name="ip">
         <a-input
@@ -151,7 +154,8 @@ const formState = reactive({
   priv_protocol: '',
   description: '',
   device_name: '',
-  device_type: ''
+  device_type: '',
+  alias: ''
 })
 
 // 表单验证规则

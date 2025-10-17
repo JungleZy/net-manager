@@ -45,12 +45,12 @@
         </a-select>
         <a-button @click="clearFilter">重置</a-button>
       </div>
-      <a-button class="layout-center" type="primary" @click="openCreateModal">
+      <!-- <a-button class="layout-center" type="primary" @click="openCreateModal">
         <template #icon>
           <PlusOutlined />
         </template>
         添加设备
-      </a-button>
+      </a-button> -->
     </div>
     <!-- 设备列表 -->
     <div class="w-full h-[calc(100%-44px)] overflow-auto">
@@ -108,7 +108,7 @@
             }}
           </template>
           <template v-else-if="column.dataIndex === 'online'">
-            <a-tag :color="record.online ? 'green' : 'red'">
+            <a-tag :color="record.online ? 'green' : 'red'" style="margin: 0">
               {{ record.online ? '在线' : '离线' }}
             </a-tag>
           </template>
@@ -408,13 +408,26 @@ const columns = [
     title: '设备类型',
     dataIndex: 'type',
     align: 'center',
-    key: 'type'
+    key: 'type',
+    width: 70
   },
   {
     title: '设备名称',
     dataIndex: 'hostname',
     align: 'center',
     key: 'hostname'
+  },
+  {
+    title: '设备别名',
+    dataIndex: 'alias',
+    align: 'center',
+    key: 'alias',
+    customRender: ({ text }) => {
+      if (!text || text.length === 0) {
+        return '无'
+      }
+      return text
+    }
   },
   {
     title: '设备地址',
@@ -606,7 +619,7 @@ const columns = [
     dataIndex: 'online',
     align: 'center',
     key: 'online',
-    width: 80
+    width: 60
   },
   {
     title: '上报时间',

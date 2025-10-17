@@ -120,7 +120,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute("PRAGMA cache_size = 10000")
                 cursor.execute("PRAGMA temp_store = MEMORY")
 
-                # 创建设备信息表，使用id作为主键
+                # 创建设备信息表，使用id作为主键，时间使用本地时间
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS device_info (
@@ -138,8 +138,9 @@ class DeviceManager(BaseDatabaseManager):
                         memory_info TEXT,
                         disk_info TEXT,
                         type TEXT,  -- 设备类型字段（计算机、交换机、服务器等）
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        alias TEXT DEFAULT '',  -- 设备别名字段
+                        timestamp DATETIME DEFAULT (datetime('now', 'localtime')),
+                        created_at DATETIME DEFAULT (datetime('now', 'localtime'))
                     )
                 """
                 )
@@ -170,7 +171,7 @@ class DeviceManager(BaseDatabaseManager):
         保存设备信息到数据库
 
         使用id作为主键进行更新或插入操作。
-        注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置。
+        注意：通过TCP更新数据时不更新type和alias字段，这些字段只能通过API手动设置。
 
         Args:
             device_info: DeviceInfo对象
@@ -216,14 +217,15 @@ class DeviceManager(BaseDatabaseManager):
                     )
 
                     # 使用INSERT OR REPLACE语句，如果id已存在则更新，否则插入新记录
-                    # 注意：通过TCP更新数据时不更新type字段，type字段只能通过API手动设置，同时确保created_at字段在创建后不会被更新
+                    # 注意：通过TCP更新数据时不更新type和alias字段，这些字段只能通过API手动设置，同时确保created_at字段在创建后不会被更新
                     cursor.execute(
                         """
                         INSERT OR REPLACE INTO device_info 
                         (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                        services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp, created_at)
+                        services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                             COALESCE((SELECT type FROM device_info WHERE id = ?), ''), 
+                            COALESCE((SELECT alias FROM device_info WHERE id = ?), ''),
                             ?, COALESCE((SELECT created_at FROM device_info WHERE id = ?), ?))
                     """,
                         (
@@ -240,7 +242,8 @@ class DeviceManager(BaseDatabaseManager):
                             cpu_info_json,
                             memory_info_json,
                             disk_info_json,
-                            device_info.id,  # 用于COALESCE子查询的参数
+                            device_info.id,  # 用于COALESCE子查询的参数（type）
+                            device_info.id,  # 用于COALESCE子查询的参数（alias）
                             device_info.timestamp,
                             device_info.id,  # 用于created_at COALESCE子查询的参数
                             device_info.created_at,
@@ -270,7 +273,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at
                     FROM device_info
                     ORDER BY created_at DESC
                 """
@@ -336,8 +339,9 @@ class DeviceManager(BaseDatabaseManager):
                             "memory_info": memory_info,
                             "disk_info": disk_info,
                             "type": row[13],
-                            "timestamp": row[14],
-                            "created_at": row[15],
+                            "alias": row[14],
+                            "timestamp": row[15],
+                            "created_at": row[16],
                         }
                     )
 
@@ -366,7 +370,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at
                     FROM device_info
                     WHERE id = ?
                 """,
@@ -430,8 +434,9 @@ class DeviceManager(BaseDatabaseManager):
                         "memory_info": memory_info,
                         "disk_info": disk_info,
                         "type": row[13],
-                        "timestamp": row[14],
-                        "created_at": row[15],
+                        "alias": row[14],
+                        "timestamp": row[15],
+                        "created_at": row[16],
                     }
                 return None
         except Exception as e:
@@ -458,7 +463,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at
                     FROM device_info
                     WHERE client_id = ?
                     ORDER BY timestamp DESC
@@ -524,8 +529,9 @@ class DeviceManager(BaseDatabaseManager):
                         "memory_info": memory_info,
                         "disk_info": disk_info,
                         "type": row[13],
-                        "timestamp": row[14],
-                        "created_at": row[15],
+                        "alias": row[14],
+                        "timestamp": row[15],
+                        "created_at": row[16],
                     }
                 return None
         except Exception as e:
@@ -609,14 +615,14 @@ class DeviceManager(BaseDatabaseManager):
                 if count > 0:
                     raise DeviceAlreadyExistsError(f"设备ID已存在: {device_data['id']}")
 
-                # 插入新设备信息
+                # 插入新设备信息（使用本地时间）
                 cursor.execute(
                     """
                     INSERT INTO device_info (
                         id, client_id, hostname, os_name, os_version, 
                         os_architecture, machine_type, services, processes, networks,
-                        cpu_info, memory_info, disk_info, type, timestamp, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                        cpu_info, memory_info, disk_info, type, alias, timestamp, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', datetime('now', 'localtime'), datetime('now', 'localtime'))
                 """,
                     (
                         device_data["id"],
@@ -675,30 +681,15 @@ class DeviceManager(BaseDatabaseManager):
                 if count == 0:
                     raise DeviceNotFoundError(f"设备不存在: {device_data['id']}")
 
-                # 更新设备信息
+                # 更新设备信息（注意：alias字段只能通过UpdateHandler修改）
                 cursor.execute(
                     """
-                    UPDATE device_info SET 
-                        hostname = ?, client_id = ?, os_name = ?, os_version = ?, 
-                        os_architecture = ?, machine_type = ?, type = ?,
-                        services = ?, processes = ?, networks = ?,
-                        cpu_info = ?, memory_info = ?, disk_info = ?
+                    UPDATE device_info SET type = ?, alias = ?
                     WHERE id = ?
-                """,
+                    """,
                     (
-                        device_data["hostname"],
-                        device_data.get("client_id", ""),
-                        device_data.get("os_name", ""),
-                        device_data.get("os_version", ""),
-                        device_data.get("os_architecture", ""),
-                        device_data.get("machine_type", ""),
                         device_data.get("type", ""),
-                        json.dumps(device_data.get("services", [])),
-                        json.dumps(device_data.get("processes", [])),
-                        json.dumps(device_data.get("networks", [])),
-                        json.dumps(device_data.get("cpu_info", {})),
-                        json.dumps(device_data.get("memory_info", {})),
-                        json.dumps(device_data.get("disk_info", {})),
+                        device_data.get("alias", ""),  # alias只能通过UpdateHandler修改
                         device_data["id"],
                     ),
                 )

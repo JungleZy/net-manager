@@ -24,32 +24,10 @@
           :disabled="isEditing"
         />
       </a-form-item>
-      <a-form-item label="IP地址">
+      <a-form-item label="设备别名">
         <a-input
-          v-model:value="form.ip_address"
-          placeholder="请输入IP地址"
-          :disabled="isEditing"
-        />
-      </a-form-item>
-      <a-form-item label="设备ID">
-        <a-input
-          v-model:value="form.id"
-          placeholder="请输入设备ID"
-          :disabled="isEditing"
-        />
-      </a-form-item>
-      <a-form-item label="操作系统">
-        <a-input
-          v-model:value="form.os_name"
-          placeholder="请输入操作系统"
-          :disabled="isEditing"
-        />
-      </a-form-item>
-      <a-form-item label="系统版本">
-        <a-input
-          v-model:value="form.os_version"
-          placeholder="请输入系统版本"
-          :disabled="isEditing"
+          v-model:value="form.alias"
+          placeholder="请输入设备别名"
         />
       </a-form-item>
     </a-form>
@@ -80,15 +58,8 @@ const emit = defineEmits(['update:visible', 'ok', 'cancel'])
 // 表单数据
 const form = reactive({
   id: '',
-  hostname: '',
-  ip_address: '',
+  alias: '',
   type: '',
-  os_name: '',
-  os_version: '',
-  gateway: '',
-  netmask: '',
-  os_architecture: '',
-  machine_type: ''
 })
 
 // 确认加载状态
@@ -136,15 +107,8 @@ const handleCancel = () => {
 const resetForm = () => {
   Object.assign(form, {
     id: '',
-    hostname: '',
-    ip_address: '',
+    alias: '',
     type: '',
-    os_name: '',
-    os_version: '',
-    gateway: '',
-    netmask: '',
-    os_architecture: '',
-    machine_type: ''
   })
 }
 

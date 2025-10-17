@@ -25,6 +25,7 @@ class SwitchInfo:
         description: str = "",
         device_name: str = "",
         device_type: str = "",
+        alias: str = "",
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         id: Optional[int] = None,
@@ -45,6 +46,7 @@ class SwitchInfo:
             description: 交换机描述信息
             device_name: 设备名称
             device_type: 设备类型（如'交换机', '路由器', '防火墙'等）
+            alias: 设备别名（只能通过UpdateHandler修改）
             created_at: 创建时间（可选）
             updated_at: 更新时间（可选）
         """
@@ -60,8 +62,10 @@ class SwitchInfo:
         self.description = description
         self.device_name = device_name
         self.device_type = device_type
-        self.created_at = created_at or datetime.now().isoformat()
-        self.updated_at = updated_at or datetime.now().isoformat()
+        self.alias = alias
+        # 使用本地时间并格式化为标准格式（与数据库datetime('now', 'localtime')一致）
+        self.created_at = created_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.updated_at = updated_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -83,6 +87,7 @@ class SwitchInfo:
             "description": self.description,
             "device_name": self.device_name,
             "device_type": self.device_type,
+            "alias": self.alias,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -111,13 +116,14 @@ class SwitchInfo:
             description=data.get("description", ""),
             device_name=data.get("device_name", ""),
             device_type=data.get("device_type", ""),
+            alias=data.get("alias", ""),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
 
     def __str__(self) -> str:
         """返回交换机信息的字符串表示"""
-        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description}, device_name={self.device_name}, device_type={self.device_type})"
+        return f"SwitchInfo(ip={self.ip}, snmp_version={self.snmp_version}, description={self.description}, device_name={self.device_name}, device_type={self.device_type}, alias={self.alias})"
 
     def __repr__(self) -> str:
         """返回交换机信息的详细字符串表示"""
