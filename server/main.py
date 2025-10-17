@@ -48,6 +48,14 @@ def print_welcome_banner():
 def signal_handler(sig, frame):
     """信号处理函数"""
     logger.info("接收到终止信号，正在关闭服务端...")
+    # 停止服务器性能监控器
+    try:
+        from src.monitor import get_server_monitor
+
+        server_monitor = get_server_monitor()
+        server_monitor.stop()
+    except Exception as e:
+        logger.error(f"停止服务器监控器时出错: {e}")
     # 停止SNMP轮询器
     try:
         stop_device_poller()
@@ -155,6 +163,13 @@ def main():
         # 将 db_manager 传递给 SNMPManager，共享连接池
         snmp_manager = SNMPManager(db_manager=db_manager)
         snmp_manager.start_pollers()
+
+        # 9. 启动服务器性能监控器
+        logger.info("启动服务器性能监控器...")
+        from src.monitor import get_server_monitor
+
+        server_monitor = get_server_monitor()  # 使用配置文件中的间隔
+        server_monitor.start()
 
         logger.info("所有服务已启动完成")
 

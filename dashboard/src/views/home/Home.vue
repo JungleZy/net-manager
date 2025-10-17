@@ -1,30 +1,35 @@
 <template>
-  <div class="p-[12px] size-full">
-    <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[12px]">
-      <div class="bg-blue-100 rounded-lg p-4 shadow">
-        <div class="text-2xl font-bold text-blue-800">
-          {{ statistics.deviceCount }}
+  <div class="p-[12px] size-full overflow-auto">
+    <ServerPerformance />
+
+    <div class="w-full bg-white rounded-lg shadow p-[12px]">
+      <h2 class="text-lg font-semibold mb-[12px]">设备统计</h2>
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[12px]">
+        <div class="bg-blue-100 rounded-lg p-4 shadow">
+          <div class="text-2xl font-bold text-blue-800">
+            {{ statistics.deviceCount }}
+          </div>
+          <div class="text-gray-600">总设备数</div>
         </div>
-        <div class="text-gray-600">总设备数</div>
-      </div>
-      <div class="bg-green-100 rounded-lg p-4 shadow">
-        <div class="text-2xl font-bold text-green-800">
-          {{ statistics.onlineCount }}
+        <div class="bg-green-100 rounded-lg p-4 shadow">
+          <div class="text-2xl font-bold text-green-800">
+            {{ statistics.onlineCount }}
+          </div>
+          <div class="text-gray-600">在线设备</div>
         </div>
-        <div class="text-gray-600">在线设备</div>
-      </div>
-      <div class="bg-red-100 rounded-lg p-4 shadow">
-        <div class="text-2xl font-bold text-red-800">
-          {{ statistics.offlineCount }}
+        <div class="bg-red-100 rounded-lg p-4 shadow">
+          <div class="text-2xl font-bold text-red-800">
+            {{ statistics.offlineCount }}
+          </div>
+          <div class="text-gray-600">离线设备</div>
         </div>
-        <div class="text-gray-600">离线设备</div>
       </div>
-    </div>
-    <div
-      class="w-full bg-white rounded-lg shadow p-[12px]"
-      style="height: calc(100% - 79px)"
-    >
+      <a-empty v-if="devices.length === 0 && switchesWithStatus.length === 0">
+        <template #description>
+          <div class="text-center">暂无设备</div>
+        </template>
+      </a-empty>
       <div class="device-list size-full">
         <div class="size-full">
           <a-row :gutter="16">
@@ -115,6 +120,7 @@ import { formatOSInfo } from '@/common/utils/Utils.js'
 import SNMPStorage from '@/common/utils/SNMPStorage.js'
 import { PubSub } from '@/common/utils/PubSub'
 import { wsCode } from '@/common/ws/Ws'
+import ServerPerformance from './ServerPerformance.vue'
 
 // IP地址显示组件
 const IPDisplay = defineComponent({
@@ -203,7 +209,8 @@ const IPDisplay = defineComponent({
 export default {
   name: 'Home',
   components: {
-    IPDisplay
+    IPDisplay,
+    ServerPerformance
   },
   setup() {
     const statistics = ref({

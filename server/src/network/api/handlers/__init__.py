@@ -35,6 +35,7 @@ from src.network.api.handlers.snmp_scan_handler import (
     SNMPScanHandler,
     SNMPScanHandlerSimple,
 )
+from src.network.api.handlers.performance_handler import PerformanceHandler
 
 __all__ = [
     "BaseHandler",
@@ -59,4 +60,5 @@ __all__ = [
     "TopologyLatestHandler",
     "SNMPScanHandler",
     "SNMPScanHandlerSimple",
+    "PerformanceHandler",
 ]

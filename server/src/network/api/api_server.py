@@ -47,6 +47,7 @@ from src.network.api.handlers.topology_handlers import (
     TopologyLatestHandler,
 )
 from src.network.api.handlers.health_handler import HealthHandler
+from src.network.api.handlers.performance_handler import PerformanceHandler
 from src.network.api.websocket_handler import WebSocketHandler
 
 
@@ -196,6 +197,7 @@ class APIServer:
                 dict(topology_manager=self.topology_manager),
             ),
             (r"/ws", WebSocketHandler),
+            (r"/api/performance", PerformanceHandler),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
         ]

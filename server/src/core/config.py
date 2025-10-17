@@ -23,3 +23,6 @@ LOG_LEVEL = "INFO"
 # 使用pathlib处理跨平台路径
 # TimedRotatingFileHandler会自动添加日期后缀，所以基础文件名不需要.log扩展名
 LOG_FILE = Path(__file__).parent.parent.parent / "logs" / "net_manager_server"
+
+# 服务器性能监控配置
+SERVER_MONITOR_INTERVAL = 10  # 服务器性能数据采集间隔（秒）

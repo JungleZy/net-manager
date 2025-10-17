@@ -10,6 +10,7 @@ export const wsCode = {
   SNMP_DEVICE: "snmpDeviceInfo",
   SNMP_DEVICE_UPDATE: "snmpDeviceUpdate",        // 单设备实时更新
   SNMP_INTERFACE_UPDATE: "snmpInterfaceUpdate",  // 单接口实时更新
+  SERVER_PERFORMANCE: "server_performance",       // 服务器性能数据
 }
 export class Ws {
   constructor() {
@@ -80,6 +81,12 @@ export class Ws {
           this.handleInterfaceUpdate(data.data);
           PubSub.publish(wsCode.SNMP_INTERFACE_UPDATE, data.data);
           break;
+
+        // 服务器性能数据
+        case "server_performance":
+          PubSub.publish(wsCode.SERVER_PERFORMANCE, data.data);
+          break;
+
         default:
           break;
       }
