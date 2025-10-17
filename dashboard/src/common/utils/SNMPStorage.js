@@ -1,33 +1,109 @@
 /**
  * SNMP设备数据存储工具类
  * 使用localforage管理SNMP设备数据的持久化存储
+ * 数据结构：以switch_id为主键，每个交换机包含device_info和interface_info
  */
 import localforage from 'localforage';
 
 export class SNMPStorage {
   /**
-   * 获取所有SNMP设备数据
-   * @returns {Promise<Object>} 设备数据对象，key为IP或switch_id
+   * 获取所有SNMP数据（统一存储，以switch_id为主键）
+   * @returns {Promise<Object>} SNMP数据对象，key为switch_id
    */
-  static async getAllDevices() {
+  static async getAllData() {
     try {
-      const devices = await localforage.getItem('snmpDevices');
-      return devices || {};
+      const data = await localforage.getItem('snmpData');
+      return data || {};
     } catch (error) {
-      console.error('获取SNMP设备数据失败:', error);
+      console.error('获取SNMP数据失败:', error);
       return {};
     }
   }
 
   /**
-   * 根据IP或switch_id获取单个设备数据
-   * @param {string} key - 设备IP或switch_id
+   * 获取所有设备信息（兼容旧接口）
+   * @returns {Promise<Object>} 设备数据对象
+   */
+  static async getAllDevices() {
+    return await this.getAllData();
+  }
+
+  /**
+   * 根据switch_id获取交换机数据
+   * @param {string|number} switchId - 交换机ID
+   * @returns {Promise<Object|null>} 交换机完整数据或null
+   */
+  static async getSwitchData(switchId) {
+    try {
+      const data = await this.getAllData();
+      return data[switchId] || null;
+    } catch (error) {
+      console.error('获取交换机数据失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 根据switch_id获取设备信息
+   * @param {string|number} switchId - 交换机ID
+   * @returns {Promise<Object|null>} 设备信息或null
+   */
+  static async getDeviceInfo(switchId) {
+    try {
+      const switchData = await this.getSwitchData(switchId);
+      return switchData?.device_info || null;
+    } catch (error) {
+      console.error('获取设备信息失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 根据switch_id获取接口信息
+   * @param {string|number} switchId - 交换机ID
+   * @returns {Promise<Object|null>} 接口信息或null
+   */
+  static async getInterfaceInfo(switchId) {
+    try {
+      const switchData = await this.getSwitchData(switchId);
+      return switchData?.interface_info || null;
+    } catch (error) {
+      console.error('获取接口信息失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 根据IP地址查找交换机ID
+   * @param {string} ip - IP地址
+   * @returns {Promise<string|null>} 交换机ID或null
+   */
+  static async findSwitchIdByIp(ip) {
+    try {
+      const data = await this.getAllData();
+      const entry = Object.entries(data).find(([_, sw]) => sw.ip === ip);
+      return entry ? entry[0] : null;
+    } catch (error) {
+      console.error('查找交换机ID失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 兼容旧接口：根据IP或switch_id获取设备数据
+   * @param {string} key - IP地址或switch_id
    * @returns {Promise<Object|null>} 设备数据或null
    */
   static async getDevice(key) {
     try {
-      const devices = await this.getAllDevices();
-      return devices[key] || null;
+      const data = await this.getAllData();
+      // 先尝试作为switch_id
+      if (data[key]) {
+        return data[key];
+      }
+      // 再尝试作为IP查找
+      const switchId = await this.findSwitchIdByIp(key);
+      return switchId ? data[switchId] : null;
     } catch (error) {
       console.error('获取设备数据失败:', error);
       return null;
@@ -35,13 +111,15 @@ export class SNMPStorage {
   }
 
   /**
-   * 获取所有在线设备
+   * 获取所有在线设备（设备信息或接口信息任一在线即视为在线）
    * @returns {Promise<Array>} 在线设备数组
    */
   static async getOnlineDevices() {
     try {
-      const devices = await this.getAllDevices();
-      return Object.values(devices).filter(device => device.type === 'success');
+      const data = await this.getAllData();
+      return Object.values(data).filter(sw =>
+        sw.device_info?.type === 'success' || sw.interface_info?.type === 'success'
+      );
     } catch (error) {
       console.error('获取在线设备失败:', error);
       return [];
@@ -49,13 +127,15 @@ export class SNMPStorage {
   }
 
   /**
-   * 获取所有离线设备
+   * 获取所有离线设备（设备信息和接口信息都离线或都不存在）
    * @returns {Promise<Array>} 离线设备数组
    */
   static async getOfflineDevices() {
     try {
-      const devices = await this.getAllDevices();
-      return Object.values(devices).filter(device => device.type === 'error');
+      const data = await this.getAllData();
+      return Object.values(data).filter(sw =>
+        sw.device_info?.type === 'error' && sw.interface_info?.type === 'error'
+      );
     } catch (error) {
       console.error('获取离线设备失败:', error);
       return [];
@@ -77,16 +157,16 @@ export class SNMPStorage {
   }
 
   /**
-   * 清除所有SNMP设备数据
+   * 清除所有SNMP数据
    * @returns {Promise<void>}
    */
   static async clearAll() {
     try {
-      await localforage.removeItem('snmpDevices');
+      await localforage.removeItem('snmpData');
       await localforage.removeItem('snmpSummary');
-      console.log('SNMP设备数据已清除');
+      console.log('SNMP数据已清除');
     } catch (error) {
-      console.error('清除SNMP设备数据失败:', error);
+      console.error('清除SNMP数据失败:', error);
     }
   }
 
@@ -96,13 +176,17 @@ export class SNMPStorage {
    */
   static async getDeviceCount() {
     try {
-      const devices = await this.getAllDevices();
-      const deviceArray = Object.values(devices);
-      const onlineCount = deviceArray.filter(d => d.type === 'success').length;
-      const offlineCount = deviceArray.filter(d => d.type === 'error').length;
+      const data = await this.getAllData();
+      const switches = Object.values(data);
+      const onlineCount = switches.filter(sw =>
+        sw.device_info?.type === 'success' || sw.interface_info?.type === 'success'
+      ).length;
+      const offlineCount = switches.filter(sw =>
+        sw.device_info?.type === 'error' && sw.interface_info?.type === 'error'
+      ).length;
 
       return {
-        total: deviceArray.length,
+        total: switches.length,
         online: onlineCount,
         offline: offlineCount
       };
@@ -113,14 +197,18 @@ export class SNMPStorage {
   }
 
   /**
-   * 根据设备类型筛选
-   * @param {string} type - 设备类型 'success' 或 'error'
+   * 根据状态类型筛选
+   * @param {string} type - 状态类型 'success' 或 'error'
    * @returns {Promise<Array>} 设备数组
    */
   static async getDevicesByType(type) {
     try {
-      const devices = await this.getAllDevices();
-      return Object.values(devices).filter(device => device.type === type);
+      if (type === 'success') {
+        return await this.getOnlineDevices();
+      } else if (type === 'error') {
+        return await this.getOfflineDevices();
+      }
+      return [];
     } catch (error) {
       console.error('筛选设备失败:', error);
       return [];
@@ -134,21 +222,21 @@ export class SNMPStorage {
    */
   static async searchDevices(searchText) {
     try {
-      const devices = await this.getAllDevices();
-      const deviceArray = Object.values(devices);
+      const data = await this.getAllData();
+      const switches = Object.values(data);
 
       if (!searchText) {
-        return deviceArray;
+        return switches;
       }
 
       const text = searchText.toLowerCase();
-      return deviceArray.filter(device => {
+      return switches.filter(sw => {
         return (
-          (device.ip && device.ip.toLowerCase().includes(text)) ||
-          (device.device_info && device.device_info.name &&
-            device.device_info.name.toLowerCase().includes(text)) ||
-          (device.device_info && device.device_info.description &&
-            device.device_info.description.toLowerCase().includes(text))
+          (sw.ip && sw.ip.toLowerCase().includes(text)) ||
+          (sw.device_info?.device_info?.sysName &&
+            sw.device_info.device_info.sysName.toLowerCase().includes(text)) ||
+          (sw.device_info?.device_info?.sysDescr &&
+            sw.device_info.device_info.sysDescr.toLowerCase().includes(text))
         );
       });
     } catch (error) {
@@ -159,13 +247,13 @@ export class SNMPStorage {
 
   /**
    * 获取设备最后更新时间
-   * @param {string} key - 设备IP或switch_id
+   * @param {string|number} switchId - 交换机ID
    * @returns {Promise<string|null>} ISO格式的时间字符串或null
    */
-  static async getDeviceUpdateTime(key) {
+  static async getDeviceUpdateTime(switchId) {
     try {
-      const device = await this.getDevice(key);
-      return device ? device.updateTime : null;
+      const switchData = await this.getSwitchData(switchId);
+      return switchData?.last_update_time || switchData?.device_update_time || null;
     } catch (error) {
       console.error('获取设备更新时间失败:', error);
       return null;
@@ -174,16 +262,48 @@ export class SNMPStorage {
 
   /**
    * 检查设备是否在线
-   * @param {string} key - 设备IP或switch_id
+   * @param {string|number} switchId - 交换机ID
    * @returns {Promise<boolean>} 是否在线
    */
-  static async isDeviceOnline(key) {
+  static async isDeviceOnline(switchId) {
     try {
-      const device = await this.getDevice(key);
-      return device ? device.type === 'success' : false;
+      const switchData = await this.getSwitchData(switchId);
+      return switchData ?
+        (switchData.device_info?.type === 'success' ||
+          switchData.interface_info?.type === 'success') : false;
     } catch (error) {
       console.error('检查设备在线状态失败:', error);
       return false;
+    }
+  }
+
+  /**
+   * 构建设备状态映射（以switch_id为key）
+   * @returns {Promise<Object>} 状态映射对象
+   */
+  static async buildStatusMap() {
+    try {
+      const data = await this.getAllData();
+      const statusMap = {};
+
+      Object.entries(data).forEach(([switchId, switchData]) => {
+        // 优先使用设备信息的状态，如果设备信息不存在则使用接口信息的状态
+        const deviceStatus = switchData.device_info?.type;
+        const interfaceStatus = switchData.interface_info?.type;
+
+        statusMap[switchId] = {
+          type: deviceStatus || interfaceStatus || 'unknown',
+          updateTime: switchData.last_update_time || switchData.device_update_time,
+          error: switchData.device_info?.error || switchData.interface_info?.error,
+          device_info: switchData.device_info?.device_info || {},
+          interface_info: switchData.interface_info?.interface_info || []
+        };
+      });
+
+      return statusMap;
+    } catch (error) {
+      console.error('构建状态映射失败:', error);
+      return {};
     }
   }
 }

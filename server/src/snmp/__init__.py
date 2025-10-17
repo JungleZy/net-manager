@@ -9,20 +9,24 @@ SNMP监控模块
 from .snmp_monitor import SNMPMonitor
 from .oid_classifier import OIDClassifier
 from .manager import SNMPManager
-from .continuous_poller import (
-    SNMPContinuousPoller,
-    start_snmp_poller,
-    stop_snmp_poller,
-    get_snmp_poller,
+from .unified_poller import (
+    start_device_poller,
+    stop_device_poller,
+    start_interface_poller,
+    stop_interface_poller,
+    get_device_poller,
+    get_interface_poller,
 )
 
 __all__ = [
     "SNMPMonitor",
     "OIDClassifier",
     "SNMPManager",
-    "SNMPContinuousPoller",
-    "start_snmp_poller",
-    "stop_snmp_poller",
-    "get_snmp_poller",
+    "start_device_poller",
+    "stop_device_poller",
+    "start_interface_poller",
+    "stop_interface_poller",
+    "get_device_poller",
+    "get_interface_poller",
 ]
 __version__ = "1.0.0"

@@ -201,14 +201,15 @@ const filters = ref({
   status: undefined
 })
 
-// SNMP设备状态数据 - 使用 shallowRef 优化大对象性能
+// SNMP设备状态数据 - 使用 shallowRef 优化大对象性能（以switch_id为key）
 const snmpDevicesStatus = shallowRef({})
 
-// 设备列表增强状态 - 优化映射逻辑
+// 设备列表增强状态 - 根据switch_id匹配状态
 const switchesWithStatus = computed(() => {
   const statusData = snmpDevicesStatus.value
   return switches.value.map((sw) => {
-    const snmpData = statusData[sw.ip]
+    // 使用switch_id（数据库主键）匹配状态
+    const snmpData = statusData[sw.id]
     return {
       ...sw,
       status: snmpData?.type || 'unknown',
@@ -370,7 +371,7 @@ const switchColumns = [
     dataIndex: 'if_count',
     align: 'center',
     key: 'if_count',
-    width: 80,
+    width: 70,
     customRender: ({ text }) => {
       return text || '-'
     }
@@ -511,13 +512,13 @@ const handleTableChange = (pag, filters, sorter) => {
   emit('handleTableChange', pag, filters, sorter)
 }
 
-// 加载SNMP设备状态 - 优化性能和错误处理
+// 加载SNMP设备状态 - 使用新的buildStatusMap方法
 const loadSNMPDevicesStatus = async () => {
   try {
-    const devices = await SNMPStorage.getAllDevices()
-    if (devices && typeof devices === 'object') {
-      snmpDevicesStatus.value = devices
-      const count = Object.keys(devices).length
+    const statusMap = await SNMPStorage.buildStatusMap()
+    if (statusMap && typeof statusMap === 'object') {
+      snmpDevicesStatus.value = statusMap
+      const count = Object.keys(statusMap).length
       if (count > 0) {
         console.log(`加载SNMP设备状态: ${count}个设备`)
       }
@@ -528,12 +529,93 @@ const loadSNMPDevicesStatus = async () => {
   }
 }
 
-// WebSocket消息处理器 - 提取为独立函数便于管理
-const handleSNMPDeviceBatch = async () => {
-  await loadSNMPDevicesStatus()
+// WebSocket消息处理器 - 处理单设备实时更新
+const handleDeviceUpdate = async (deviceData) => {
+  try {
+    const switchId = deviceData.switch_id
+    if (!switchId) {
+      console.warn('设备数据缺少switch_id:', deviceData)
+      return
+    }
+
+    // 获取当前状态映射
+    const currentStatus = { ...snmpDevicesStatus.value }
+
+    // 如果该switch_id不存在，初始化结构
+    if (!currentStatus[switchId]) {
+      currentStatus[switchId] = {
+        type: 'unknown',
+        updateTime: null,
+        error: null,
+        device_info: {},
+        interface_info: []
+      }
+    }
+
+    // 更新设备信息状态
+    currentStatus[switchId].type = deviceData.type
+    currentStatus[switchId].updateTime = new Date().toISOString()
+    currentStatus[switchId].error = deviceData.error || null
+    currentStatus[switchId].device_info = deviceData.device_info || {}
+
+    // 更新状态
+    snmpDevicesStatus.value = currentStatus
+
+    console.debug(
+      `设备状态更新: switch_id=${switchId}, status=${deviceData.type}`
+    )
+  } catch (error) {
+    console.error('处理设备更新失败:', error)
+  }
 }
 
-// 组件挂载 - 优化异步处理
+// WebSocket消息处理器 - 处理单接口实时更新
+const handleInterfaceUpdate = async (interfaceData) => {
+  try {
+    const switchId = interfaceData.switch_id
+    if (!switchId) {
+      console.warn('接口数据缺少switch_id:', interfaceData)
+      return
+    }
+
+    // 获取当前状态映射
+    const currentStatus = { ...snmpDevicesStatus.value }
+
+    // 如果该switch_id不存在，初始化结构
+    if (!currentStatus[switchId]) {
+      currentStatus[switchId] = {
+        type: 'unknown',
+        updateTime: null,
+        error: null,
+        device_info: {},
+        interface_info: []
+      }
+    }
+
+    // 更新接口信息状态（仅当设备信息不存在时更新type）
+    if (
+      !currentStatus[switchId].device_info ||
+      Object.keys(currentStatus[switchId].device_info).length === 0
+    ) {
+      currentStatus[switchId].type = interfaceData.type
+    }
+    currentStatus[switchId].updateTime = new Date().toISOString()
+    currentStatus[switchId].interface_info = interfaceData.interface_info || []
+
+    // 更新状态
+    snmpDevicesStatus.value = currentStatus
+
+    console.debug(
+      `接口状态更新: switch_id=${switchId}, 接口数=${
+        interfaceData.interface_info?.length || 0
+      }`
+    )
+  } catch (error) {
+    console.error('处理接口更新失败:', error)
+  }
+}
+
+// 组件挂载 - 订阅实时消息
 onMounted(() => {
   fetchSwitches()
   // 异步加载SNMP状态，不阻塞组件渲染
@@ -541,16 +623,19 @@ onMounted(() => {
     console.error('初始化SNMP状态失败:', err)
   })
 
-  // 订阅SNMP设备批量更新
-  PubSub.subscribe(wsCode.SNMP_DEVICE_BATCH, handleSNMPDeviceBatch)
-  console.log('SNMP设备状态订阅已启动')
+  // 订阅SNMP设备实时更新
+  PubSub.subscribe(wsCode.SNMP_DEVICE_UPDATE, handleDeviceUpdate)
+  // 订阅SNMP接口实时更新
+  PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleInterfaceUpdate)
+  console.log('SNMP实时状态订阅已启动')
 })
 
 // 组件卸载 - 清理资源
 onUnmounted(() => {
-  PubSub.unsubscribe(wsCode.SNMP_DEVICE_BATCH)
+  PubSub.unsubscribe(wsCode.SNMP_DEVICE_UPDATE)
+  PubSub.unsubscribe(wsCode.SNMP_INTERFACE_UPDATE)
   // 清空状态，释放内存
   snmpDevicesStatus.value = {}
-  console.log('SNMP设备状态订阅已取消')
+  console.log('SNMP实时状态订阅已取消')
 })
 </script>

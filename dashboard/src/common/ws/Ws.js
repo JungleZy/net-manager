@@ -1,7 +1,6 @@
 import localforage from "localforage";
 import { PubSub } from "@/common/utils/PubSub";
 import { notification } from 'ant-design-vue';
-const [api, contextHolder] = notification.useNotification();
 
 const key = 'updatable';
 export const wsCode = {
@@ -9,7 +8,8 @@ export const wsCode = {
   DEVICE_INFO: "deviceInfo",
   DEVICE_STATUS: "deviceStatus",
   SNMP_DEVICE: "snmpDeviceInfo",
-  SNMP_DEVICE_BATCH: "snmpDeviceBatch"
+  SNMP_DEVICE_UPDATE: "snmpDeviceUpdate",        // 单设备实时更新
+  SNMP_INTERFACE_UPDATE: "snmpInterfaceUpdate",  // 单接口实时更新
 }
 export class Ws {
   constructor() {
@@ -20,6 +20,9 @@ export class Ws {
       this.flag = true;
       this.url = wsUrl;
       this.socket = null;
+      // 记录上一次设备更新的时间戳（用于计算实时推送频率）
+      this.lastDeviceUpdateTime = null;
+      this.lastInterfaceUpdateTime = null;
       Ws.instance = this;
     }
     return Ws.instance;
@@ -66,13 +69,16 @@ export class Ws {
         case "deviceStatus":
           PubSub.publish(wsCode.DEVICE_STATUS, data.data);
           break;
-        case "snmpDeviceInfo":
-          console.log("snmpDeviceInfo", data);
-          PubSub.publish(wsCode.SNMP_DEVICE, data.data);
+        // 单设备实时更新（快进快出队列模式）
+        case "snmpDeviceUpdate":
+          this.handleDeviceUpdate(data.data);
+          PubSub.publish(wsCode.SNMP_DEVICE_UPDATE, data.data);
           break;
-        case "snmpDeviceBatch":
-          this.saveSNMPDeviceData(data.data, data.summary);
-          PubSub.publish(wsCode.SNMP_DEVICE_BATCH, data.data);
+
+        // 单接口实时更新（快进快出队列模式）
+        case "snmpInterfaceUpdate":
+          this.handleInterfaceUpdate(data.data);
+          PubSub.publish(wsCode.SNMP_INTERFACE_UPDATE, data.data);
           break;
         default:
           break;
@@ -95,41 +101,125 @@ export class Ws {
   }
 
   /**
-   * 保存SNMP设备数据到localforage
-   * @param {Array} devices - 设备数据数组
-   * @param {Object} summary - 统计信息
+   * 处理单设备实时更新
+   * @param {Object} deviceData - 单个设备数据
    */
-  async saveSNMPDeviceData(devices, summary) {
+  async handleDeviceUpdate(deviceData) {
+    console.log('handleDeviceUpdate', deviceData);
+
     try {
-      // 获取现有的SNMP设备数据
-      let snmpDevices = await localforage.getItem('snmpDevices') || {};
+      // 计算更新频率（用于监控）
+      const currentTime = Date.now();
+      this.lastDeviceUpdateTime = currentTime;
 
-      // 更新每个设备的数据
-      devices.forEach(device => {
-        const key = device.ip || device.switch_id;
-        if (key) {
-          snmpDevices[key] = {
-            ...device,
-            updateTime: new Date().toISOString(),
-            timestamp: Date.now()
-          };
-        }
-      });
-
-      // 保存更新后的数据
-      await localforage.setItem('snmpDevices', snmpDevices);
-
-      // 保存最新的统计信息
-      if (summary) {
-        await localforage.setItem('snmpSummary', {
-          ...summary,
-          lastUpdateTime: new Date().toISOString(),
-          timestamp: Date.now()
-        });
-      }
+      // 保存单个设备数据（以switch_id为key）
+      await this.saveSingleDeviceData(deviceData);
 
     } catch (error) {
-      console.error('SNMP设备数据保存失败:', error);
+      console.error('设备实时更新处理失败:', error);
+    }
+  }
+
+  /**
+   * 处理单接口实时更新
+   * @param {Object} interfaceData - 单个接口数据
+   */
+  async handleInterfaceUpdate(interfaceData) {
+    console.log('handleInterfaceUpdate', interfaceData);
+    try {
+      // 计算更新频率（用于监控）
+      const currentTime = Date.now();
+      this.lastInterfaceUpdateTime = currentTime;
+
+      // 保存单个接口数据（以switch_id为key）
+      await this.saveSingleInterfaceData(interfaceData);
+
+    } catch (error) {
+      console.error('接口实时更新处理失败:', error);
+    }
+  }
+
+  /**
+   * 保存单个设备数据到localforage
+   * @param {Object} deviceData - 单个设备数据
+   */
+  async saveSingleDeviceData(deviceData) {
+    try {
+      const switchId = deviceData.switch_id;
+      if (!switchId) {
+        console.warn('设备数据缺少switch_id:', deviceData);
+        return;
+      }
+
+      // 获取现有的SNMP数据（以switch_id为key）
+      let snmpData = await localforage.getItem('snmpData') || {};
+
+      // 如果该switch_id不存在，初始化结构
+      if (!snmpData[switchId]) {
+        snmpData[switchId] = {
+          switch_id: switchId,
+          ip: deviceData.ip,
+          device_info: null,
+          interface_info: null,
+          device_update_time: null,
+          interface_update_time: null,
+          last_update_time: null
+        };
+      }
+
+      // 更新设备信息
+      snmpData[switchId].device_info = deviceData;
+      snmpData[switchId].device_update_time = new Date().toISOString();
+      snmpData[switchId].last_update_time = new Date().toISOString();
+      snmpData[switchId].ip = deviceData.ip; // 更新IP（可能变化）
+
+      // 保存更新后的数据
+      await localforage.setItem('snmpData', snmpData);
+
+    } catch (error) {
+      console.error('单设备数据保存失败:', error);
+    }
+  }
+
+  /**
+   * 保存单个接口数据到localforage
+   * @param {Object} interfaceData - 单个接口数据
+   */
+  async saveSingleInterfaceData(interfaceData) {
+    try {
+      const switchId = interfaceData.switch_id;
+      if (!switchId) {
+        console.warn('接口数据缺少switch_id:', interfaceData);
+        return;
+      }
+
+      // 获取现有的SNMP数据（以switch_id为key）
+      let snmpData = await localforage.getItem('snmpData') || {};
+
+      // 如果该switch_id不存在，初始化结构
+      if (!snmpData[switchId]) {
+        snmpData[switchId] = {
+          switch_id: switchId,
+          ip: interfaceData.ip,
+          device_info: null,
+          interface_info: null,
+          device_update_time: null,
+          interface_update_time: null,
+          last_update_time: null
+        };
+      }
+
+      // 更新接口信息
+      snmpData[switchId].interface_info = interfaceData;
+      snmpData[switchId].interface_update_time = new Date().toISOString();
+      snmpData[switchId].last_update_time = new Date().toISOString();
+      snmpData[switchId].ip = interfaceData.ip; // 更新IP（可能变化）
+
+      // 保存更新后的数据
+      await localforage.setItem('snmpData', snmpData);
+
+    } catch (error) {
+      console.error('单接口数据保存失败:', error);
     }
   }
 }

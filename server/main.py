@@ -21,7 +21,7 @@ from src.database import DatabaseManager
 from src.core.logger import logger
 from src.core.config import VERSION
 from src.core.singleton_manager import get_server_singleton_manager
-from src.snmp.continuous_poller import start_snmp_poller, stop_snmp_poller
+from src.snmp.unified_poller import stop_device_poller, stop_interface_poller
 
 # 获取单例管理器实例
 singleton_manager = get_server_singleton_manager()
@@ -50,7 +50,8 @@ def signal_handler(sig, frame):
     logger.info("接收到终止信号，正在关闭服务端...")
     # 停止SNMP轮询器
     try:
-        stop_snmp_poller()
+        stop_device_poller()
+        stop_interface_poller()
     except Exception as e:
         logger.error(f"停止SNMP轮询器时出错: {e}")
     # 通知所有服务停止运行
@@ -147,18 +148,11 @@ def main():
         # 等待UDP服务器完全启动
         time.sleep(0.5)
 
-        # 8. 启动SNMP轮询器
+        # 8. 启动SNMP轮询器（统一管理）
         logger.info("启动SNMP轮询器...")
-        from src.database.managers.switch_manager import SwitchManager
+        from src.snmp.manager import SNMPManager
 
-        switch_manager = SwitchManager()
-        # 启动SNMP轮询器：每60秒轮询一次，最多10个并发，单个设备超时10秒
-        start_snmp_poller(
-            switch_manager,
-            poll_interval=10,  # 轮询间隔
-            max_workers=10,  # 最大并发数
-            device_timeout=30,  # 单个设备超时
-        )
+        SNMPManager().start_pollers()
 
         logger.info("所有服务已启动完成")
 

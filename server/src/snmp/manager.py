@@ -7,6 +7,12 @@ from typing import Dict, List, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
 from .snmp_monitor import SNMPMonitor
 from .oid_classifier import OIDClassifier
+from .unified_poller import (
+    start_device_poller,
+    start_interface_poller,
+    stop_device_poller,
+    stop_interface_poller,
+)
 
 # 注意：SNMPMonitor已经处理了pysnmp的导入，这里不需要重复导入
 
@@ -24,6 +30,8 @@ class SNMPManager:
         """初始化SNMP管理器"""
         self.monitor = SNMPMonitor()
         self.classifier = OIDClassifier()
+        self._device_poller = None
+        self._interface_poller = None
 
     async def get_device_overview(
         self, ip: str, version: str, **kwargs
@@ -545,6 +553,122 @@ class SNMPManager:
 
         print(f"发现 {len(snmp_hosts)} 个SNMP设备:\n {snmp_hosts}")
         return snmp_hosts
+
+    def start_pollers(
+        self,
+        device_poll_interval: int = 10,
+        device_min_workers: int = 5,
+        device_max_workers: int = 20,
+        device_timeout: int = 30,
+        interface_poll_interval: int = 30,
+        interface_min_workers: int = 5,
+        interface_max_workers: int = 30,
+        interface_timeout: int = 60,
+        enable_cache: bool = True,
+        cache_ttl: int = 300,
+        dynamic_adjustment: bool = True,
+    ):
+        """
+        启动SNMP设备和接口轮询器
+
+        Args:
+            switch_manager: 交换机管理器实例
+            device_poll_interval: 设备信息轮询间隔（秒），默认10秒
+            device_min_workers: 设备轮询最小并发数，默认5
+            device_max_workers: 设备轮询最大并发数，默认20
+            device_timeout: 设备轮询超时时间（秒），默认30秒
+            interface_poll_interval: 接口信息轮询间隔（秒），默认30秒
+            interface_min_workers: 接口轮询最小并发数，默认5
+            interface_max_workers: 接口轮询最大并发数，默认30
+            interface_timeout: 接口轮询超时时间（秒），默认60秒
+            enable_cache: 是否启用缓存，默认True
+            cache_ttl: 缓存TTL（秒），默认300秒
+            dynamic_adjustment: 是否启用动态并发调整，默认True
+
+        Returns:
+            包含两个轮询器实例的元组 (device_poller, interface_poller)
+        """
+        logger.info("启动SNMP统一轮询器...")
+
+        # 启动设备信息轮询器
+        logger.info(
+            f"启动SNMP设备轮询器: 间隔{device_poll_interval}秒, "
+            f"并发{device_min_workers}-{device_max_workers}, 超时{device_timeout}秒"
+        )
+
+        from src.database.managers.switch_manager import SwitchManager
+
+        switch_manager = SwitchManager()
+        self._device_poller = start_device_poller(
+            switch_manager,
+            poll_interval=device_poll_interval,
+            min_workers=device_min_workers,
+            max_workers=device_max_workers,
+            device_timeout=device_timeout,
+            enable_cache=enable_cache,
+            cache_ttl=cache_ttl,
+            dynamic_adjustment=dynamic_adjustment,
+        )
+
+        # 启动接口信息轮询器
+        logger.info(
+            f"启动SNMP接口轮询器: 间隔{interface_poll_interval}秒, "
+            f"并发{interface_min_workers}-{interface_max_workers}, 超时{interface_timeout}秒"
+        )
+        self._interface_poller = start_interface_poller(
+            switch_manager,
+            poll_interval=interface_poll_interval,
+            min_workers=interface_min_workers,
+            max_workers=interface_max_workers,
+            device_timeout=interface_timeout,
+            enable_cache=enable_cache,
+            cache_ttl=cache_ttl,
+            dynamic_adjustment=dynamic_adjustment,
+        )
+
+        logger.info("所有SNMP轮询器启动完成")
+        return self._device_poller, self._interface_poller
+
+    def stop_pollers(self):
+        """停止所有SNMP轮询器"""
+        logger.info("停止SNMP轮询器...")
+
+        try:
+            stop_device_poller()
+            logger.info("设备轮询器已停止")
+        except Exception as e:
+            logger.error(f"停止设备轮询器时出错: {e}")
+
+        try:
+            stop_interface_poller()
+            logger.info("接口轮询器已停止")
+        except Exception as e:
+            logger.error(f"停止接口轮询器时出错: {e}")
+
+        self._device_poller = None
+        self._interface_poller = None
+        logger.info("所有SNMP轮询器已停止")
+
+    def get_poller_statistics(self) -> Dict[str, Any]:
+        """
+        获取轮询器统计信息
+
+        Returns:
+            包含设备和接口轮询器统计信息的字典
+        """
+        stats = {}
+
+        if self._device_poller:
+            stats["device_poller"] = self._device_poller.get_statistics()
+        else:
+            stats["device_poller"] = {"status": "not_running"}
+
+        if self._interface_poller:
+            stats["interface_poller"] = self._interface_poller.get_statistics()
+        else:
+            stats["interface_poller"] = {"status": "not_running"}
+
+        return stats
 
 
 # 导出公共接口

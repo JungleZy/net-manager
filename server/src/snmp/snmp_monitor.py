@@ -18,6 +18,7 @@ from pysnmp.proto.rfc1902 import OctetString
 from pysnmp.smi import builder, compiler, view
 from typing import Dict, Any, Tuple, List, Optional
 import logging
+import binascii
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -506,10 +507,10 @@ class SNMPMonitor:
             ip, version, self.OIDS["ifNumber"], **kwargs
         )
         if not success:
-            logger.error(f"无法获取接口数量")
+            logger.error(f"{ip}: 无法获取接口数量")
             return interfaces
         if_count = int(value) if value else 0
-        print(f"接口数量: {if_count}")
+        print(f"{ip}: 接口数量 {if_count}")
         if if_count <= 0:
             return interfaces
 
@@ -529,35 +530,116 @@ class SNMPMonitor:
                 ip, version, f"{self.OIDS['ifType']}.{i}", **kwargs
             )
             if success:
-                interface["type"] = int(value) if value else 0
+                type_code = int(value) if value else 0
+                interface["type"] = type_code
+                # 转换为中文类型描述（基于IANAifType）
+                type_map = {
+                    1: "其他",
+                    6: "以太网",
+                    23: "PPP",
+                    24: "环回接口",
+                    37: "ATM",
+                    53: "VLAN",
+                    131: "隧道接口",
+                    135: "二层VLAN",
+                    136: "三层VLAN",
+                    161: "IEEE 802.11无线",
+                    117: "千兆以太网",
+                    244: "聚合接口",
+                }
+                interface["type_text"] = type_map.get(type_code, f"类型{type_code}")
 
-            # 获取接口速度
+            # 获取接口速度（单位：bps）
             value, success = await self.get_data(
                 ip, version, f"{self.OIDS['ifSpeed']}.{i}", **kwargs
             )
             if success:
-                interface["speed"] = int(value) if value else 0
+                speed_bps = int(value) if value else 0
+                interface["speed"] = speed_bps
+                # 格式化为易读的速度描述
+                if speed_bps == 0:
+                    interface["speed_text"] = "-"
+                elif speed_bps >= 1000000000:  # >= 1 Gbps
+                    speed_gbps = speed_bps / 1000000000
+                    interface["speed_text"] = f"{speed_gbps:.1f} Gbps"
+                elif speed_bps >= 1000000:  # >= 1 Mbps
+                    speed_mbps = speed_bps / 1000000
+                    interface["speed_text"] = f"{speed_mbps:.0f} Mbps"
+                elif speed_bps >= 1000:  # >= 1 Kbps
+                    speed_kbps = speed_bps / 1000
+                    interface["speed_text"] = f"{speed_kbps:.0f} Kbps"
+                else:
+                    interface["speed_text"] = f"{speed_bps} bps"
 
-            # 获取接口地址
+            # 获取接口物理地址(对于802.x接口为MAC地址,对于串口等为空)
             value, success = await self.get_data(
                 ip, version, f"{self.OIDS['ifPhysAddress']}.{i}", **kwargs
             )
-            if success:
-                interface["address"] = int(value) if value else 0
+            if success and value:
+                try:
+                    # 将OctetString转换为bytes
+                    if hasattr(value, "prettyPrint"):
+                        # pysnmp的OctetString对象
+                        mac_bytes = bytes(value)
+                    elif isinstance(value, bytes):
+                        mac_bytes = value
+                    elif isinstance(value, str):
+                        # 如果已经是字符串,尝试转换为bytes
+                        mac_bytes = value.encode("latin-1")
+                    else:
+                        mac_bytes = bytes(str(value), "latin-1")
 
-            # 获取管理状态
+                    # 零长度的八位字节串表示没有物理地址(如串口、loopback等)
+                    if len(mac_bytes) == 0:
+                        interface["address"] = ""
+                    # 6字节表示以太网MAC地址(802.x)
+                    elif len(mac_bytes) == 6:
+                        interface["address"] = ":".join(f"{b:02x}" for b in mac_bytes)
+                    # 其他长度的物理地址
+                    else:
+                        interface["address"] = ":".join(f"{b:02x}" for b in mac_bytes)
+                except Exception as e:
+                    logger.debug(
+                        f"转换物理地址失败: {e}, value type: {type(value)}, value: {repr(value)}"
+                    )
+                    interface["address"] = ""
+            else:
+                # 空值表示没有物理地址
+                interface["address"] = ""
+
+            # 获取管理状态 (1=up, 2=down, 3=testing)
             value, success = await self.get_data(
                 ip, version, f"{self.OIDS['ifAdminStatus']}.{i}", **kwargs
             )
             if success:
-                interface["admin_status"] = int(value) if value else 0
+                admin_status_code = int(value) if value else 0
+                interface["admin_status"] = admin_status_code
+                # 转换为中文状态描述
+                admin_status_map = {1: "已启用", 2: "已禁用", 3: "测试中"}
+                interface["admin_status_text"] = admin_status_map.get(
+                    admin_status_code, "未知"
+                )
 
-            # 获取操作状态
+            # 获取操作状态 (1=up, 2=down, 3=testing, 4=unknown, 5=dormant, 6=notPresent, 7=lowerLayerDown)
             value, success = await self.get_data(
                 ip, version, f"{self.OIDS['ifOperStatus']}.{i}", **kwargs
             )
             if success:
-                interface["oper_status"] = int(value) if value else 0
+                oper_status_code = int(value) if value else 0
+                interface["oper_status"] = oper_status_code
+                # 转换为中文状态描述
+                oper_status_map = {
+                    1: "运行中",
+                    2: "未运行",
+                    3: "测试中",
+                    4: "未知",
+                    5: "休眠",
+                    6: "不存在",
+                    7: "下层接口未运行",
+                }
+                interface["oper_status_text"] = oper_status_map.get(
+                    oper_status_code, "未知"
+                )
 
             # 获取接收字节数
             # value, success = await self.get_data(
