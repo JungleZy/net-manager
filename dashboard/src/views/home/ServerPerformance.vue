@@ -286,7 +286,7 @@
             </div>
             <a-divider type="vertical" />
             <div>
-              磁盘IO - 写入:
+              写入:
               {{ formatBytes(performanceData.disk.io.write_bytes) }} ({{
                 performanceData.disk.io.write_count
               }}
@@ -299,32 +299,32 @@
             <thead class="bg-gray-50">
               <tr>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   挂载点
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   文件系统
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   总容量
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   已用
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   可用
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   使用率
                 </th>
@@ -374,32 +374,32 @@
             <thead class="bg-gray-50">
               <tr>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   接口名称
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   IP地址
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   MAC地址
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   上传速率
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   下载速率
                 </th>
                 <th
-                  class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                  class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase"
                 >
                   发送/接收
                 </th>
