@@ -35,7 +35,7 @@ class SwitchCreateHandler(BaseHandler):
             # 检查交换机是否已存在（基于IP地址和SNMP版本）
             ip = data["ip"]
             snmp_version = data["snmp_version"]
-            if self.db_manager.switch_exists(ip, snmp_version):
+            if self.db_manager.switch_manager.switch_exists(ip, snmp_version):
                 self.set_status(400)
                 self.write(
                     {
@@ -62,7 +62,7 @@ class SwitchCreateHandler(BaseHandler):
             )
 
             # 添加交换机
-            success, message = self.db_manager.add_switch(switch_info)
+            success, message = self.db_manager.switch_manager.add_switch(switch_info)
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -124,7 +124,7 @@ class SwitchUpdateHandler(BaseHandler):
             )
 
             # 更新交换机
-            success, message = self.db_manager.update_switch(switch_info)
+            success, message = self.db_manager.switch_manager.update_switch(switch_info)
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -166,7 +166,9 @@ class SwitchDeleteHandler(BaseHandler):
                 return
 
             # 删除交换机
-            success, message = self.db_manager.delete_switch(switch_id_int)
+            success, message = self.db_manager.switch_manager.delete_switch(
+                switch_id_int
+            )
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -189,7 +191,7 @@ class SwitchHandler(BaseHandler):
 
     def get(self, switch_id):
         try:
-            switch = self.db_manager.get_switch_by_id(int(switch_id))
+            switch = self.db_manager.switch_manager.get_switch_by_id(int(switch_id))
             if switch:
                 self.write({"status": "success", "data": switch})
             else:
@@ -216,7 +218,7 @@ class SwitchesHandler(BaseHandler):
 
     def get(self):
         try:
-            switches = self.db_manager.get_all_switches()
+            switches = self.db_manager.switch_manager.get_all_switches()
 
             self.write({"status": "success", "data": switches, "count": len(switches)})
         except Exception as e:

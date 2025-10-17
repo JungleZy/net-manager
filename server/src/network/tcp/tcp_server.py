@@ -142,8 +142,10 @@ class TCPServer:
             client_id = info.get("client_id")
             if client_id:
                 # 根据client_id查询设备信息
-                existing_device = self.db_manager.get_device_info_by_client_id(
-                    client_id
+                existing_device = (
+                    self.db_manager.device_manager.get_device_info_by_client_id(
+                        client_id
+                    )
                 )
                 if existing_device:
                     # 如果存在，则使用现有设备的ID进行更新
@@ -166,10 +168,12 @@ class TCPServer:
             device_info = self._create_device_info_with_id(info)
 
             # 保存到数据库
-            self.db_manager.save_device_info(device_info)
+            self.db_manager.device_manager.save_device_info(device_info)
 
             # 从数据库获取保存后的设备信息（字典格式），用于WebSocket广播
-            saved_device_info = self.db_manager.get_device_info_by_id(device_info.id)
+            saved_device_info = self.db_manager.device_manager.get_device_info_by_id(
+                device_info.id
+            )
             if saved_device_info:
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": saved_device_info}

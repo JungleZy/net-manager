@@ -33,7 +33,7 @@ class DeviceCreateHandler(BaseHandler):
                     return
 
             # 创建设备
-            success, message = self.db_manager.create_device(data)
+            success, message = self.db_manager.device_manager.create_device(data)
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -73,7 +73,7 @@ class DeviceUpdateHandler(BaseHandler):
             # 其他字段正常处理
 
             # 更新设备
-            success, message = self.db_manager.update_device(data)
+            success, message = self.db_manager.device_manager.update_device(data)
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -107,7 +107,7 @@ class DeviceDeleteHandler(BaseHandler):
                 return
 
             # 删除设备
-            success, message = self.db_manager.delete_device(device_id)
+            success, message = self.db_manager.device_manager.delete_device(device_id)
 
             if success:
                 self.write({"status": "success", "message": message})
@@ -165,7 +165,7 @@ class DeviceHandler(BaseHandler):
 
     def get(self, device_id):
         try:
-            device = self.db_manager.get_device_info_by_id(device_id)
+            device = self.db_manager.device_manager.get_device_info_by_id(device_id)
             if device:
                 # 添加在线状态字段
                 device["online"] = self.get_online_status(device_id)
@@ -199,7 +199,9 @@ class DeviceTypeHandler(BaseHandler):
                 return
 
             # 更新数据库中的设备类型
-            success = self.db_manager.update_device_type(device_id, device_type)
+            success = self.db_manager.device_manager.update_device_type(
+                device_id, device_type
+            )
 
             if success:
                 self.write({"status": "success", "message": "设备类型更新成功"})
@@ -239,7 +241,7 @@ class DevicesHandler(BaseHandler):
 
     def get(self):
         try:
-            devices = self.db_manager.get_all_device_info()
+            devices = self.db_manager.device_manager.get_all_device_info()
 
             # 处理返回数据：只返回services和processes的数量，并添加在线状态和操作系统信息
             processed_devices = []
