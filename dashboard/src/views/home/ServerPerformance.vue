@@ -1,6 +1,96 @@
 <template>
   <div class="server-performance-test">
-    <div v-if="performanceData">
+    <!-- 骨架屏加载状态 -->
+    <div v-if="isLoading">
+      <!-- 概览卡片骨架屏 -->
+      <div
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-[12px]"
+      >
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="bg-white p-[12px] rounded-lg shadow"
+        >
+          <a-skeleton active :paragraph="{ rows: 2 }" />
+        </div>
+      </div>
+
+      <!-- 仪表盘骨架屏 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-[12px] mb-[12px]">
+        <div
+          v-for="i in 2"
+          :key="i"
+          class="bg-white p-[12px] rounded-lg shadow"
+        >
+          <a-skeleton
+            active
+            :title="{ width: '50%' }"
+            :paragraph="{ rows: 1 }"
+          />
+          <div class="mt-4">
+            <a-skeleton-button
+              active
+              :style="{ width: '100%', height: '240px' }"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- CPU核心使用率骨架屏 -->
+      <div class="bg-white p-[12px] rounded-lg shadow mb-[12px]">
+        <a-skeleton active :title="{ width: '30%' }" :paragraph="{ rows: 1 }" />
+        <div class="mt-4">
+          <a-skeleton-button
+            active
+            :style="{ width: '100%', height: '300px' }"
+          />
+        </div>
+      </div>
+
+      <!-- 表格骨架屏 -->
+      <div class="bg-white p-[12px] rounded-lg shadow mb-[12px]">
+        <a-skeleton active :title="{ width: '30%' }" :paragraph="{ rows: 6 }" />
+      </div>
+
+      <div class="bg-white p-[12px] rounded-lg shadow mb-[12px]">
+        <a-skeleton active :title="{ width: '30%' }" :paragraph="{ rows: 6 }" />
+      </div>
+
+      <!-- 趋势图骨架屏 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-[12px] mb-[12px]">
+        <div
+          v-for="i in 2"
+          :key="i"
+          class="bg-white p-[12px] rounded-lg shadow"
+        >
+          <a-skeleton
+            active
+            :title="{ width: '40%' }"
+            :paragraph="{ rows: 1 }"
+          />
+          <div class="mt-4">
+            <a-skeleton-button
+              active
+              :style="{ width: '100%', height: '300px' }"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 网络速率趋势图骨架屏 -->
+      <div class="bg-white p-[12px] rounded-lg shadow mb-[12px]">
+        <a-skeleton active :title="{ width: '30%' }" :paragraph="{ rows: 1 }" />
+        <div class="mt-4">
+          <a-skeleton-button
+            active
+            :style="{ width: '100%', height: '300px' }"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 实际数据 -->
+    <div v-else-if="performanceData">
       <!-- 概览卡片 -->
       <div
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-[12px]"
@@ -124,7 +214,7 @@
             class="chart"
             :option="cpuGaugeOption"
             autoresize
-            style="height: 240px"
+            style="height: 260px"
           />
         </div>
 
@@ -153,7 +243,7 @@
             class="chart"
             :option="memoryGaugeOption"
             autoresize
-            style="height: 240px"
+            style="height: 260px"
           />
         </div>
       </div>
@@ -392,9 +482,10 @@
       </div>
     </div>
 
-    <!-- 无数据提示 -->
+    <!-- 无数据提示（加载完成但无数据） -->
     <div v-else class="text-center text-gray-500 py-8">
-      等待服务器性能数据...
+      <div class="text-4xl mb-4">🔌</div>
+      <div>服务器连接断开，等待性能数据...</div>
     </div>
   </div>
 </template>
@@ -428,6 +519,7 @@ use([
 ])
 
 // ==================== 响应式数据 ====================
+const isLoading = ref(true) // 加载状态
 const isConnected = ref(false)
 const performanceData = shallowRef(null) // 使用 shallowRef 减少响应式开销
 const lastUpdateTime = ref('')
@@ -561,8 +653,8 @@ const createGaugeConfig = (value, name) => ({
   series: [
     {
       type: 'gauge',
-      center: ['50%', '60%'],
-      radius: '90%',
+      center: ['50%', '70%'], // 上移中心位置，增大上方图像区域
+      radius: '140%', // 增大半径至95%
       startAngle: 180,
       endAngle: 0,
       min: 0,
@@ -591,15 +683,15 @@ const createGaugeConfig = (value, name) => ({
       },
       axisLabel: {
         color: 'inherit',
-        distance: 40,
-        fontSize: 12
+        distance: 30,
+        fontSize: 16 // 减小刻度文字大小
       },
       detail: {
         valueAnimation: true,
         formatter: '{value}%',
         color: 'inherit',
-        fontSize: 24,
-        offsetCenter: [0, '70%']
+        fontSize: 18, // 减小数值文字大小（从24改为20）
+        offsetCenter: [0, '40%'] // 下移文字位置，给上方图像更多空间
       },
       data: [{ value, name }]
     }
@@ -927,12 +1019,17 @@ const estimateHistoryPoints = (currentData, count, existingCount) => {
  */
 const loadInitialPerformanceData = async () => {
   try {
+    isLoading.value = true // 开始加载
+
     // 1. 从 localforage 加载历史数据
     const savedHistory = await loadHistoryFromStorage()
 
     // 2. 获取当前性能数据
     const response = await PerformanceApi.getCurrentPerformance()
-    if (response.code !== 0 || !response.data) return
+    if (response.code !== 0 || !response.data) {
+      isLoading.value = false
+      return
+    }
 
     console.log('初始加载性能数据:', response.data)
     performanceData.value = response.data
@@ -960,8 +1057,14 @@ const loadInitialPerformanceData = async () => {
 
     // 5. 添加当前实际数据点
     updateHistory(currentData)
+
+    // 加载完成，延迟隐藏骨架屏以保证流畅过渡
+    setTimeout(() => {
+      isLoading.value = false
+    }, 300)
   } catch (error) {
     console.error('加载初始性能数据失败:', error)
+    isLoading.value = false
   }
 }
 
@@ -1024,5 +1127,35 @@ onUnmounted(() => {
 <style scoped>
 .server-performance-test {
   width: 100%;
+}
+
+/* 骨架屏动画优化 */
+:deep(.ant-skeleton) {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 数据加载完成后的淡入动画 */
+.server-performance-test > div:not(:first-child) {
+  animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
