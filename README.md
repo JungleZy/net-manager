@@ -49,19 +49,6 @@ net-manager/
 └── README.md                  # 项目说明
 ```
 
-## 数据库模块重构说明
-
-数据库模块已从单一的`database_manager.py`文件重构为多个专门的管理器类，以提高代码的可维护性和可扩展性：
-
-- **BaseDatabaseManager**: 提供基础的数据库连接和线程安全访问
-- **DeviceManager**: 专门处理设备信息管理
-- **SwitchManager**: 专门处理交换机配置管理
-- **DatabaseManager**: 统一接口，保持向后兼容性
-
-详细说明请参见 [数据库模块 README](server/src/database/README.md)
-
-开发者迁移指南请参见 [数据库迁移指南](docs/DATABASE_MIGRATION_GUIDE.md)
-
 ## 功能特性
 
 ### 前端控制面板（Dashboard）
