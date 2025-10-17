@@ -9,7 +9,7 @@ import sqlite3
 import threading
 from pathlib import Path
 from contextlib import contextmanager, asynccontextmanager
-from typing import Any
+from typing import Any, Optional
 
 from src.core.logger import logger
 from src.database.connection_pool import ConnectionPool, AsyncConnectionPool
@@ -34,6 +34,7 @@ class BaseDatabaseManager:
         max_connections: int = 10,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
+        shared_pool: Optional[ConnectionPool] = None,
     ):
         """
         初始化基础数据库管理器
@@ -43,6 +44,7 @@ class BaseDatabaseManager:
             max_connections: 最大连接数
             cleanup_interval: 连接池清理间隔（秒）
             max_idle_time: 连接最大空闲时间（秒）
+            shared_pool: 共享的连接池实例（可选）
 
         Raises:
             DatabaseInitializationError: 数据库初始化失败时抛出
@@ -50,13 +52,18 @@ class BaseDatabaseManager:
         self.db_path = Path(db_path)
         self.db_lock = threading.RLock()  # 使用可重入锁
 
-        # 初始化连接池
-        self.connection_pool = ConnectionPool(
-            db_path=str(self.db_path),
-            max_connections=max_connections,
-            cleanup_interval=cleanup_interval,
-            max_idle_time=max_idle_time,
-        )
+        # 使用共享连接池或创建新连接池
+        if shared_pool is not None:
+            self.connection_pool = shared_pool
+            logger.debug(f"使用共享连接池: {db_path}")
+        else:
+            self.connection_pool = ConnectionPool(
+                db_path=str(self.db_path),
+                max_connections=max_connections,
+                cleanup_interval=cleanup_interval,
+                max_idle_time=max_idle_time,
+            )
+            logger.debug(f"创建新连接池: {db_path}")
         # 初始化异步连接池引用
         self.async_pool = None
 

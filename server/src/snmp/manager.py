@@ -26,12 +26,18 @@ class SNMPManager:
     提供高级API来获取设备信息、CPU/内存使用率、接口流量等
     """
 
-    def __init__(self):
-        """初始化SNMP管理器"""
+    def __init__(self, db_manager=None):
+        """
+        初始化SNMP管理器
+
+        Args:
+            db_manager: 数据库管理器实例（可选）
+        """
         self.monitor = SNMPMonitor()
         self.classifier = OIDClassifier()
         self._device_poller = None
         self._interface_poller = None
+        self.db_manager = db_manager
 
     async def get_device_overview(
         self, ip: str, version: str, **kwargs
@@ -572,7 +578,6 @@ class SNMPManager:
         启动SNMP设备和接口轮询器
 
         Args:
-            switch_manager: 交换机管理器实例
             device_poll_interval: 设备信息轮询间隔（秒），默认10秒
             device_min_workers: 设备轮询最小并发数，默认5
             device_max_workers: 设备轮询最大并发数，默认20
@@ -590,15 +595,22 @@ class SNMPManager:
         """
         logger.info("启动SNMP统一轮询器...")
 
+        # 使用共享的 switch_manager（如果 db_manager 存在）
+        if self.db_manager is not None:
+            switch_manager = self.db_manager.switch_manager
+            logger.debug("使用共享的 SwitchManager")
+        else:
+            # 如果没有 db_manager，则创建一个新的（向后兼容）
+            from src.database.managers.switch_manager import SwitchManager
+
+            switch_manager = SwitchManager()
+            logger.warning("未提供 db_manager，创建新的 SwitchManager（不推荐）")
+
         # 启动设备信息轮询器
         logger.info(
             f"启动SNMP设备轮询器: 间隔{device_poll_interval}秒, "
             f"并发{device_min_workers}-{device_max_workers}, 超时{device_timeout}秒"
         )
-
-        from src.database.managers.switch_manager import SwitchManager
-
-        switch_manager = SwitchManager()
         self._device_poller = start_device_poller(
             switch_manager,
             poll_interval=device_poll_interval,

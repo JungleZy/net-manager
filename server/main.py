@@ -152,7 +152,9 @@ def main():
         logger.info("启动SNMP轮询器...")
         from src.snmp.manager import SNMPManager
 
-        SNMPManager().start_pollers()
+        # 将 db_manager 传递给 SNMPManager，共享连接池
+        snmp_manager = SNMPManager(db_manager=db_manager)
+        snmp_manager.start_pollers()
 
         logger.info("所有服务已启动完成")
 

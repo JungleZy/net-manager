@@ -78,7 +78,19 @@
             {{ formatMachineType(record.machine_type) }}
           </template>
           <template v-else-if="column.dataIndex === 'type'">
-            {{ record.type || '未设置' }}
+            <div class="flex items-center justify-center">
+              <a-tooltip
+                v-if="record.type && getDeviceIcon(record.type)"
+                :title="record.type"
+              >
+                <div
+                  v-html="getDeviceIcon(record.type)"
+                  class="device-icon"
+                  style="width: 32px; height: 32px; cursor: help"
+                ></div>
+              </a-tooltip>
+              <span v-else>{{ record.type || '未设置' }}</span>
+            </div>
           </template>
           <template v-else-if="column.dataIndex === 'online'">
             <a-tag :color="record.online ? 'green' : 'red'" style="margin: 0">
@@ -167,6 +179,15 @@ import DeviceApi from '@/common/api/device.js'
 import { wsCode } from '@/common/ws/Ws.js'
 import { PubSub } from '@/common/utils/PubSub.js'
 
+// 导入设备类型SVG图标
+import PCIcon from '@/assets/svg/TopologyPC.svg?raw'
+import LaptopIcon from '@/assets/svg/TopologyLaptop.svg?raw'
+import ServerIcon from '@/assets/svg/TopologyServer.svg?raw'
+import PrinterIcon from '@/assets/svg/TopologyPrinter.svg?raw'
+import FirewallIcon from '@/assets/svg/TopologyFireWall.svg?raw'
+import RouterIcon from '@/assets/svg/TopologyRouter.svg?raw'
+import SwitchIcon from '@/assets/svg/TopologySwitches.svg?raw'
+
 // 常量定义
 const ANIMATION_DURATION = 3000 // 动画持续时间
 const CHANGE_KEYS = [
@@ -177,6 +198,42 @@ const CHANGE_KEYS = [
   'services_count',
   'processes_count'
 ] // 需要监听变化的字段
+
+// 设备类型图标映射
+const DEVICE_ICON_MAP = {
+  台式机: PCIcon,
+  笔记本: LaptopIcon,
+  服务器: ServerIcon,
+  打印机: PrinterIcon,
+  防火墙: FirewallIcon,
+  路由器: RouterIcon,
+  交换机: SwitchIcon
+}
+
+/**
+ * 获取设备类型对应的SVG图标
+ * @param {string} type - 设备类型
+ * @returns {string} SVG字符串
+ */
+const getDeviceIcon = (type) => {
+  const icon = DEVICE_ICON_MAP[type]
+  if (!icon) return null
+
+  // 解析SVG并设置颜色
+  const parser = new DOMParser()
+  const svgDoc = parser.parseFromString(icon, 'image/svg+xml')
+  const svgElement = svgDoc.documentElement
+
+  // 移除宽度和高度属性，让CSS控制
+  svgElement.removeAttribute('width')
+  svgElement.removeAttribute('height')
+  svgElement.setAttribute(
+    'viewBox',
+    svgElement.getAttribute('viewBox') || '0 0 1024 1024'
+  )
+
+  return new XMLSerializer().serializeToString(svgElement)
+}
 
 // 定义组件属性
 const props = defineProps({
@@ -288,11 +345,11 @@ const columns = [
     }
   },
   {
-    title: '设备类型',
+    title: '类型',
     dataIndex: 'type',
     align: 'center',
     key: 'type',
-    width: 70
+    width: 60
   },
   {
     title: '设备名称',
@@ -933,6 +990,19 @@ onUnmounted(() => {
   100% {
     background-color: transparent;
     color: inherit;
+  }
+}
+
+// 设备图标样式
+.device-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  :deep(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
   }
 }
 </style>

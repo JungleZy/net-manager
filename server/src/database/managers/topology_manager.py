@@ -31,6 +31,7 @@ class TopologyManager(BaseDatabaseManager):
         max_connections: int = 10,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
+        shared_pool=None,
     ):
         """
         初始化拓扑图信息管理器
@@ -40,8 +41,11 @@ class TopologyManager(BaseDatabaseManager):
             max_connections: 最大连接数
             cleanup_interval: 连接池清理间隔（秒）
             max_idle_time: 连接最大空闲时间（秒）
+            shared_pool: 共享的连接池实例（可选）
         """
-        super().__init__(db_path, max_connections, cleanup_interval, max_idle_time)
+        super().__init__(
+            db_path, max_connections, cleanup_interval, max_idle_time, shared_pool
+        )
         self.init_tables()
         # 初始化异步连接池引用
         self.async_pool = None

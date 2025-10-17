@@ -22,6 +22,7 @@ from src.database.db_exceptions import (
 from src.database.managers.base_manager import BaseDatabaseManager
 from src.database.managers.device_manager import DeviceManager
 from src.database.managers.switch_manager import SwitchManager
+from src.database.managers.topology_manager import TopologyManager
 
 
 class DatabaseManager:
@@ -50,18 +51,56 @@ class DatabaseManager:
             DatabaseInitializationError: 数据库初始化失败时抛出
         """
         try:
+            # 创建共享连接池（只启动一个清理线程）
+            from src.database.connection_pool import ConnectionPool
+
+            self.shared_pool = ConnectionPool(
+                db_path=db_path,
+                max_connections=max_connections,
+                cleanup_interval=cleanup_interval,
+                max_idle_time=max_idle_time,
+            )
+            logger.info(f"创建共享连接池：最大连接数={max_connections}")
+
+            # 创建 base_manager，使用共享连接池
             self.base_manager = BaseDatabaseManager(
-                db_path, max_connections, cleanup_interval, max_idle_time
+                db_path,
+                max_connections,
+                cleanup_interval,
+                max_idle_time,
+                shared_pool=self.shared_pool,
             )
+
+            # 创建 device_manager，使用共享连接池
             self.device_manager = DeviceManager(
-                db_path, max_connections, cleanup_interval, max_idle_time
+                db_path,
+                max_connections,
+                cleanup_interval,
+                max_idle_time,
+                shared_pool=self.shared_pool,
             )
+
+            # 创建 switch_manager，使用共享连接池
             self.switch_manager = SwitchManager(
-                db_path, max_connections, cleanup_interval, max_idle_time
+                db_path,
+                max_connections,
+                cleanup_interval,
+                max_idle_time,
+                shared_pool=self.shared_pool,
             )
+
+            # 创建 topology_manager，使用共享连接池
+            self.topology_manager = TopologyManager(
+                db_path,
+                max_connections,
+                cleanup_interval,
+                max_idle_time,
+                shared_pool=self.shared_pool,
+            )
+
             # 初始化异步连接池
             self.async_pool = None
-            logger.info("数据库管理器初始化成功")
+            logger.info("数据库管理器初始化成功（所有管理器共享一个连接池）")
         except Exception as e:
             logger.error(f"数据库管理器初始化失败: {e}")
             raise DatabaseInitializationError(f"数据库管理器初始化失败: {e}") from e

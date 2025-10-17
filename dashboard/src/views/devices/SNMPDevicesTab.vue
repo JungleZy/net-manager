@@ -75,7 +75,22 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'if_count'">
+          <template v-if="column.dataIndex === 'device_type'">
+            <div class="flex items-center justify-center">
+              <a-tooltip
+                v-if="record.device_type && getDeviceIcon(record.device_type)"
+                :title="record.device_type"
+              >
+                <div
+                  v-html="getDeviceIcon(record.device_type)"
+                  class="device-icon"
+                  style="width: 32px; height: 32px; cursor: help"
+                ></div>
+              </a-tooltip>
+              <span v-else>{{ record.device_type || '未设置' }}</span>
+            </div>
+          </template>
+          <template v-else-if="column.dataIndex === 'if_count'">
             <a-popover
               v-if="record.if_count > 0"
               placement="left"
@@ -220,6 +235,15 @@ import { PubSub } from '@/common/utils/PubSub'
 import { wsCode } from '@/common/ws/Ws'
 import { message } from 'ant-design-vue'
 
+// 导入设备类型SVG图标
+import PCIcon from '@/assets/svg/TopologyPC.svg?raw'
+import LaptopIcon from '@/assets/svg/TopologyLaptop.svg?raw'
+import ServerIcon from '@/assets/svg/TopologyServer.svg?raw'
+import PrinterIcon from '@/assets/svg/TopologyPrinter.svg?raw'
+import FirewallIcon from '@/assets/svg/TopologyFireWall.svg?raw'
+import RouterIcon from '@/assets/svg/TopologyRouter.svg?raw'
+import SwitchIcon from '@/assets/svg/TopologySwitches.svg?raw'
+
 // 常量定义
 const STATUS_TEXT_MAP = {
   success: '在线',
@@ -242,6 +266,42 @@ const DEFAULT_SWITCH_DATA = {
   description: '',
   device_name: '',
   device_type: ''
+}
+
+// 设备类型图标映射
+const DEVICE_ICON_MAP = {
+  台式机: PCIcon,
+  笔记本: LaptopIcon,
+  服务器: ServerIcon,
+  打印机: PrinterIcon,
+  防火墙: FirewallIcon,
+  路由器: RouterIcon,
+  交换机: SwitchIcon
+}
+
+/**
+ * 获取设备类型对应的SVG图标
+ * @param {string} type - 设备类型
+ * @returns {string} SVG字符串
+ */
+const getDeviceIcon = (type) => {
+  const icon = DEVICE_ICON_MAP[type]
+  if (!icon) return null
+
+  // 解析SVG并设置颜色
+  const parser = new DOMParser()
+  const svgDoc = parser.parseFromString(icon, 'image/svg+xml')
+  const svgElement = svgDoc.documentElement
+
+  // 移除宽度和高度属性，让CSS控制
+  svgElement.removeAttribute('width')
+  svgElement.removeAttribute('height')
+  svgElement.setAttribute(
+    'viewBox',
+    svgElement.getAttribute('viewBox') || '0 0 1024 1024'
+  )
+
+  return new XMLSerializer().serializeToString(svgElement)
 }
 
 // 定义组件属性
@@ -451,6 +511,13 @@ const switchColumns = [
     }
   },
   {
+    title: '类型',
+    dataIndex: 'device_type',
+    align: 'center',
+    key: 'device_type',
+    width: 60
+  },
+  {
     title: '设备名称',
     dataIndex: 'device_name',
     align: 'center',
@@ -471,13 +538,6 @@ const switchColumns = [
       }
       return text
     }
-  },
-  {
-    title: '设备类型',
-    dataIndex: 'device_type',
-    align: 'center',
-    key: 'device_type',
-    width: 70
   },
   {
     title: 'IP地址',
@@ -776,3 +836,18 @@ onUnmounted(() => {
   console.log('SNMP实时状态订阅已取消')
 })
 </script>
+
+<style lang="less" scoped>
+// 设备图标样式
+.device-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  :deep(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+</style>
