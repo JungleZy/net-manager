@@ -75,6 +75,71 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
+          <template v-if="column.dataIndex === 'if_count'">
+            <a-popover
+              v-if="record.if_count > 0"
+              placement="left"
+              :overlayStyle="{ width: '800px', maxWidth: '90vw' }"
+            >
+              <template #content>
+                <div>
+                  <div class="mb-3">
+                    <a-descriptions bordered size="small" :column="2">
+                      <a-descriptions-item label="设备名称">
+                        {{ record.device_name }}
+                      </a-descriptions-item>
+                      <a-descriptions-item label="IP地址">
+                        {{ record.ip }}
+                      </a-descriptions-item>
+                      <a-descriptions-item label="设备类型">
+                        {{ record.device_type }}
+                      </a-descriptions-item>
+                      <a-descriptions-item label="端口总数">
+                        {{ record.if_count }}
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+
+                  <a-table
+                    :columns="interfaceColumns"
+                    :data-source="getInterfaceList(record.id)"
+                    :pagination="false"
+                    :scroll="{ y: 400 }"
+                    size="small"
+                    row-key="index"
+                    bordered
+                  >
+                    <template #bodyCell="{ column, record: ifRecord }">
+                      <template v-if="column.dataIndex === 'admin_status_text'">
+                        <a-tag
+                          :color="
+                            ifRecord.admin_status === 1 ? 'success' : 'default'
+                          "
+                          style="margin: 0"
+                        >
+                          {{ ifRecord.admin_status_text }}
+                        </a-tag>
+                      </template>
+                      <template v-if="column.dataIndex === 'oper_status_text'">
+                        <a-tag
+                          :color="
+                            ifRecord.oper_status === 1 ? 'success' : 'error'
+                          "
+                          style="margin: 0"
+                        >
+                          {{ ifRecord.oper_status_text }}
+                        </a-tag>
+                      </template>
+                    </template>
+                  </a-table>
+                </div>
+              </template>
+              <a style="color: #1677ff; cursor: pointer">
+                {{ record.if_count }}
+              </a>
+            </a-popover>
+            <span v-else>-</span>
+          </template>
           <template v-if="column.dataIndex === 'status'">
             <a-tag
               v-if="record.status === 'success'"
@@ -311,6 +376,68 @@ const emit = defineEmits([
   'handleTableChange'
 ])
 
+// 接口表格列定义
+const interfaceColumns = [
+  {
+    title: '序号',
+    dataIndex: 'index',
+    align: 'center',
+    key: 'index',
+    width: 44
+  },
+  {
+    title: '接口描述',
+    dataIndex: 'description',
+    align: 'center',
+    key: 'description',
+    ellipsis: true,
+    customRender: ({ text }) => {
+      return text || '-'
+    }
+  },
+  {
+    title: '接口类型',
+    dataIndex: 'type_text',
+    align: 'center',
+    key: 'type_text',
+    width: 100
+  },
+  {
+    title: '物理地址',
+    dataIndex: 'address',
+    align: 'center',
+    key: 'address',
+    width: 130,
+    customRender: ({ text }) => {
+      return text || '-'
+    }
+  },
+  {
+    title: '速度',
+    dataIndex: 'speed_text',
+    align: 'center',
+    key: 'speed_text',
+    width: 80,
+    sorter: (a, b) => (a.speed || 0) - (b.speed || 0)
+  },
+  {
+    title: '管理状态',
+    dataIndex: 'admin_status_text',
+    align: 'center',
+    key: 'admin_status_text',
+    width: 88,
+    sorter: (a, b) => (a.admin_status || 0) - (b.admin_status || 0)
+  },
+  {
+    title: '运行状态',
+    dataIndex: 'oper_status_text',
+    align: 'center',
+    key: 'oper_status_text',
+    width: 88,
+    sorter: (a, b) => (a.oper_status || 0) - (b.oper_status || 0)
+  }
+]
+
 // 交换机表格列定义
 const switchColumns = [
   {
@@ -371,10 +498,7 @@ const switchColumns = [
     dataIndex: 'if_count',
     align: 'center',
     key: 'if_count',
-    width: 70,
-    customRender: ({ text }) => {
-      return text || '-'
-    }
+    width: 70
   },
   {
     title: '运行时长',
@@ -510,6 +634,19 @@ const deleteSwitch = async (switchId) => {
 // 处理表格变化事件
 const handleTableChange = (pag, filters, sorter) => {
   emit('handleTableChange', pag, filters, sorter)
+}
+
+// 根据设备ID获取接口列表（用于Popover）
+const getInterfaceList = (deviceId) => {
+  const snmpData = snmpDevicesStatus.value[deviceId]
+  if (
+    snmpData &&
+    snmpData.interface_info &&
+    Array.isArray(snmpData.interface_info)
+  ) {
+    return snmpData.interface_info
+  }
+  return []
 }
 
 // 加载SNMP设备状态 - 使用新的buildStatusMap方法
