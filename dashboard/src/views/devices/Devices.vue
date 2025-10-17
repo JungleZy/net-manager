@@ -13,10 +13,8 @@
         </a-tab-pane>
         <a-tab-pane key="2" tab="SNMP设备" force-render>
           <SNMPDevicesTab
-            :switches="switches"
             :loading="loading"
             :pagination="pagination"
-            @fetchSwitches="fetchSwitches"
             @handleTableChange="handleTableChange"
           />
         </a-tab-pane>
@@ -27,15 +25,9 @@
 
 <script setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue'
-import DeviceApi from '@/common/api/device.js'
-import SwitchApi from '@/common/api/switch.js'
-import { message } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import ProbeDevicesTab from './ProbeDevicesTab.vue'
 import SNMPDevicesTab from './SNMPDevicesTab.vue'
-
-// 设备列表
-const switches = ref([])
 
 // 从localStorage获取保存的标签页状态，如果没有则默认为'1'
 const savedActiveKey = localStorage.getItem('devices-active-tab') || '1'
@@ -69,22 +61,6 @@ watch(activeKey, (newVal) => {
 // 路由离开前重置devices-active-tab为1
 onBeforeRouteLeave((to, from) => {
   localStorage.setItem('devices-active-tab', '1')
-})
-
-// 获取交换机列表
-const fetchSwitches = async () => {
-  try {
-    const response = await SwitchApi.getSwitchesList()
-    switches.value = response.data || []
-  } catch (error) {
-    console.error('获取交换机列表失败:', error)
-    message.error('获取交换机列表失败: ' + error.message)
-  }
-}
-
-// 页面挂载时获取数据
-onMounted(() => {
-  fetchSwitches()
 })
 </script>
 

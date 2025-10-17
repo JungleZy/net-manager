@@ -7,34 +7,32 @@
         placeholder="设备名称"
         allow-clear
         style="width: 200px"
-        @change="handleFilterChange"
       />
       <a-input
         v-model:value="filters.alias"
         placeholder="设备别名"
         allow-clear
         style="width: 200px"
-        @change="handleFilterChange"
       />
       <a-select
         v-model:value="filters.deviceType"
         placeholder="设备类型"
         allow-clear
         style="width: 150px"
-        @change="handleFilterChange"
       >
-        <a-select-option value="打印机">打印机</a-select-option>
-        <a-select-option value="防火墙">防火墙</a-select-option>
-        <a-select-option value="路由器">路由器</a-select-option>
-        <a-select-option value="交换机">交换机</a-select-option>
-        <a-select-option value="其他">其他</a-select-option>
+        <a-select-option
+          v-for="type in DEVICE_TYPE_OPTIONS"
+          :key="type"
+          :value="type"
+        >
+          {{ type }}
+        </a-select-option>
       </a-select>
       <a-select
         v-model:value="filters.status"
         placeholder="状态"
         allow-clear
         style="width: 120px"
-        @change="handleFilterChange"
       >
         <a-select-option value="success">在线</a-select-option>
         <a-select-option value="error">离线</a-select-option>
@@ -142,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import {
   PlusOutlined,
   SearchOutlined,
@@ -157,144 +155,16 @@ import { PubSub } from '@/common/utils/PubSub'
 import { wsCode } from '@/common/ws/Ws'
 import { message } from 'ant-design-vue'
 
-// 定义组件属性
-const props = defineProps({
-  switches: {
-    type: Array,
-    default: () => []
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  },
-  pagination: {
-    type: Object,
-    default: () => ({})
-  }
-})
-
-// 筛选条件
-const filters = ref({
-  deviceName: '',
-  alias: '',
-  deviceType: undefined,
-  status: undefined // 新增状态筛选
-})
-
-// SNMP设备状态数据
-const snmpDevicesStatus = ref({})
-
-// 设备列表增强状态
-const switchesWithStatus = computed(() => {
-  return props.switches.map((sw) => {
-    const snmpData = snmpDevicesStatus.value[sw.ip]
-    return {
-      ...sw,
-      status: snmpData?.type || 'unknown', // success/error/unknown
-      statusText: getStatusText(snmpData?.type),
-      lastUpdate: snmpData?.updateTime || null,
-      errorMsg: snmpData?.error || null,
-      if_count: snmpData?.device_info?.if_count || 0, // 端口数量
-      uptime: snmpData?.device_info?.uptime || '' // 运行时长
-    }
-  })
-})
-
-// 获取状态文本
-const getStatusText = (type) => {
-  if (!type || type === 'unknown') return '未知'
-  return type === 'success' ? '在线' : '离线'
+// 常量定义
+const STATUS_TEXT_MAP = {
+  success: '在线',
+  error: '离线',
+  unknown: '未知'
 }
 
-// 格式化运行时长（将SNMP TimeTicks转换为易读格式）
-const formatUptime = (uptime) => {
-  if (!uptime || uptime === '' || uptime === '0') return '-'
+const DEVICE_TYPE_OPTIONS = ['打印机', '防火墙', '路由器', '交换机', '其他']
 
-  try {
-    // SNMP uptime 是 TimeTicks，单位是百分之一秒（centiseconds）
-    const ticks = parseInt(uptime)
-    if (isNaN(ticks) || ticks === 0) return '-'
-
-    // 转换为秒
-    const totalSeconds = Math.floor(ticks / 100)
-
-    // 计算天、小时、分钟、秒
-    const days = Math.floor(totalSeconds / 86400)
-    const hours = Math.floor((totalSeconds % 86400) / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-
-    // 构建显示字符串
-    const parts = []
-    if (days > 0) parts.push(`${days}天`)
-    if (hours > 0) parts.push(`${hours}时`)
-    if (minutes > 0) parts.push(`${minutes}分`)
-    if (seconds > 0 && days === 0 && hours === 0) parts.push(`${seconds}秒`)
-
-    return parts.length > 0 ? parts.join('') : '-'
-  } catch (error) {
-    console.error('格式化运行时长失败:', error)
-    return uptime
-  }
-}
-
-// 过滤后的交换机列表
-const filteredSwitches = computed(() => {
-  let result = switchesWithStatus.value
-
-  // 按设备名称筛选
-  if (filters.value.deviceName) {
-    result = result.filter((item) =>
-      item.device_name
-        ?.toLowerCase()
-        .includes(filters.value.deviceName.toLowerCase())
-    )
-  }
-
-  // 按设备别名筛选
-  if (filters.value.alias) {
-    result = result.filter((item) =>
-      item.alias?.toLowerCase().includes(filters.value.alias.toLowerCase())
-    )
-  }
-
-  // 按设备类型筛选
-  if (filters.value.deviceType) {
-    result = result.filter(
-      (item) => item.device_type === filters.value.deviceType
-    )
-  }
-
-  // 按状态筛选
-  if (filters.value.status) {
-    result = result.filter((item) => item.status === filters.value.status)
-  }
-
-  return result
-})
-
-// 处理筛选变化
-const handleFilterChange = () => {
-  // 筛选条件变化时，计算属性会自动更新
-}
-
-// 重置筛选条件
-const resetFilters = () => {
-  filters.value = {
-    deviceName: '',
-    alias: '',
-    deviceType: undefined,
-    status: undefined
-  }
-}
-
-// SNMP扫描模态框相关
-const showDiscoverSwitchModal = ref(false)
-
-// 交换机添加/编辑模态框相关
-const showSwitchModal = ref(false)
-const isSwitchEditing = ref(false)
-const currentSwitch = ref({
+const DEFAULT_SWITCH_DATA = {
   id: undefined,
   ip: '',
   snmp_version: '2c',
@@ -307,13 +177,135 @@ const currentSwitch = ref({
   description: '',
   device_name: '',
   device_type: ''
+}
+
+// 定义组件属性
+const props = defineProps({
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  pagination: {
+    type: Object,
+    default: () => ({})
+  }
 })
+
+// 设备列表
+const switches = ref([])
+// 筛选条件
+const filters = ref({
+  deviceName: '',
+  alias: '',
+  deviceType: undefined,
+  status: undefined
+})
+
+// SNMP设备状态数据 - 使用 shallowRef 优化大对象性能
+const snmpDevicesStatus = shallowRef({})
+
+// 设备列表增强状态 - 优化映射逻辑
+const switchesWithStatus = computed(() => {
+  const statusData = snmpDevicesStatus.value
+  return switches.value.map((sw) => {
+    const snmpData = statusData[sw.ip]
+    return {
+      ...sw,
+      status: snmpData?.type || 'unknown',
+      statusText: STATUS_TEXT_MAP[snmpData?.type] || STATUS_TEXT_MAP.unknown,
+      lastUpdate: snmpData?.updateTime || null,
+      errorMsg: snmpData?.error || null,
+      if_count: snmpData?.device_info?.if_count || 0,
+      uptime: snmpData?.device_info?.uptime || ''
+    }
+  })
+})
+
+// 格式化运行时长（将SNMP TimeTicks转换为易读格式）- 优化性能
+const formatUptime = (uptime) => {
+  if (!uptime || uptime === '' || uptime === '0') return '-'
+
+  const ticks = parseInt(uptime, 10)
+  if (isNaN(ticks) || ticks === 0) return '-'
+
+  // 转换为秒
+  const totalSeconds = Math.floor(ticks / 100)
+  if (totalSeconds === 0) return '-'
+
+  // 计算天、小时、分钟、秒
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  // 构建显示字符串
+  const parts = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours > 0) parts.push(`${hours}时`)
+  if (minutes > 0) parts.push(`${minutes}分`)
+  if (seconds > 0 && days === 0 && hours === 0) parts.push(`${seconds}秒`)
+
+  return parts.length > 0 ? parts.join('') : '-'
+}
+
+// 过滤后的交换机列表 - 优化筛选逻辑
+const filteredSwitches = computed(() => {
+  const { deviceName, alias, deviceType, status } = filters.value
+
+  // 如果没有任何筛选条件，直接返回
+  if (!deviceName && !alias && !deviceType && !status) {
+    return switchesWithStatus.value
+  }
+
+  // 预处理搜索词（小写化）
+  const lowerDeviceName = deviceName?.toLowerCase()
+  const lowerAlias = alias?.toLowerCase()
+
+  return switchesWithStatus.value.filter((item) => {
+    // 设备名称筛选
+    if (
+      lowerDeviceName &&
+      !item.device_name?.toLowerCase().includes(lowerDeviceName)
+    ) {
+      return false
+    }
+    // 设备别名筛选
+    if (lowerAlias && !item.alias?.toLowerCase().includes(lowerAlias)) {
+      return false
+    }
+    // 设备类型筛选
+    if (deviceType && item.device_type !== deviceType) {
+      return false
+    }
+    // 状态筛选
+    if (status && item.status !== status) {
+      return false
+    }
+    return true
+  })
+})
+
+// 处理筛选变化 - 移除空函数，直接使用计算属性自动更新
+// const handleFilterChange = () => {}
+
+// 重置筛选条件 - 优化对象创建
+const resetFilters = () => {
+  filters.value.deviceName = ''
+  filters.value.alias = ''
+  filters.value.deviceType = undefined
+  filters.value.status = undefined
+}
+// SNMP扫描模态框相关
+const showDiscoverSwitchModal = ref(false)
+
+// 交换机添加/编辑模态框相关
+const showSwitchModal = ref(false)
+const isSwitchEditing = ref(false)
+const currentSwitch = ref(null)
 
 // 定义组件事件
 const emit = defineEmits([
-  'update:switches',
   'update:loading',
-  'fetchSwitches',
   'deleteSwitch',
   'handleTableChange'
 ])
@@ -423,7 +415,16 @@ const switchColumns = [
     width: 60
   }
 ]
-
+// 获取交换机列表
+const fetchSwitches = async () => {
+  try {
+    const response = await SwitchApi.getSwitchesList()
+    switches.value = response.data || []
+  } catch (error) {
+    console.error('获取交换机列表失败:', error)
+    message.error('获取交换机列表失败: ' + error.message)
+  }
+}
 // 打开发现交换机模态框
 const openDiscoverSwitchModal = () => {
   showDiscoverSwitchModal.value = true
@@ -431,32 +432,19 @@ const openDiscoverSwitchModal = () => {
 
 // 处理扫描完成事件
 const handleScanComplete = () => {
-  emit('fetchSwitches')
+  fetchSwitches()
 }
 
 // 处理自动发现模态框关闭事件
 const handleDiscoverModalCancel = () => {
   // 关闭模态框时刷新表格数据
-  emit('fetchSwitches')
+  fetchSwitches()
 }
 
-// 打开创建交换机模态框
+// 打开创建交换机模态框 - 使用常量优化
 const openCreateSwitchModal = () => {
   isSwitchEditing.value = false
-  currentSwitch.value = {
-    id: undefined,
-    ip: '',
-    snmp_version: '2c',
-    community: '',
-    user: '',
-    auth_key: '',
-    auth_protocol: '',
-    priv_key: '',
-    priv_protocol: '',
-    description: '',
-    device_name: '',
-    device_type: ''
-  }
+  currentSwitch.value = { ...DEFAULT_SWITCH_DATA }
   showSwitchModal.value = true
 }
 
@@ -476,52 +464,45 @@ const closeSwitchModal = () => {
 const handleSwitchModalCancel = () => {
   closeSwitchModal()
   // 关闭模态框时刷新表格数据
-  emit('fetchSwitches')
+  fetchSwitches()
 }
 
-// 保存交换机（创建或更新）
+// 保存交换机（创建或更新）- 优化逻辑复用
 const saveSwitch = async (switchData) => {
+  const isEdit = isSwitchEditing.value
+  const action = isEdit ? SwitchApi.updateSwitch : SwitchApi.createSwitch
+  const actionName = isEdit ? '更新' : '创建'
+
   try {
-    if (isSwitchEditing.value) {
-      // 更新交换机
-      const response = await SwitchApi.updateSwitch(switchData)
-      if (response.status === 'success') {
-        message.success('交换机更新成功')
-        closeSwitchModal()
-        emit('fetchSwitches')
-      } else {
-        message.error('交换机更新失败: ' + response.message)
-      }
+    const response = await action(switchData)
+    if (response?.status === 'success') {
+      message.success(`交换机${actionName}成功`)
+      closeSwitchModal()
+      fetchSwitches()
     } else {
-      // 创建交换机
-      const response = await SwitchApi.createSwitch(switchData)
-      if (response.status === 'success') {
-        message.success('交换机创建成功')
-        closeSwitchModal()
-        emit('fetchSwitches')
-      } else {
-        message.error('交换机创建失败: ' + response.message)
-      }
+      message.error(
+        `交换机${actionName}失败: ${response?.message || '未知错误'}`
+      )
     }
   } catch (error) {
-    console.error('保存交换机失败:', error)
-    message.error('保存交换机失败: ' + error.message)
+    console.error(`保存交换机失败:`, error)
+    message.error(`保存交换机失败: ${error?.message || '未知错误'}`)
   }
 }
 
-// 删除交换机
+// 删除交换机 - 增强错误处理
 const deleteSwitch = async (switchId) => {
   try {
     const response = await SwitchApi.deleteSwitch({ id: switchId })
-    if (response.status === 'success') {
+    if (response?.status === 'success') {
       message.success('交换机删除成功')
-      emit('fetchSwitches')
+      fetchSwitches()
     } else {
-      message.error('交换机删除失败: ' + response.message)
+      message.error(`交换机删除失败: ${response?.message || '未知错误'}`)
     }
   } catch (error) {
     console.error('删除交换机失败:', error)
-    message.error('删除交换机失败: ' + error.message)
+    message.error(`删除交换机失败: ${error?.message || '未知错误'}`)
   }
 }
 
@@ -530,34 +511,46 @@ const handleTableChange = (pag, filters, sorter) => {
   emit('handleTableChange', pag, filters, sorter)
 }
 
-// 加载SNMP设备状态
+// 加载SNMP设备状态 - 优化性能和错误处理
 const loadSNMPDevicesStatus = async () => {
   try {
     const devices = await SNMPStorage.getAllDevices()
-    snmpDevicesStatus.value = devices
-    console.log('加载SNMP设备状态:', Object.keys(devices).length, '个设备')
+    if (devices && typeof devices === 'object') {
+      snmpDevicesStatus.value = devices
+      const count = Object.keys(devices).length
+      if (count > 0) {
+        console.log(`加载SNMP设备状态: ${count}个设备`)
+      }
+    }
   } catch (error) {
     console.error('加载SNMP设备状态失败:', error)
+    // 失败时保持原有数据，不清空
   }
 }
 
-// 组件挂载
-onMounted(async () => {
-  // 初始加载SNMP状态
+// WebSocket消息处理器 - 提取为独立函数便于管理
+const handleSNMPDeviceBatch = async () => {
   await loadSNMPDevicesStatus()
+}
 
-  // 订阅SNMP设备批量更新
-  PubSub.subscribe(wsCode.SNMP_DEVICE_BATCH, async (data) => {
-    // 重新加载SNMP状态
-    await loadSNMPDevicesStatus()
+// 组件挂载 - 优化异步处理
+onMounted(() => {
+  fetchSwitches()
+  // 异步加载SNMP状态，不阻塞组件渲染
+  loadSNMPDevicesStatus().catch((err) => {
+    console.error('初始化SNMP状态失败:', err)
   })
 
+  // 订阅SNMP设备批量更新
+  PubSub.subscribe(wsCode.SNMP_DEVICE_BATCH, handleSNMPDeviceBatch)
   console.log('SNMP设备状态订阅已启动')
 })
 
-// 组件卸载
+// 组件卸载 - 清理资源
 onUnmounted(() => {
   PubSub.unsubscribe(wsCode.SNMP_DEVICE_BATCH)
+  // 清空状态，释放内存
+  snmpDevicesStatus.value = {}
   console.log('SNMP设备状态订阅已取消')
 })
 </script>
