@@ -618,7 +618,10 @@ const initTopology = () => {
       stopScrollGraph: true,
       stopZoomGraph: false,
       snapToGrid: true,
-      partial: true // 启用局部渲染
+      partial: true, // 启用局部渲染
+      // 禁用双击节点编辑文本
+      nodeTextEdit: false,
+      edgeTextEdit: false
     })
 
     lf.register(CustomHtml)

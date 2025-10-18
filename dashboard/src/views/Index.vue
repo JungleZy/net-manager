@@ -25,6 +25,15 @@
           <div
             class="h-full layout-left-center px-[12px] cursor-pointer menu-item border-b-2"
             :class="
+              $route.path === '/network' ? 'text-white menu-item-active' : ''
+            "
+            @click="switchTo('/network')"
+          >
+            网络拓扑
+          </div>
+          <div
+            class="h-full layout-left-center px-[12px] cursor-pointer menu-item border-b-2"
+            :class="
               $route.path === '/devices' ? 'text-white menu-item-active' : ''
             "
             @click="switchTo('/devices')"

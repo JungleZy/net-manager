@@ -1130,7 +1130,7 @@ onUnmounted(() => {
 }
 
 /* 骨架屏动画优化 */
-/deep/ .ant-skeleton {
+:deep(.ant-skeleton) {
   animation: fadeIn 0.3s ease-in;
 }
 

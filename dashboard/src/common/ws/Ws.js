@@ -75,13 +75,11 @@ export class Ws {
           this.handleDeviceUpdate(data.data);
           PubSub.publish(wsCode.SNMP_DEVICE_UPDATE, data.data);
           break;
-
         // 单接口实时更新（快进快出队列模式）
         case "snmpInterfaceUpdate":
           this.handleInterfaceUpdate(data.data);
           PubSub.publish(wsCode.SNMP_INTERFACE_UPDATE, data.data);
           break;
-
         // 服务器性能数据
         case "server_performance":
           PubSub.publish(wsCode.SERVER_PERFORMANCE, data.data);

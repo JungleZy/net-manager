@@ -226,7 +226,7 @@ class TopologiesHandler(BaseHandler):
     def get(self):
         """
         获取所有拓扑图
-        返回按创建时间降序排列的所有拓扑图列表
+        返回按创建时间降序排列的所有拓扑图列表，如果没有数据则返回空列表
         """
         try:
             topologies = self.topology_manager.get_all_topologies()
@@ -274,7 +274,7 @@ class TopologyLatestHandler(BaseHandler):
     def get(self):
         """
         获取最新的拓扑图
-        返回创建时间最新的拓扑图
+        返回创建时间最新的拓扑图，如果没有数据则返回空拓扑结构
         """
         try:
             topology = self.topology_manager.get_latest_topology()
@@ -298,8 +298,13 @@ class TopologyLatestHandler(BaseHandler):
 
                 self.write({"status": "success", "data": processed_topology})
             else:
-                self.set_status(404)
-                self.write({"status": "error", "message": "未找到任何拓扑图"})
+                # 没有数据时返回空的拓扑结构，而不是404错误
+                empty_topology = {
+                    "id": None,
+                    "content": {"nodes": [], "edges": []},
+                    "created_at": None,
+                }
+                self.write({"status": "success", "data": empty_topology})
 
         except Exception as e:
             logger.error(f"查询最新拓扑图失败: {str(e)}", exc_info=True)
@@ -317,6 +322,7 @@ class TopologyHandler(BaseHandler):
         """
         根据ID获取拓扑图
         路径参数: topology_id
+        如果未找到则返回空拓扑结构
         """
         try:
             # 类型检查和转换
@@ -348,10 +354,13 @@ class TopologyHandler(BaseHandler):
 
                 self.write({"status": "success", "data": processed_topology})
             else:
-                self.set_status(404)
-                self.write(
-                    {"status": "error", "message": f"未找到ID为 {topology_id} 的拓扑图"}
-                )
+                # 未找到时返回空拓扑结构
+                empty_topology = {
+                    "id": None,
+                    "content": {"nodes": [], "edges": []},
+                    "created_at": None,
+                }
+                self.write({"status": "success", "data": empty_topology})
 
         except Exception as e:
             logger.error(f"查询拓扑图失败: {str(e)}", exc_info=True)
