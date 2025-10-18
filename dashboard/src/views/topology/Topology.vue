@@ -676,8 +676,8 @@ const initTopology = () => {
 
   // 监听节点拖拽添加事件，添加后从leftMenus中移除
   lf.on('node:dnd-add', (nodeData) => {
-    console.log(nodeData);
-    
+    console.log(nodeData)
+
     try {
       const dataId = nodeData?.data?.properties?.data?.id
       if (!dataId) return
@@ -1726,44 +1726,40 @@ const handleGroupEditCancel = () => {
   }
 
   // 取消边的箭头
-  :deep(.lf-edge) {
-    .lf-arrow {
-      display: none !important;
-    }
+  /deep/ .lf-edge .lf-arrow {
+    display: none !important;
   }
 
   // 确保所有类型的边都没有箭头
-  :deep(.lf-edge-polyline),
-  :deep(.lf-edge-line),
-  :deep(.lf-edge-bezier) {
+  /deep/ .lf-edge-polyline,
+  /deep/ .lf-edge-line,
+  /deep/ .lf-edge-bezier {
     marker-end: none !important;
     marker-start: none !important;
   }
 
   // 分组节点文本样式
-  :deep(.lf-node-group) {
-    .lf-node-text {
-      font-size: 14px;
-      font-weight: 600;
-      fill: #1890ff;
-      cursor: text;
-      user-select: none;
-    }
+  /deep/ .lf-node-group .lf-node-text {
+    font-size: 14px;
+    font-weight: 600;
+    fill: #1890ff;
+    cursor: text;
+    user-select: none;
+  }
 
-    .lf-node-text-edit {
-      font-size: 14px;
-      font-weight: 600;
-      color: #1890ff;
-      padding: 4px 8px;
-      border: 1px solid #1890ff;
-      border-radius: 4px;
-      background: white;
-      outline: none;
+  /deep/ .lf-node-group .lf-node-text-edit {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1890ff;
+    padding: 4px 8px;
+    border: 1px solid #1890ff;
+    border-radius: 4px;
+    background: white;
+    outline: none;
 
-      &:focus {
-        border-color: #40a9ff;
-        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-      }
+    &:focus {
+      border-color: #40a9ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
   }
 

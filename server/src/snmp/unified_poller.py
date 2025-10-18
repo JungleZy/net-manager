@@ -79,6 +79,11 @@ class SNMPPoller:
         self._active_tasks: Set[str] = set()
         self._active_lock: Optional[asyncio.Lock] = None
 
+        # 用于跟踪所有运行中的任务
+        self._worker_tasks: List[asyncio.Task] = []
+        self._enqueue_task: Optional[asyncio.Task] = None
+        self._adjustment_task: Optional[asyncio.Task] = None
+
         # 缓存
         self._cache: Dict[str, Tuple[Dict[str, Any], float]] = {}
         self._cache_lock = threading.Lock()
@@ -139,10 +144,18 @@ class SNMPPoller:
         logger.info(f"正在停止SNMP{self._type_name}轮询器...")
         self._running = False
 
-        if self._loop and self._loop.is_running():
-            self._loop.call_soon_threadsafe(self._loop.stop)
+        # 优雅地停止异步任务
+        if self._loop and not self._loop.is_closed():
+            # 在事件循环中调度清理任务
+            future = asyncio.run_coroutine_threadsafe(self._cleanup_tasks(), self._loop)
+            try:
+                # 等待清理完成，最多10秒
+                future.result(timeout=10)
+            except Exception as e:
+                logger.warning(f"清理任务时出错: {e}")
 
-        if self._thread:
+        # 等待线程结束
+        if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
 
         logger.info(f"SNMP{self._type_name}轮询器已停止")
@@ -157,7 +170,20 @@ class SNMPPoller:
         except Exception as e:
             logger.error(f"SNMP{self._type_name}轮询器运行出错: {e}")
         finally:
-            self._loop.close()
+            try:
+                # 取消所有剩余任务
+                pending = asyncio.all_tasks(self._loop)
+                for task in pending:
+                    task.cancel()
+                # 等待所有任务完成取消
+                if pending:
+                    self._loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+            except Exception as e:
+                logger.debug(f"清理剩余任务时出错: {e}")
+            finally:
+                self._loop.close()
 
     async def _polling_loop(self):
         """异步轮询循环（快进快出队列模式）"""
@@ -169,27 +195,27 @@ class SNMPPoller:
         )
 
         # 启动工作协程池
-        workers = [
+        self._worker_tasks = [
             asyncio.create_task(self._worker(i)) for i in range(self.current_workers)
         ]
 
         # 启动设备入队协程
-        enqueue_task = asyncio.create_task(self._enqueue_devices())
+        self._enqueue_task = asyncio.create_task(self._enqueue_devices())
 
         # 启动动态调整协程
-        adjustment_task = None
         if self.dynamic_adjustment:
-            adjustment_task = asyncio.create_task(self._dynamic_adjust_workers())
+            self._adjustment_task = asyncio.create_task(self._dynamic_adjust_workers())
 
         try:
-            await asyncio.gather(enqueue_task, *workers, return_exceptions=True)
+            # 等待所有任务完成
+            all_tasks = [self._enqueue_task] + self._worker_tasks
+            if self._adjustment_task:
+                all_tasks.append(self._adjustment_task)
+            await asyncio.gather(*all_tasks, return_exceptions=True)
+        except asyncio.CancelledError:
+            logger.debug(f"SNMP{self._type_name}轮询循环被取消")
         except Exception as e:
             logger.error(f"轮询循环出错: {e}", exc_info=True)
-        finally:
-            if adjustment_task:
-                adjustment_task.cancel()
-            for worker in workers:
-                worker.cancel()
 
         logger.info(f"SNMP{self._type_name}轮询循环已退出")
 
@@ -232,6 +258,9 @@ class SNMPPoller:
 
                 self._cleanup_cache()
 
+            except asyncio.CancelledError:
+                logger.debug(f"设备入队协程被取消")
+                break
             except Exception as e:
                 logger.error(f"设备入队过程出错: {e}", exc_info=True)
                 await asyncio.sleep(5)
@@ -278,6 +307,9 @@ class SNMPPoller:
 
                 self._task_queue.task_done()
 
+            except asyncio.CancelledError:
+                logger.debug(f"工作协程 {worker_id} 被取消")
+                break
             except Exception as e:
                 logger.error(f"工作协程 {worker_id} 出错: {e}", exc_info=True)
                 await asyncio.sleep(1)
@@ -514,6 +546,9 @@ class SNMPPoller:
                         self._stats["current_concurrency"] = new_workers
                         self._stats["avg_response_time"] = avg_response
 
+            except asyncio.CancelledError:
+                logger.debug(f"动态调整协程被取消")
+                break
             except Exception as e:
                 logger.error(f"动态调整并发数出错: {e}", exc_info=True)
 
@@ -522,9 +557,31 @@ class SNMPPoller:
         current = self.current_workers
         if target_workers > current:
             for i in range(current, target_workers):
-                asyncio.create_task(self._worker(i))
+                task = asyncio.create_task(self._worker(i))
+                self._worker_tasks.append(task)
             logger.info(f"工作协程数增加: {current} -> {target_workers}")
         self.current_workers = target_workers
+
+    async def _cleanup_tasks(self):
+        """清理所有异步任务"""
+        logger.debug(f"开始清理{self._type_name}轮询器任务...")
+
+        # 取消所有任务
+        tasks_to_cancel = []
+        if self._adjustment_task and not self._adjustment_task.done():
+            tasks_to_cancel.append(self._adjustment_task)
+        if self._enqueue_task and not self._enqueue_task.done():
+            tasks_to_cancel.append(self._enqueue_task)
+        tasks_to_cancel.extend([t for t in self._worker_tasks if not t.done()])
+
+        for task in tasks_to_cancel:
+            task.cancel()
+
+        # 等待所有任务完成取消
+        if tasks_to_cancel:
+            await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+
+        logger.debug(f"{self._type_name}轮询器任务清理完成")
 
     def _send_single_result(self, result: Dict[str, Any]):
         """立即发送单个轮询结果（快进快出）"""

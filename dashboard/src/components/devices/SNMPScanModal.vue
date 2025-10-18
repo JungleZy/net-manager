@@ -482,19 +482,19 @@ const addToSwitches = async (record) => {
   overflow: hidden;
 }
 
-.table-container :deep(.ant-table) {
+.table-container /deep/ .ant-table {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.table-container :deep(.ant-table-container) {
+.table-container /deep/ .ant-table-container {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.table-container :deep(.ant-table-body) {
+.table-container /deep/ .ant-table-body {
   flex: 1;
 }
 

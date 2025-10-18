@@ -298,7 +298,9 @@ def build_dashboard():
             npm_cmd = None
             for cmd in ["pnpm", "npm", "yarn"]:
                 try:
-                    subprocess.run([cmd, "--version"], capture_output=True, check=True)
+                    subprocess.run(
+                        [cmd, "--version"], capture_output=True, check=True, shell=True
+                    )
                     npm_cmd = cmd
                     print(f"✓ 找到包管理器: {cmd}")
                     break
@@ -311,7 +313,7 @@ def build_dashboard():
 
             # 安装依赖
             install_cmd = [npm_cmd, "install"]
-            subprocess.run(install_cmd, check=True)
+            subprocess.run(install_cmd, check=True, shell=True)
             print("✓ 前端依赖安装完成")
 
         # 执行构建
@@ -319,14 +321,20 @@ def build_dashboard():
         npm_cmd = None
         for cmd in ["pnpm", "npm", "yarn"]:
             try:
-                subprocess.run([cmd, "--version"], capture_output=True, check=True)
+                subprocess.run(
+                    [cmd, "--version"], capture_output=True, check=True, shell=True
+                )
                 npm_cmd = cmd
                 break
             except (subprocess.CalledProcessError, FileNotFoundError):
                 continue
 
+        if not npm_cmd:
+            print("✗ 未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+            return False
+
         build_cmd = [npm_cmd, "run", "build"]
-        subprocess.run(build_cmd, check=True)
+        subprocess.run(build_cmd, check=True, shell=True)
         print("✓ 前端构建完成")
 
         # 检查构建产物

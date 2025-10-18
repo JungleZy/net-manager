@@ -26,8 +26,10 @@ export default defineConfig({
   plugins: [
     vue(),
     tailwindcss(),
-    transformBindType(), 
+    transformBindType(),
   ],
+  // 设置基础路径为 /，应用部署在根路径
+  base: '/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -45,6 +47,10 @@ export default defineConfig({
       less: {
         javascriptEnabled: true,
       }
+    },
+    lightningcss: {
+      // 禁用伪类/伪元素的警告
+      errorRecovery: true,
     }
   },
   // 优化构建配置

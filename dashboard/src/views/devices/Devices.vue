@@ -66,20 +66,20 @@ onBeforeRouteLeave((to, from) => {
 
 <style lang="less">
 .modal-max-height {
-  :deep(.ant-modal) {
+  /deep/ .ant-modal {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
   }
 
-  :deep(.ant-modal-content) {
+  /deep/ .ant-modal-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     max-height: 90vh;
   }
 
-  :deep(.ant-modal-body) {
+  /deep/ .ant-modal-body {
     flex: 1;
     overflow-y: auto;
     max-height: calc(90vh - 110px); // 减去标题和footer的高度

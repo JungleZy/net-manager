@@ -49,6 +49,7 @@ from src.network.api.handlers.topology_handlers import (
 from src.network.api.handlers.health_handler import HealthHandler
 from src.network.api.handlers.performance_handler import PerformanceHandler
 from src.network.api.websocket_handler import WebSocketHandler
+from src.network.api.handlers.static_handler import StaticFileHandler
 
 
 class APIServer:
@@ -78,7 +79,10 @@ class APIServer:
         # 获取静态文件目录（开发环境和打包后的路径不同）
         if getattr(sys, "frozen", False):
             # 如果是打包后的可执行文件
-            static_path = os.path.join(os.path.dirname(sys.executable), "static")
+            # 使用sys.argv[0]获取实际的可执行文件路径（而不是临时解压目录）
+            exe_path = os.path.abspath(sys.argv[0])
+            exe_dir = os.path.dirname(exe_path)
+            static_path = os.path.join(exe_dir, "static")
         else:
             # 开发环境
             static_path = os.path.join(
@@ -96,8 +100,11 @@ class APIServer:
             logger.warning(f"静态文件目录不存在: {static_path}")
 
         routes = [
-            # 主页重定向到静态文件的index.html
-            (r"/", tornado.web.RedirectHandler, {"url": "/static/index.html"}),
+            # API路由必须在静态文件路由之前，避免被静态文件处理器拦截
+            (r"/ws", WebSocketHandler),
+            (r"/api/performance", PerformanceHandler),
+            (r"/health", HealthHandler),
+            (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
             (
                 r"/api/devices",
                 DevicesHandler,
@@ -200,17 +207,18 @@ class APIServer:
             (r"/api/performance", PerformanceHandler),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
+            # 静态文件服务（必须放在最后，作为SPA应用的默认处理器）
+            (
+                r"/(.*)",
+                StaticFileHandler,
+                {"path": static_path, "default_filename": "index.html"},
+            ),
         ]
 
         # 创建应用配置
         settings: Dict[str, Any] = {
             "debug": False,
         }
-
-        # 如果静态文件目录存在，添加静态文件处理
-        if static_exists:
-            settings["static_path"] = static_path
-            settings["static_url_prefix"] = "/static/"
 
         return tornado.web.Application(routes, **settings)
 

@@ -844,7 +844,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
 
-  :deep(svg) {
+  /deep/ svg {
     width: 100%;
     height: 100%;
     display: block;

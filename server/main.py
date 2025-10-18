@@ -9,6 +9,7 @@ import threading
 import sys
 import os
 import time
+import atexit
 
 # 添加项目根目录到Python路径
 parent_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,11 @@ from src.snmp.unified_poller import stop_device_poller, stop_interface_poller
 
 # 获取单例管理器实例
 singleton_manager = get_server_singleton_manager()
+
+# 全局变量，用于优雅退出
+_shutdown_in_progress = False
+tcp_server = None
+api_server = None
 
 
 def print_welcome_banner():
@@ -45,40 +51,79 @@ def print_welcome_banner():
     print("=" * 50)
 
 
-def signal_handler(sig, frame):
-    """信号处理函数"""
-    logger.info("接收到终止信号，正在关闭服务端...")
+def cleanup_on_exit():
+    """程序退出时的清理函数"""
+    global _shutdown_in_progress
+
+    if _shutdown_in_progress:
+        return  # 避免重复执行
+
+    _shutdown_in_progress = True
+    logger.info("开始执行退出清理...")
+
     # 停止服务器性能监控器
     try:
         from src.monitor import get_server_monitor
 
         server_monitor = get_server_monitor()
-        server_monitor.stop()
+        if server_monitor.running:
+            logger.info("停止服务器监控器...")
+            server_monitor.stop()
     except Exception as e:
         logger.error(f"停止服务器监控器时出错: {e}")
+
     # 停止SNMP轮询器
     try:
+        logger.info("停止SNMP轮询器...")
         stop_device_poller()
         stop_interface_poller()
     except Exception as e:
         logger.error(f"停止SNMP轮询器时出错: {e}")
-    # 通知所有服务停止运行
-    if "tcp_server" in globals():
-        tcp_server.running = False
-    if "api_server" in globals():
+
+    # 停止TCP服务器
+    if "tcp_server" in globals() and tcp_server is not None:
         try:
+            logger.info("停止TCP服务器...")
+            tcp_server.running = False
+        except Exception as e:
+            logger.error(f"停止TCP服务器时出错: {e}")
+
+    # 停止API服务器
+    if "api_server" in globals() and api_server is not None:
+        try:
+            logger.info("停止API服务器...")
             api_server.stop()
         except Exception as e:
             logger.error(f"停止API服务器时出错: {e}")
+
     # 停止UDP服务器
     try:
         from src.network.udp.udp_server import stop_udp_server
 
+        logger.info("停止UDP服务器...")
         stop_udp_server()
     except Exception as e:
         logger.error(f"停止UDP服务器时出错: {e}")
+
+    # 释放单例锁
+    try:
+        singleton_manager.release_lock()
+    except Exception as e:
+        logger.error(f"释放单例锁时出错: {e}")
+
+    logger.info("服务端已完成退出清理")
+
+
+def signal_handler(sig, frame):
+    """信号处理函数"""
+    global _shutdown_in_progress
+
+    if _shutdown_in_progress:
+        return  # 避免重复处理
+
+    logger.info(f"接收到信号 {sig}，正在关闭服务端...")
+    cleanup_on_exit()
     logger.info("服务端已退出")
-    singleton_manager.release_lock()  # 释放锁
     sys.exit(0)
 
 
@@ -106,6 +151,9 @@ def main():
     if not singleton_manager.acquire_lock():
         logger.error("服务端已在运行中，请勿重复启动")
         sys.exit(1)
+
+    # 注册退出清理函数
+    atexit.register(cleanup_on_exit)
 
     # 注册信号处理器
     import signal
@@ -188,11 +236,10 @@ def main():
     except KeyboardInterrupt:
         logger.info("服务端被用户中断")
     except Exception as e:
-        logger.error(f"服务端运行出错: {e}")
+        logger.error(f"服务端运行出错: {e}", exc_info=True)
     finally:
-        # 正常退出时释放锁
-        singleton_manager.release_lock()
-        logger.info("服务端正常退出")
+        # cleanup_on_exit 会通过 atexit 自动调用
+        pass
 
 
 if __name__ == "__main__":
