@@ -18,7 +18,7 @@ export const NODE_COLORS = Object.freeze({
  * @returns {Object} 包含 primary 和 secondary 颜色的对象
  */
 export const getNodeColors = (status) => {
-  return status === 'offline'
+  return status === 'offline' || !status
     ? {
       primary: NODE_COLORS.OFFLINE_PRIMARY,
       secondary: NODE_COLORS.OFFLINE_SECONDARY

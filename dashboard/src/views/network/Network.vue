@@ -49,10 +49,11 @@ import {
   shallowRef,
   useTemplateRef
 } from 'vue'
-import { LogicFlow, LineEdge, LineEdgeModel } from '@logicflow/core'
+import { LogicFlow } from '@logicflow/core'
 import '@logicflow/core/lib/style/index.css'
 import '@logicflow/extension/lib/style/index.css'
 import { default as customNodes } from '@/common/node/index'
+import { default as customEdges } from '@/common/edge/index'
 import TopologyApi from '@/common/api/topology'
 import { wsCode } from '@/common/ws/Ws'
 import { PubSub } from '@/common/utils/PubSub'
@@ -71,6 +72,7 @@ const isComponentMounted = ref(false)
 // PubSub订阅token
 let deviceStatusSubscriber = null
 let snmpDeviceUpdateSubscriber = null
+let deviceInfoSubscriber = null
 
 // 插件配置移到外部常量,避免重复创建对象
 const PLUGINS_OPTIONS = Object.freeze({})
@@ -151,12 +153,14 @@ const initLogicFlow = () => {
     })
 
     // 注册自定义节点
-    customNodes.forEach((node) => {
+    for (const node of customNodes) {
       lf.register(node)
-    })
+    }
 
-    // 添加自定义边类型：带动画的流动边
-    registerAnimatedEdge()
+    // 注册自定义边
+    for (const edge of customEdges) {
+      lf.register(edge)
+    }
   } catch (error) {
     console.error('LogicFlow 初始化失败:', error)
     message.error('拓扑图初始化失败')
@@ -182,50 +186,6 @@ const initLogicFlow = () => {
     })
 }
 
-// 注册带动画的边
-const registerAnimatedEdge = () => {
-  // 自定义边的视图
-  class AnimatedEdgeView extends LineEdge {
-    getEdgeStyle() {
-      const style = super.getEdgeStyle()
-      const { properties } = this.props.model
-
-      // 根据是否有数据传输添加动画
-      if (properties?.hasData) {
-        return {
-          ...style,
-          stroke: '#1890ff',
-          strokeWidth: 3,
-          strokeDasharray: '10 5',
-          animation: 'lf-dash-flow 1s linear infinite'
-        }
-      }
-
-      return style
-    }
-
-    getAttributes() {
-      const attr = super.getAttributes()
-      const { properties } = this.props.model
-
-      if (properties?.hasData) {
-        return {
-          ...attr,
-          className: 'animated-edge-active'
-        }
-      }
-
-      return attr
-    }
-  }
-
-  lf.register({
-    type: 'animated-line',
-    view: AnimatedEdgeView,
-    model: LineEdgeModel
-  })
-}
-
 // 加载最新拓扑图
 const loadLatestTopology = async () => {
   if (!lf) {
@@ -238,17 +198,27 @@ const loadLatestTopology = async () => {
     const response = await TopologyApi.getLatestTopology()
     if (response?.data?.content) {
       const content = response.data.content
+
+      // 优化：将所有边的类型修改为 animated-line，支持动画效果
+      if (content.edges && content.edges.length > 0) {
+        for (const edge of content.edges) {
+          edge.type = 'animated-line'
+        }
+        console.log(
+          `已将 ${content.edges.length} 条边设置为 animated-line 类型`
+        )
+      }
+
       topologyData.value = content
 
       // 初始化设备状态映射
       if (content.nodes && content.nodes.length > 0) {
-        content.nodes.forEach((node) => {
+        for (const node of content.nodes) {
           const deviceId = node.properties?.data?.id || node.id
           const initialStatus = node.properties?.status || 'offline'
           deviceStatusMap.value.set(deviceId, initialStatus)
-        })
+        }
       }
-
       // 渲染拓扑图
       lf.render(content)
     } else {
@@ -394,6 +364,8 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
   if (!lf) return
 
   try {
+    console.log(`更新边 ${sourceId} -> ${targetId} 的数据传输状态为 ${hasData}`)
+
     const graphData = lf.getGraphData()
 
     // 查找连接这两个节点的边
@@ -404,32 +376,20 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
     )
 
     if (edge) {
-      const edgeModel = lf.getEdgeModelById(edge.id)
-      if (edgeModel) {
-        // 更新边的属性
-        const newProperties = {
-          ...edge.properties,
-          hasData: hasData
-        }
 
-        edgeModel.setProperties(newProperties)
-
-        // 如果有数据，更新边的样式以显示动画
-        if (hasData) {
-          edgeModel.setAttributes({
-            style: {
-              stroke: '#1890ff',
-              strokeWidth: 3
-            }
-          })
-        } else {
-          edgeModel.setAttributes({
-            style: {
-              stroke: '#afafaf',
-              strokeWidth: 2
-            }
-          })
-        }
+      lf?.openEdgeAnimation(edge.id)
+    } else {
+      console.warn(`未找到连接 ${sourceId} 和 ${targetId} 的边`)
+      // 打印所有边的信息用于调试
+      if (graphData.edges.length > 0 && graphData.edges.length <= 10) {
+        console.log(
+          '当前边列表:',
+          graphData.edges.map((e) => ({
+            id: e.id,
+            sourceNodeId: e.sourceNodeId,
+            targetNodeId: e.targetNodeId
+          }))
+        )
       }
     }
   } catch (error) {
@@ -470,7 +430,7 @@ const handleSnmpDeviceUpdate = (data) => {
   if (data.interface_info) {
     const interfaces = data.interface_info.interfaces || []
 
-    interfaces.forEach((iface) => {
+    for (const iface of interfaces) {
       // 判断接口是否有数据传输（入站或出站速率 > 0）
       const hasData =
         (iface.in_octets_rate && iface.in_octets_rate > 0) ||
@@ -481,7 +441,87 @@ const handleSnmpDeviceUpdate = (data) => {
       if (hasData && iface.connected_device_id) {
         updateEdgeDataStatus(deviceId, iface.connected_device_id, hasData)
       }
-    })
+    }
+  }
+}
+
+// 处理客户端设备信息更新（包含网络流量数据）
+const handleDeviceInfoUpdate = (data) => {
+  console.log('客户端设备信息更新:', data)
+
+  if (!data) return
+
+  const deviceId = data.client_id || data.device_id || data.id
+
+  // 更新设备在线状态
+  if (deviceId) {
+    updateNodeStatus(deviceId, 'online')
+  }
+
+  // 检查网络接口流量数据，更新边的动画状态
+  // 注意：客户端发送的字段名是 networks，不是 network_info
+  if (data.networks) {
+    let interfaces = []
+
+    // 处理两种可能的数据格式
+    if (typeof data.networks === 'string') {
+      // 如果是JSON字符串，先解析
+      try {
+        interfaces = JSON.parse(data.networks)
+      } catch (e) {
+        console.warn('解析 networks 字段失败:', e)
+        return
+      }
+    } else if (Array.isArray(data.networks)) {
+      // 如果已经是数组，直接使用
+      interfaces = data.networks
+    } else {
+      return
+    }
+
+    for (const iface of interfaces) {
+      // 判断接口是否有数据传输（上传或下载速率 > 0）
+      const hasData =
+        (iface.upload_rate && iface.upload_rate > 0) ||
+        (iface.download_rate && iface.download_rate > 0)
+
+      // 如果有流量，找到该设备连接的边并显示动画
+      // 这里假设网关是连接的目标设备
+
+      if (hasData && iface.gateway) {
+        // 通过网关IP查找目标设备节点
+        const graphData = lf?.getGraphData()
+        if (graphData) {
+          // 1. 先通过网关IP找到网关节点
+          const gatewayNode = graphData.nodes.find(
+            (n) => n.properties?.data?.ip === iface.gateway
+          )
+
+          if (gatewayNode) {
+            // 2. 找到当前设备对应的节点（通过设备ID匹配）
+            const currentDeviceNode = graphData.nodes.find(
+              (n) => n.properties?.data?.id === deviceId
+            )
+
+            if (currentDeviceNode) {
+              // 3. 使用节点ID（而不是设备ID）来更新边
+              console.log(
+                `找到节点: 当前设备节点 ${currentDeviceNode.id}, 网关节点 ${gatewayNode.id}`
+              )
+              updateEdgeDataStatus(
+                currentDeviceNode.id,
+                gatewayNode.id,
+                hasData
+              )
+            } else {
+              console.warn(`未找到设备 ${deviceId} 对应的节点`)
+            }
+          } else {
+            console.warn(`未找到网关 ${iface.gateway} 对应的节点`)
+          }
+        }
+      }
+    }
   }
 }
 
@@ -498,6 +538,12 @@ const initPubSubSubscriptions = () => {
     snmpDeviceUpdateSubscriber = PubSub.subscribe(
       wsCode.SNMP_DEVICE_UPDATE,
       handleSnmpDeviceUpdate
+    )
+
+    // 订阅客户端设备信息更新（用于网络流量动画）
+    deviceInfoSubscriber = PubSub.subscribe(
+      wsCode.DEVICE_INFO,
+      handleDeviceInfoUpdate
     )
 
     console.log('Network.vue: PubSub订阅已初始化')
@@ -518,6 +564,10 @@ const cleanup = () => {
   if (snmpDeviceUpdateSubscriber) {
     PubSub.unsubscribe(snmpDeviceUpdateSubscriber)
     snmpDeviceUpdateSubscriber = null
+  }
+  if (deviceInfoSubscriber) {
+    PubSub.unsubscribe(deviceInfoSubscriber)
+    deviceInfoSubscriber = null
   }
 
   // 销毁LogicFlow实例,释放内存
@@ -602,40 +652,29 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-// 边的流动动画 - 使用 /deep/ 选择器
-/deep/ .lf-edge {
-  // 为有数据传输的边添加动画 class
-  &.animated-edge-active {
-    path {
-      stroke: #1890ff !important;
-      stroke-width: 3 !important;
-      stroke-dasharray: 10 5 !important;
-      animation: lf-dash-flow 1s linear infinite !important;
-    }
-  }
-}
-
-// 定义边的流动动画
-@keyframes lf-dash-flow {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -15;
+// 边的样式
+:deep(.lf-edge) {
+  path {
+    transition: all 0.3s ease;
   }
 }
 
 // 取消边的箭头
-/deep/ .lf-edge {
+:deep(.lf-edge) {
   .lf-arrow {
     display: none !important;
   }
 }
 
-/deep/ .lf-edge-line,
-/deep/ .lf-edge-polyline,
-/deep/ .lf-edge-bezier {
+:deep(.lf-edge-line),
+:deep(.lf-edge-polyline),
+:deep(.lf-edge-bezier) {
   marker-end: none !important;
   marker-start: none !important;
+}
+
+// 小球动画透明度过渡
+:deep(.edge-animation-ball) {
+  transition: opacity 0.3s ease;
 }
 </style>
