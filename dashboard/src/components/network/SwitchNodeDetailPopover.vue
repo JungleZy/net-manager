@@ -108,7 +108,7 @@ onUnmounted(() => {
 // 自定义 Popover 样式
 .custom-popover {
   position: absolute;
-  z-index: 1000;
+  z-index: 10000; // 确保在页内全屏时也能显示
 
   .popover-arrow {
     position: absolute;
