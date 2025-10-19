@@ -262,6 +262,8 @@ class DevicesHandler(BaseHandler):
                     "hostname": device["hostname"],
                     "services_count": len(device["services"]),
                     "processes_count": len(device["processes"]),
+                    "services": device["services"],  # 添加完整服务列表
+                    "processes": device["processes"],  # 添加完整进程列表
                     "networks_count": len(networks),
                     "ips": ips,  # 添加IP地址列表字段
                     "cpu_info": device["cpu_info"],
