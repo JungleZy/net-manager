@@ -597,8 +597,6 @@ const handleNodeClick = (nodeData, event) => {
     return
   }
 
-  console.log('节点被点击:', nodeData)
-
   // 提取节点信息
   const deviceData = nodeData.properties?.data || {}
 
@@ -613,6 +611,7 @@ const handleNodeClick = (nodeData, event) => {
   console.log('deviceIndex:', deviceIndex.value)
   console.log('switchIndex:', switchIndex.value)
   if (deviceIndex.value === -1 && switchIndex.value === -1) {
+    message.error('该节点为虚拟设备，不支持查看详情!')
     return
   }
 
