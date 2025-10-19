@@ -1,51 +1,26 @@
 <template>
   <div
-    v-if="visible && nodeData"
+    v-if="visible && index > -1"
     ref="popoverRef"
     class="custom-popover"
     :class="`popover-${placement}`"
     :style="{
       left: position.x + 'px',
-      top: position.y + 'px'
+      top: position.y + 'px',
+      '--max-height': maxHeight + 'px',
+      '--arrow-offset': arrowOffset + 'px'
     }"
+    @click.stop
   >
     <div class="popover-arrow"></div>
     <div class="node-detail-popover">
       <div class="popover-header">
         <h4 class="popover-title">
-          {{ nodeData.name || '未命名设备' }}
+          {{ list[index].name || '未命名设备' }}
         </h4>
       </div>
       <div class="popover-body">
-        <div class="detail-item">
-          <span class="detail-label">设备类型:</span>
-          <span class="detail-value">{{ nodeData.deviceType || '-' }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">IP地址:</span>
-          <span class="detail-value">{{ nodeData.ip || '-' }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">MAC地址:</span>
-          <span class="detail-value">{{ nodeData.mac || '-' }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">状态:</span>
-          <span
-            class="status-tag"
-            :class="nodeData.status === 'online' ? 'online' : 'offline'"
-          >
-            {{ nodeData.status === 'online' ? '在线' : '离线' }}
-          </span>
-        </div>
-        <div class="detail-item" v-if="nodeData.hostname">
-          <span class="detail-label">主机名:</span>
-          <span class="detail-value">{{ nodeData.hostname }}</span>
-        </div>
-        <div class="detail-item" v-if="nodeData.os">
-          <span class="detail-label">操作系统:</span>
-          <span class="detail-value">{{ nodeData.os }}</span>
-        </div>
+        {{ list[index] }}
       </div>
     </div>
   </div>
@@ -60,10 +35,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  nodeData: {
-    type: Object,
-    default: null
-  },
   position: {
     type: Object,
     default: () => ({ x: 0, y: 0 })
@@ -72,9 +43,18 @@ const props = defineProps({
     type: String,
     default: 'right',
     validator: (value) => ['right', 'left', 'top', 'bottom'].includes(value)
+  },
+  maxHeight: {
+    type: Number,
+    default: 600
+  },
+  arrowOffset: {
+    type: Number,
+    default: 0
   }
 })
-
+const list = defineModel()
+const index = defineModel('index')
 // Emits定义
 const emit = defineEmits(['close'])
 
@@ -193,13 +173,14 @@ onUnmounted(() => {
 
 // 下方弹出
 .popover-bottom {
-  transform: translate(-50%, 20px);
+  transform: translate(-50%, 70px);
   animation: popoverFadeInBottom 0.2s ease-out;
 
   .popover-arrow {
+    position: absolute;
     left: 50%;
-    top: -8px;
-    transform: translateX(-50%);
+    top: var(--arrow-offset, 0px);
+    transform: translate(-50%, -8px);
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
     border-bottom: 8px solid #fff;
@@ -210,23 +191,24 @@ onUnmounted(() => {
 @keyframes popoverFadeInBottom {
   from {
     opacity: 0;
-    transform: translate(-50%, 10px);
+    transform: translate(-50%, 60px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 20px);
+    transform: translate(-50%, 70px);
   }
 }
 
 // 上方弹出
 .popover-top {
-  transform: translate(-50%, calc(-100% - 20px));
+  transform: translate(-50%, calc(-100% - 70px));
   animation: popoverFadeInTop 0.2s ease-out;
 
   .popover-arrow {
+    position: absolute;
     left: 50%;
-    bottom: -8px;
-    transform: translateX(-50%);
+    bottom: calc(var(--arrow-offset, 0px) * -1);
+    transform: translate(-50%, 8px);
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
     border-top: 8px solid #fff;
@@ -237,11 +219,11 @@ onUnmounted(() => {
 @keyframes popoverFadeInTop {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-100% - 10px));
+    transform: translate(-50%, calc(-100% - 60px));
   }
   to {
     opacity: 1;
-    transform: translate(-50%, calc(-100% - 20px));
+    transform: translate(-50%, calc(-100% - 70px));
   }
 }
 
@@ -249,10 +231,12 @@ onUnmounted(() => {
 .node-detail-popover {
   min-width: 280px;
   max-width: 400px;
+  max-height: var(--max-height, 600px);
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 16px;
+  overflow-y: auto;
 
   .popover-header {
     margin-bottom: 12px;

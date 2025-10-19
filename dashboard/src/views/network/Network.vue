@@ -71,11 +71,24 @@
       </div>
 
       <!-- 节点详情 Popover (自定义) -->
-      <NodeDetailPopover
+      <DeviceNodeDetailPopover
         :visible="popoverVisible"
-        :node-data="selectedNode"
+        v-model="devices"
+        v-model:index="deviceIndex"
         :position="popoverPosition"
         :placement="popoverPlacement"
+        :max-height="popoverMaxHeight"
+        :arrow-offset="popoverArrowOffset"
+        @close="handlePopoverClose"
+      />
+      <SwitchNodeDetailPopover
+        :visible="popoverVisible"
+        v-model="switches"
+        v-model:index="switchIndex"
+        :position="popoverPosition"
+        :placement="popoverPlacement"
+        :max-height="popoverMaxHeight"
+        :arrow-offset="popoverArrowOffset"
         @close="handlePopoverClose"
       />
     </div>
@@ -109,14 +122,15 @@ import {
   FullscreenOutlined,
   FullscreenExitOutlined
 } from '@ant-design/icons-vue'
-import NodeDetailPopover from '@/components/network/NodeDetailPopover.vue'
+import DeviceNodeDetailPopover from '../../components/network/DeviceNodeDetailPopover.vue'
+import SwitchNodeDetailPopover from '../../components/network/SwitchNodeDetailPopover.vue'
 
 const containerRef = useTemplateRef('containerRef')
 const networkWrapperRef = useTemplateRef('networkWrapperRef')
 const networkContainerRef = useTemplateRef('networkContainerRef')
-const devices = shallowRef([])
-const switches = shallowRef([])
-// 使用 shallowRef 避免深度响应式带来的性能开销
+const devices = ref([])
+const switches = ref([])
+// 使用 ref 确保响应式更新能够正确触发
 let lf = null
 const loading = ref(false)
 const topologyData = shallowRef({ nodes: [], edges: [] })
@@ -131,8 +145,12 @@ const fullscreenMode = ref('') // 'page' | 'screen'
 // Popover 相关状态
 const popoverVisible = ref(false)
 const selectedNode = ref(null)
+const deviceIndex = ref(0)
+const switchIndex = ref(0)
 const popoverPosition = ref({ x: 0, y: 0 })
 const popoverPlacement = ref('right') // 弹出方向: 'right' | 'left' | 'top' | 'bottom'
+const popoverMaxHeight = ref(600) // 弹出框最大高度（像素）
+const popoverArrowOffset = ref(0) // 箭头Y轴偏移量（像素）
 
 // ResizeObserver 实例
 let resizeObserver = null
@@ -302,7 +320,7 @@ const initLogicFlow = () => {
 
   try {
     lf = new LogicFlow({
-      grid: true,
+      grid: false,
       container: container,
       width: width,
       height: height,
@@ -453,27 +471,19 @@ const handleNodeClick = (nodeData, event) => {
 
   // 提取节点信息
   const deviceData = nodeData.properties?.data || {}
-  console.log(deviceData)
 
   const deviceId = deviceData.id || nodeData.id
-  const status =
-    deviceStatusMap.value.get(deviceId) ||
-    nodeData.properties?.status ||
-    'offline'
+  deviceIndex.value = devices.value.findIndex(
+    (d) => d.id === deviceId || d.client_id === deviceId
+  )
+  switchIndex.value = switches.value.findIndex(
+    (s) => s.id === deviceId || s.switch_id === deviceId
+  )
 
-  // 设置选中节点数据
-  selectedNode.value = {
-    name:
-      deviceData.name ||
-      deviceData.hostname ||
-      nodeData.text?.value ||
-      '未命名设备',
-    deviceType: nodeData.type || deviceData.device_type || '-',
-    ip: deviceData.ip || '-',
-    mac: deviceData.mac || '-',
-    hostname: deviceData.hostname || '',
-    os: deviceData.os || deviceData.platform || '',
-    status: status
+  console.log('deviceIndex:', deviceIndex.value)
+  console.log('switchIndex:', switchIndex.value)
+  if (deviceIndex.value === -1 && switchIndex.value === -1) {
+    return
   }
 
   // 计算 Popover 位置（节点中心点）
@@ -499,18 +509,26 @@ const calculatePopoverPosition = (nodeX, nodeY, containerRect) => {
   // 安全边距（像素）
   const SAFE_MARGIN = 20
   // Popover 预估尺寸
-  const POPOVER_WIDTH = 300
-  const POPOVER_HEIGHT = 200
+  const POPOVER_WIDTH = 450
 
   // 容器尺寸
   const containerWidth = containerRect.width
   const containerHeight = containerRect.height
 
+  // 计算弹出框最大高度（画布高度的80%）
+  popoverMaxHeight.value = Math.floor(containerHeight * 0.8)
+  // 使用实际最大高度进行空间计算
+  const POPOVER_HEIGHT = popoverMaxHeight.value
+
+  // 节点偏移量（避免遮挡节点本身）
+  const NODE_OFFSET = 70
+
   // 计算各个方向的可用空间
   const spaceRight = containerWidth - nodeX - SAFE_MARGIN
   const spaceLeft = nodeX - SAFE_MARGIN
-  const spaceBottom = containerHeight - nodeY - SAFE_MARGIN
-  const spaceTop = nodeY - SAFE_MARGIN
+  // 下方和上方需要考虑节点偏移量
+  const spaceBottom = containerHeight - nodeY - NODE_OFFSET - SAFE_MARGIN
+  const spaceTop = nodeY - NODE_OFFSET - SAFE_MARGIN
 
   let placement = 'right'
   let finalX = nodeX
@@ -667,8 +685,17 @@ const calculatePopoverPosition = (nodeX, nodeY, containerRect) => {
   popoverPosition.value = { x: finalX, y: finalY }
   popoverPlacement.value = placement
 
+  // 计算箭头偏移量（仅对上下方向）
+  if (placement === 'top' || placement === 'bottom') {
+    // 箭头需要偏移的距离 = 节点Y坐标 - 弹出框Y坐标
+    popoverArrowOffset.value = nodeY - finalY
+  } else {
+    // 左右方向不需要偏移
+    popoverArrowOffset.value = 0
+  }
+
   console.log(
-    `Popover弹出方向: ${placement}, 位置: (${finalX}, ${finalY})，节点位置: (${nodeX}, ${nodeY})`
+    `Popover弹出方向: ${placement}, 位置: (${finalX}, ${finalY})，节点位置: (${nodeX}, ${nodeY}), 箭头偏移: ${popoverArrowOffset.value}px`
   )
 }
 
@@ -892,13 +919,11 @@ const handleDeviceStatusUpdate = (data) => {
     const deviceIndex = devices.value.findIndex(
       (d) => d.id === deviceId || d.client_id === deviceId
     )
-    if (deviceIndex !== -1) {
-      devices.value[deviceIndex] = {
-        ...devices.value[deviceIndex],
-        status: status,
-        online: status === 'online',
-        last_seen: new Date().toISOString()
-      }
+    if (deviceIndex > -1) {
+      // 直接修改对象属性，ref 会自动追踪变化
+      devices.value[deviceIndex].status = status
+      devices.value[deviceIndex].online = status === 'online'
+      devices.value[deviceIndex].last_seen = new Date().toISOString()
     }
 
     // 更新交换机列表中的状态（如果是交换机）
@@ -906,14 +931,12 @@ const handleDeviceStatusUpdate = (data) => {
       (s) => s.id === deviceId || s.switch_id === deviceId
     )
     if (switchIndex !== -1) {
-      switches.value[switchIndex] = {
-        ...switches.value[switchIndex],
-        status: status,
-        online: status === 'online',
-        last_seen: new Date().toISOString()
-      }
+      // 直接修改对象属性，ref 会自动追踪变化
+      switches.value[switchIndex].status = status
+      switches.value[switchIndex].online = status === 'online'
+      switches.value[switchIndex].last_seen = new Date().toISOString()
     }
-    console.log(devices.value)
+    console.log('设备列表已更新:', devices.value)
   }
 }
 
@@ -935,13 +958,11 @@ const handleSnmpDeviceUpdate = (data) => {
     const switchIndex = switches.value.findIndex(
       (s) => s.id === deviceId || s.switch_id === deviceId
     )
-    if (switchIndex !== -1) {
-      // 更新现有交换机数据
-      switches.value[switchIndex] = {
-        ...switches.value[switchIndex],
-        ...data,
+    if (switchIndex > -1) {
+      // 直接合并数据到现有对象，ref 会自动追踪变化
+      Object.assign(switches.value[switchIndex], data, {
         last_updated: new Date().toISOString()
-      }
+      })
     } else {
       // 新交换机，添加到列表
       switches.value.push({
@@ -987,13 +1008,11 @@ const handleDeviceInfoUpdate = (data) => {
       (d) => d.id === deviceId || d.client_id === deviceId
     )
     if (deviceIndex !== -1) {
-      // 更新现有设备数据
-      devices.value[deviceIndex] = {
-        ...devices.value[deviceIndex],
-        ...data,
+      // 直接合并数据到现有对象，ref 会自动追踪变化
+      Object.assign(devices.value[deviceIndex], data, {
         status: 'online',
         last_updated: new Date().toISOString()
-      }
+      })
     } else {
       // 新设备，添加到列表
       devices.value.push({
