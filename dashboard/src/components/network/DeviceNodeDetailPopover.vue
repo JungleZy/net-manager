@@ -58,108 +58,130 @@
 
         <!-- 性能监控 -->
         <div class="info-section">
-          <div class="section-title">性能监控</div>
-
-          <!-- CPU -->
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">CPU 使用率</span>
-              <span class="metric-value"
-                >{{ device.cpu_info?.usage_percent }}%</span
-              >
-            </div>
-            <a-progress
-              :percent="device.cpu_info?.usage_percent"
-              :show-info="false"
-              :stroke-color="getProgressColor(device.cpu_info?.usage_percent)"
-            />
-            <div class="metric-detail">
-              {{ device.cpu_info?.physical_cores }} 核心 ({{
-                device.cpu_info?.cores
-              }}
-              逻辑处理器) @ {{ device.cpu_info?.current_frequency }} MHz
-            </div>
+          <div
+            class="section-title"
+            @click="performanceExpanded = !performanceExpanded"
+          >
+            <span>性能监控</span>
+            <DownOutlined v-if="performanceExpanded" class="toggle-icon" />
+            <UpOutlined v-else class="toggle-icon" />
           </div>
 
-          <!-- 内存 -->
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">内存使用率</span>
-              <span class="metric-value"
-                >{{ device.memory_info?.percentage }}%</span
-              >
+          <div v-show="performanceExpanded" class="section-content">
+            <!-- CPU -->
+            <div class="metric-item">
+              <div class="metric-row">
+                <span class="metric-label">CPU</span>
+                <a-progress
+                  :percent="device.cpu_info?.usage_percent"
+                  :show-info="false"
+                  :stroke-color="
+                    getProgressColor(device.cpu_info?.usage_percent)
+                  "
+                  class="metric-progress"
+                />
+                <span class="metric-value"
+                  >{{ device.cpu_info?.usage_percent }}%</span
+                >
+              </div>
+              <div class="metric-detail">
+                {{ device.cpu_info?.physical_cores }} 核心 ({{
+                  device.cpu_info?.cores
+                }}
+                逻辑处理器) @ {{ device.cpu_info?.current_frequency }} MHz
+              </div>
             </div>
-            <a-progress
-              :percent="device.memory_info?.percentage"
-              :show-info="false"
-              :stroke-color="getProgressColor(device.memory_info?.percentage)"
-            />
-            <div class="metric-detail">
-              {{ formatBytes(device.memory_info?.used) }} /
-              {{ formatBytes(device.memory_info?.total) }}
-            </div>
-          </div>
 
-          <!-- 磁盘 -->
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">磁盘使用率</span>
-              <span class="metric-value"
-                >{{ device.disk_info?.percentage?.toFixed(1) }}%</span
-              >
+            <!-- 内存 -->
+            <div class="metric-item">
+              <div class="metric-row">
+                <span class="metric-label">内存</span>
+                <a-progress
+                  :percent="device.memory_info?.percentage"
+                  :show-info="false"
+                  :stroke-color="
+                    getProgressColor(device.memory_info?.percentage)
+                  "
+                  class="metric-progress"
+                />
+                <span class="metric-value"
+                  >{{ device.memory_info?.percentage }}%</span
+                >
+              </div>
+              <div class="metric-detail">
+                {{ formatBytes(device.memory_info?.used) }} /
+                {{ formatBytes(device.memory_info?.total) }}
+              </div>
             </div>
-            <a-progress
-              :percent="device.disk_info?.percentage"
-              :show-info="false"
-              :stroke-color="getProgressColor(device.disk_info?.percentage)"
-            />
-            <div class="metric-detail">
-              {{ formatBytes(device.disk_info?.used) }} /
-              {{ formatBytes(device.disk_info?.total) }}
+
+            <!-- 磁盘 -->
+            <div class="metric-item">
+              <div class="metric-row">
+                <span class="metric-label">磁盘</span>
+                <a-progress
+                  :percent="device.disk_info?.percentage"
+                  :show-info="false"
+                  :stroke-color="getProgressColor(device.disk_info?.percentage)"
+                  class="metric-progress"
+                />
+                <span class="metric-value"
+                  >{{ device.disk_info?.percentage?.toFixed(1) }}%</span
+                >
+              </div>
+              <div class="metric-detail">
+                {{ formatBytes(device.disk_info?.used) }} /
+                {{ formatBytes(device.disk_info?.total) }}
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 网络接口 -->
         <div class="info-section">
-          <div class="section-title">
-            网络接口 ({{ networkInterfaces.length }})
+          <div
+            class="section-title"
+            @click="networkExpanded = !networkExpanded"
+          >
+            <span>网络接口 ({{ networkInterfaces.length }})</span>
+            <DownOutlined v-if="networkExpanded" class="toggle-icon" />
+            <UpOutlined v-else class="toggle-icon" />
           </div>
-          <div class="network-list">
-            <div
-              class="network-item"
-              v-for="(network, idx) in networkInterfaces"
-              :key="idx"
-            >
-              <div class="network-header">
-                <span class="network-name">{{ network.name }}</span>
-                <span class="network-ip">{{ network.ip_address }}</span>
-              </div>
-              <div class="network-speeds">
-                <div class="speed-item upload">
-                  <span class="speed-icon">⬆</span>
-                  <span class="speed-label">上传:</span>
-                  <span class="speed-value">{{
-                    formatSpeed(network.upload_rate)
-                  }}</span>
-                </div>
-                <div class="speed-item download">
-                  <span class="speed-icon">⬇</span>
-                  <span class="speed-label">下载:</span>
-                  <span class="speed-value">{{
-                    formatSpeed(network.download_rate)
-                  }}</span>
-                </div>
-              </div>
+          <div v-show="networkExpanded" class="section-content">
+            <div class="network-list">
               <div
-                class="network-detail layout-left-center"
-                v-if="network.mac_address"
+                class="network-item"
+                v-for="(network, idx) in networkInterfaces"
+                :key="idx"
               >
-                <span class="detail-label">MAC:{{ network.mac_address }}</span>
-              </div>
-              <div class="network-detail" v-if="network.gateway">
-                <span class="detail-label">网关:</span>
-                <span class="detail-value">{{ network.gateway }}</span>
+                <div class="network-header">
+                  <span class="network-name">{{ network.name }}</span>
+                  <span class="network-ip">{{ network.ip_address }}</span>
+                </div>
+                <div class="network-speeds">
+                  <div class="speed-item upload">
+                    <span class="speed-icon">⬆</span>
+                    <span class="speed-value">{{
+                      formatSpeed(network.upload_rate)
+                    }}</span>
+                  </div>
+                  <div class="speed-item download">
+                    <span class="speed-icon">⬇</span>
+                    <span class="speed-value">{{
+                      formatSpeed(network.download_rate)
+                    }}</span>
+                  </div>
+                  <div
+                    class="network-extra"
+                    v-if="network.mac_address || network.gateway"
+                  >
+                    <span v-if="network.mac_address" class="extra-info"
+                      >MAC: {{ network.mac_address }}</span
+                    >
+                    <span v-if="network.gateway" class="extra-info"
+                      >网关: {{ network.gateway }}</span
+                    >
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -167,28 +189,40 @@
 
         <!-- 磁盘分区 -->
         <div class="info-section" v-if="device.disk_info?.partitions?.length">
-          <div class="section-title">
-            磁盘分区 ({{ device.disk_info.partitions.length }})
+          <div
+            class="section-title"
+            @click="partitionExpanded = !partitionExpanded"
+          >
+            <span>磁盘分区 ({{ device.disk_info.partitions.length }})</span>
+            <DownOutlined v-if="partitionExpanded" class="toggle-icon" />
+            <UpOutlined v-else class="toggle-icon" />
           </div>
-          <div class="partition-list">
-            <div
-              class="partition-item"
-              v-for="(partition, idx) in device.disk_info.partitions"
-              :key="idx"
-            >
-              <div class="partition-header">
-                <span class="partition-name">{{ partition.device }}</span>
-                <span class="partition-usage">{{ partition.percentage }}%</span>
-              </div>
-              <a-progress
-                :percent="partition.percentage"
-                :show-info="false"
-                :stroke-color="getProgressColor(partition.percentage)"
-                size="small"
-              />
-              <div class="partition-detail">
-                {{ formatBytes(partition.used) }} /
-                {{ formatBytes(partition.total) }} ({{ partition.file_system }})
+          <div v-show="partitionExpanded" class="section-content">
+            <div class="partition-list">
+              <div
+                class="partition-item"
+                v-for="(partition, idx) in device.disk_info.partitions"
+                :key="idx"
+              >
+                <div class="partition-header">
+                  <span class="partition-name">{{ partition.device }}</span>
+                  <a-progress
+                    :percent="partition.percentage"
+                    :show-info="false"
+                    :stroke-color="getProgressColor(partition.percentage)"
+                    size="small"
+                    class="partition-progress"
+                  />
+                  <span class="partition-usage"
+                    >{{ partition.percentage }}%</span
+                  >
+                </div>
+                <div class="partition-detail">
+                  {{ formatBytes(partition.used) }} /
+                  {{ formatBytes(partition.total) }} ({{
+                    partition.file_system
+                  }})
+                </div>
               </div>
             </div>
           </div>
@@ -237,9 +271,24 @@
 </template>
 
 <script setup>
-import { watch, nextTick, onUnmounted, useTemplateRef, computed } from 'vue'
+import {
+  watch,
+  nextTick,
+  onUnmounted,
+  useTemplateRef,
+  computed,
+  ref
+} from 'vue'
+import { DownOutlined, UpOutlined } from '@ant-design/icons-vue'
+import localforage from 'localforage'
 import simplebar from 'simplebar-vue'
 import 'simplebar-vue/dist/simplebar.min.css'
+
+// 展开/收起状态
+const performanceExpanded = ref(true)
+const networkExpanded = ref(true)
+const partitionExpanded = ref(true)
+
 // Props定义
 const props = defineProps({
   visible: {
@@ -280,26 +329,77 @@ const device = computed(() => {
   return {}
 })
 
-// 网络接口数据
+// 设备ID（用于存储key）
+const deviceId = computed(() => {
+  return device.value.client_id || device.value.id || 'unknown'
+})
+
+// LocalForage 存储key
+const STORAGE_KEY_PREFIX = 'device-popover-state-'
+
+// 加载设备的展开/收起状态
+const loadDeviceState = async () => {
+  if (!deviceId.value || deviceId.value === 'unknown') return
+
+  try {
+    const storageKey = STORAGE_KEY_PREFIX + deviceId.value
+    const savedState = await localforage.getItem(storageKey)
+
+    if (savedState) {
+      performanceExpanded.value = savedState.performance ?? true
+      networkExpanded.value = savedState.network ?? true
+      partitionExpanded.value = savedState.partition ?? true
+    }
+  } catch (error) {
+    console.warn('加载设备状态失败:', error)
+  }
+}
+
+// 保存设备的展开/收起状态
+const saveDeviceState = async () => {
+  if (!deviceId.value || deviceId.value === 'unknown') return
+
+  try {
+    const storageKey = STORAGE_KEY_PREFIX + deviceId.value
+    const state = {
+      performance: performanceExpanded.value,
+      network: networkExpanded.value,
+      partition: partitionExpanded.value
+    }
+
+    await localforage.setItem(storageKey, state)
+  } catch (error) {
+    console.warn('保存设备状态失败:', error)
+  }
+}
+
+// 网络接口数据（按总速率降序排列）
 const networkInterfaces = computed(() => {
   if (!device.value.networks) return []
+
+  let interfaces = []
 
   // 如果是字符串，解析为JSON
   if (typeof device.value.networks === 'string') {
     try {
-      return JSON.parse(device.value.networks)
+      interfaces = JSON.parse(device.value.networks)
     } catch (e) {
       console.warn('解析网络接口数据失败:', e)
       return []
     }
+  } else if (Array.isArray(device.value.networks)) {
+    // 如果已经是数组，直接使用
+    interfaces = device.value.networks
+  } else {
+    return []
   }
 
-  // 如果已经是数组，直接返回
-  if (Array.isArray(device.value.networks)) {
-    return device.value.networks
-  }
-
-  return []
+  // 按照上传+下载的总速率降序排列
+  return interfaces.sort((a, b) => {
+    const totalA = (a.upload_rate || 0) + (a.download_rate || 0)
+    const totalB = (b.upload_rate || 0) + (b.download_rate || 0)
+    return totalB - totalA
+  })
 })
 
 // 格式化网络速率
@@ -358,6 +458,9 @@ watch(
   () => props.visible,
   (newVisible) => {
     if (newVisible) {
+      // 加载设备状态
+      loadDeviceState()
+
       // 使用 nextTick 确保 Popover 渲染完成后再添加全局监听
       // 避免当前点击事件立即触发关闭
       nextTick(() => {
@@ -374,6 +477,13 @@ watch(
     }
   }
 )
+
+// 监听展开/收起状态变化，保存到 LocalForage
+watch([performanceExpanded, networkExpanded, partitionExpanded], () => {
+  if (props.visible) {
+    saveDeviceState()
+  }
+})
 
 // 组件卸载时清理
 onUnmounted(() => {
@@ -541,15 +651,15 @@ onUnmounted(() => {
         font-weight: 500;
 
         &.online {
-          background-color: rgba(82, 196, 26, 0.2);
-          color: #52c41a;
-          border: 1px solid rgba(82, 196, 26, 0.4);
+          background-color: rgba(0, 255, 0, 0.8);
+          color: #ffffff;
+          border: 1px solid rgb(0, 255, 0);
         }
 
         &.offline {
-          background-color: rgba(255, 77, 79, 0.2);
-          color: #ff4d4f;
-          border: 1px solid rgba(255, 77, 79, 0.4);
+          background-color: rgba(255, 0, 0, 0.8);
+          color: #ffffff;
+          border: 1px solid rgb(255, 0, 0);
         }
       }
     }
@@ -584,6 +694,31 @@ onUnmounted(() => {
         margin-bottom: 6px;
         border-bottom: 2px solid #f0f0f0;
         padding-bottom: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.2s ease;
+
+        &:hover {
+          color: #1890ff;
+          border-bottom-color: #1890ff;
+        }
+
+        .toggle-icon {
+          font-size: 12px;
+          color: #8c8c8c;
+          transition: transform 0.2s ease, color 0.2s ease;
+        }
+
+        &:hover .toggle-icon {
+          color: #1890ff;
+        }
+      }
+
+      .section-content {
+        animation: slideDown 0.2s ease-out;
       }
 
       .info-grid {
@@ -617,6 +752,34 @@ onUnmounted(() => {
           margin-bottom: 0;
         }
 
+        .metric-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .metric-label {
+            font-size: 13px;
+            color: #595959;
+            font-weight: 500;
+            min-width: 30px;
+            max-width: 80px;
+            flex-shrink: 0;
+          }
+
+          .metric-progress {
+            flex: 1;
+          }
+
+          .metric-value {
+            font-size: 14px;
+            color: #262626;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: right;
+            flex-shrink: 0;
+          }
+        }
+
         .metric-header {
           display: flex;
           justify-content: space-between;
@@ -645,28 +808,27 @@ onUnmounted(() => {
       .network-list {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 8px;
 
         .network-item {
-          padding: 12px;
+          padding: 6px 8px;
           background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-          border-radius: 8px;
-          border-left: 4px solid #1890ff;
+          border-radius: 6px;
 
           .network-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
 
             .network-name {
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 600;
               color: #262626;
             }
 
             .network-ip {
-              font-size: 13px;
+              font-size: 12px;
               color: #1890ff;
               font-weight: 500;
             }
@@ -675,59 +837,48 @@ onUnmounted(() => {
           .network-speeds {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 8px;
+            gap: 6px;
 
             .speed-item {
               display: flex;
               align-items: center;
-              gap: 4px;
-              padding: 6px 10px;
+              gap: 6px;
+              padding: 4px 8px;
               background: rgba(255, 255, 255, 0.8);
-              border-radius: 6px;
+              border-radius: 4px;
+              font-size: 12px;
 
               &.upload {
-                border-left: 3px solid #52c41a;
+                border-left: 2px solid #52c41a;
               }
 
               &.download {
-                border-left: 3px solid #1890ff;
+                border-left: 2px solid #1890ff;
               }
 
               .speed-icon {
-                font-size: 14px;
-              }
-
-              .speed-label {
                 font-size: 12px;
-                color: #8c8c8c;
-                font-weight: 500;
               }
 
               .speed-value {
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: 600;
                 color: #262626;
                 margin-left: auto;
               }
             }
-          }
 
-          .network-detail {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
-            font-size: 12px;
-
-            .detail-label {
+            .network-extra {
+              grid-column: 1 / -1;
+              display: flex;
+              gap: 12px;
+              font-size: 11px;
               color: #8c8c8c;
-              font-weight: 500;
-            }
+              padding: 2px 8px;
 
-            .detail-value {
-              color: #595959;
-              font-family: monospace;
+              .extra-info {
+                font-family: monospace;
+              }
             }
           }
         }
@@ -745,20 +896,30 @@ onUnmounted(() => {
 
           .partition-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 12px;
             margin-bottom: 6px;
 
             .partition-name {
               font-size: 13px;
               font-weight: 600;
               color: #262626;
+              min-width: 30px;
+              max-width: 80px;
+              flex-shrink: 0;
+            }
+
+            .partition-progress {
+              flex: 1;
             }
 
             .partition-usage {
               font-size: 13px;
               font-weight: 600;
               color: #595959;
+              min-width: 50px;
+              text-align: right;
+              flex-shrink: 0;
             }
           }
 
@@ -777,13 +938,13 @@ onUnmounted(() => {
 
         .stat-card {
           text-align: center;
-          padding: 12px;
+          padding: 6px;
           background: linear-gradient(135deg, #667eea 0%, #1677ff 100%);
           border-radius: 8px;
           color: white;
 
           .stat-value {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 4px;
           }
@@ -846,6 +1007,19 @@ onUnmounted(() => {
         }
       }
     }
+  }
+}
+
+// 展开/收起动画
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
   }
 }
 </style>

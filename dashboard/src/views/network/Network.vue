@@ -386,12 +386,20 @@ const initLogicFlow = () => {
   lf.on('node:click', ({ data, e }) => {
     handleNodeClick(data, e)
   })
-
-  // 加载最新的拓扑图数据并渲染
-  Promise.all([loadLatestTopology()])
+  Promise.all([fetchDevices(), fetchSwitches()])
     .then(() => {
-      // 数据加载完成后居中显示
-      handleCenterView(lf)
+      console.log('设备列表和交换机列表初始化完成')
+      // 初始化PubSub订阅
+      initPubSubSubscriptions()
+      // 加载最新的拓扑图数据并渲染
+      Promise.all([loadLatestTopology()])
+        .then(() => {
+          // 数据加载完成后居中显示
+          handleCenterView(lf)
+        })
+        .catch((error) => {
+          console.error('初始化数据加载失败:', error)
+        })
     })
     .catch((error) => {
       console.error('初始化数据加载失败:', error)
@@ -423,16 +431,56 @@ const loadLatestTopology = async () => {
 
       topologyData.value = content
 
-      // 初始化设备状态映射
+      // 根据 devices 和 switches 初始化节点状态
       if (content.nodes && content.nodes.length > 0) {
         for (const node of content.nodes) {
           const deviceId = node.properties?.data?.id || node.id
-          const initialStatus = node.properties?.status || 'offline'
-          deviceStatusMap.value.set(deviceId, initialStatus)
+
+          // 先从 devices 中查找
+          const device = devices.value.find(
+            (d) => d.id === deviceId || d.client_id === deviceId
+          )
+
+          if (device) {
+            // 根据设备数据确定状态
+            const status = device.online ? 'online' : 'offline'
+            deviceStatusMap.value.set(deviceId, status)
+            // 更新节点属性中的状态
+            if (node.properties) {
+              node.properties.status = status
+            } else {
+              node.properties = { status }
+            }
+          } else {
+            // 从 switches 中查找
+            const switchDevice = switches.value.find(
+              (s) => s.id === deviceId || s.switch_id === deviceId
+            )
+
+            if (switchDevice) {
+              // 根据交换机数据确定状态
+              const status = switchDevice.online ? 'online' : 'offline'
+              deviceStatusMap.value.set(deviceId, status)
+              // 更新节点属性中的状态
+              if (node.properties) {
+                node.properties.status = status
+              } else {
+                node.properties = { status }
+              }
+            } else {
+              // 未找到对应设备，设置为离线
+              const initialStatus = node.properties?.status || 'offline'
+              deviceStatusMap.value.set(deviceId, initialStatus)
+            }
+          }
         }
       }
+
       // 渲染拓扑图
       lf.render(content)
+
+      // 根据设备网络流量数据初始化边的动画状态
+      updateEdgesDataStatus()
     } else {
       // 没有保存的拓扑图,渲染空数据
       lf.render(topologyData.value)
@@ -444,6 +492,88 @@ const loadLatestTopology = async () => {
     lf.render(topologyData.value)
   } finally {
     loading.value = false
+  }
+}
+
+// 根据设备网络流量数据更新所有边的数据传输状态
+const updateEdgesDataStatus = () => {
+  if (!lf) return
+
+  // 遍历所有设备，检查网络流量数据
+  for (const device of devices.value) {
+    const deviceId = device.client_id || device.id
+
+    // 解析网络接口数据
+    let interfaces = []
+    if (device.networks) {
+      if (typeof device.networks === 'string') {
+        try {
+          interfaces = JSON.parse(device.networks)
+        } catch (e) {
+          console.warn('解析 networks 字段失败:', e)
+          continue
+        }
+      } else if (Array.isArray(device.networks)) {
+        interfaces = device.networks
+      }
+    }
+
+    // 检查每个接口的流量数据
+    for (const iface of interfaces) {
+      const hasData =
+        (iface.upload_rate && iface.upload_rate > 0) ||
+        (iface.download_rate && iface.download_rate > 0)
+
+      if (hasData && iface.gateway) {
+        // 通过网关IP查找目标设备节点
+        const graphData = lf.getGraphData()
+        if (graphData) {
+          // 1. 先通过网关IP找到网关节点
+          const gatewayNode = graphData.nodes.find(
+            (n) => n.properties?.data?.ip === iface.gateway
+          )
+
+          if (gatewayNode) {
+            // 2. 找到当前设备对应的节点（通过设备ID匹配）
+            const currentDeviceNode = graphData.nodes.find(
+              (n) =>
+                n.properties?.data?.id === deviceId ||
+                n.properties?.data?.client_id === deviceId
+            )
+
+            if (currentDeviceNode) {
+              // 3. 使用节点ID更新边的数据传输状态
+              updateEdgeDataStatus(
+                currentDeviceNode.id,
+                gatewayNode.id,
+                hasData
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 遍历所有交换机，检查接口流量数据
+  for (const switchDevice of switches.value) {
+    const deviceId = switchDevice.switch_id || switchDevice.id
+
+    // 检查接口流量数据
+    if (switchDevice.interface_info) {
+      const interfaces = switchDevice.interface_info.interfaces || []
+
+      for (const iface of interfaces) {
+        const hasData =
+          (iface.in_octets_rate && iface.in_octets_rate > 0) ||
+          (iface.out_octets_rate && iface.out_octets_rate > 0)
+
+        // 如果有连接的设备ID，更新边状态
+        if (hasData && iface.connected_device_id) {
+          updateEdgeDataStatus(deviceId, iface.connected_device_id, hasData)
+        }
+      }
+    }
   }
 }
 
@@ -1208,15 +1338,6 @@ const fetchSwitches = async () => {
 onMounted(() => {
   nextTick(() => {
     isComponentMounted.value = true
-    Promise.all([fetchDevices(), fetchSwitches()])
-      .then(() => {
-        console.log('设备列表和交换机列表初始化完成')
-        // 初始化PubSub订阅
-        initPubSubSubscriptions()
-      })
-      .catch((error) => {
-        console.error('初始化数据加载失败:', error)
-      })
 
     // 初始化LogicFlow（内部会加载数据）
     initLogicFlow()
