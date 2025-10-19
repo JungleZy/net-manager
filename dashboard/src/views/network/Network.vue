@@ -134,9 +134,13 @@ const switches = ref([])
 let lf = null
 const loading = ref(false)
 const topologyData = shallowRef({ nodes: [], edges: [] })
-const deviceStatusMap = ref(new Map()) // 存储设备状态 {device_id: 'online'|'offline'}
-const edgeDataMap = ref(new Map()) // 存储边的数据传输状态 {edgeId: hasData}
+const deviceStatusMap = shallowRef(new Map()) // 存储设备状态 {device_id: 'online'|'offline'}
+const edgeDataMap = shallowRef(new Map()) // 存储边的数据传输状态 {edgeId: hasData}
 const isComponentMounted = ref(false)
+
+// 优化：使用 Map 加速设备查找
+const deviceIdMap = shallowRef(new Map()) // {id/client_id: device}
+const switchIdMap = shallowRef(new Map()) // {id/switch_id: switch}
 
 // 全屏相关状态
 const isFullscreen = ref(false)
@@ -154,6 +158,10 @@ const popoverArrowOffset = ref(0) // 箭头Y轴偏移量（像素）
 
 // ResizeObserver 实例
 let resizeObserver = null
+
+// 防抖定时器
+let resizeDebounceTimer = null
+let updateEdgesDebounceTimer = null
 
 // 插件配置移到外部常量,避免重复创建对象
 const PLUGINS_OPTIONS = Object.freeze({})
@@ -281,20 +289,42 @@ const handleFullscreenChange = () => {
   }
 }
 
-// 统计信息
+// 统计信息（优化：避免 Array.from 和 filter）
 const stats = computed(() => {
   const totalNodes = topologyData.value.nodes.length
-  const onlineNodes = Array.from(deviceStatusMap.value.values()).filter(
-    (status) => status === 'online'
-  ).length
-  const offlineNodes = totalNodes - onlineNodes
+  let onlineNodes = 0
+
+  // 优化：直接遍历 Map，避免创建中间数组
+  for (const status of deviceStatusMap.value.values()) {
+    if (status === 'online') onlineNodes++
+  }
 
   return {
     totalNodes,
     onlineNodes,
-    offlineNodes
+    offlineNodes: totalNodes - onlineNodes
   }
 })
+
+// 更新设备/交换机 Map（优化查找性能）
+const updateDeviceIdMap = () => {
+  const newDeviceMap = new Map()
+  for (const device of devices.value) {
+    if (device.id) newDeviceMap.set(device.id, device)
+    if (device.client_id) newDeviceMap.set(device.client_id, device)
+  }
+  deviceIdMap.value = newDeviceMap
+}
+
+const updateSwitchIdMap = () => {
+  const newSwitchMap = new Map()
+  for (const switchDevice of switches.value) {
+    if (switchDevice.id) newSwitchMap.set(switchDevice.id, switchDevice)
+    if (switchDevice.switch_id)
+      newSwitchMap.set(switchDevice.switch_id, switchDevice)
+  }
+  switchIdMap.value = newSwitchMap
+}
 
 // 初始化LogicFlow
 const initLogicFlow = () => {
@@ -431,47 +461,34 @@ const loadLatestTopology = async () => {
 
       topologyData.value = content
 
-      // 根据 devices 和 switches 初始化节点状态
+      // 根据 devices 和 switches 初始化节点状态（优化：使用 Map 加速查找）
       if (content.nodes && content.nodes.length > 0) {
         for (const node of content.nodes) {
           const deviceId = node.properties?.data?.id || node.id
 
-          // 先从 devices 中查找
-          const device = devices.value.find(
-            (d) => d.id === deviceId || d.client_id === deviceId
-          )
+          // 优化：使用 Map 查找而非 find
+          const device = deviceIdMap.value.get(deviceId)
+          const switchDevice = switchIdMap.value.get(deviceId)
 
           if (device) {
-            // 根据设备数据确定状态
             const status = device.online ? 'online' : 'offline'
             deviceStatusMap.value.set(deviceId, status)
-            // 更新节点属性中的状态
+            if (node.properties) {
+              node.properties.status = status
+            } else {
+              node.properties = { status }
+            }
+          } else if (switchDevice) {
+            const status = switchDevice.online ? 'online' : 'offline'
+            deviceStatusMap.value.set(deviceId, status)
             if (node.properties) {
               node.properties.status = status
             } else {
               node.properties = { status }
             }
           } else {
-            // 从 switches 中查找
-            const switchDevice = switches.value.find(
-              (s) => s.id === deviceId || s.switch_id === deviceId
-            )
-
-            if (switchDevice) {
-              // 根据交换机数据确定状态
-              const status = switchDevice.online ? 'online' : 'offline'
-              deviceStatusMap.value.set(deviceId, status)
-              // 更新节点属性中的状态
-              if (node.properties) {
-                node.properties.status = status
-              } else {
-                node.properties = { status }
-              }
-            } else {
-              // 未找到对应设备，设置为离线
-              const initialStatus = node.properties?.status || 'offline'
-              deviceStatusMap.value.set(deviceId, initialStatus)
-            }
+            const initialStatus = node.properties?.status || 'offline'
+            deviceStatusMap.value.set(deviceId, initialStatus)
           }
         }
       }
@@ -495,9 +512,25 @@ const loadLatestTopology = async () => {
   }
 }
 
-// 根据设备网络流量数据更新所有边的数据传输状态
+// 根据设备网络流量数据更新所有边的数据传输状态（优化：减少嵌套循环和重复查找）
 const updateEdgesDataStatus = () => {
   if (!lf) return
+
+  const graphData = lf.getGraphData()
+  if (!graphData) return
+
+  // 优化：预先构建节点 Map，避免重复 find
+  const nodeByDeviceId = new Map()
+  const nodeByIp = new Map()
+
+  for (const node of graphData.nodes) {
+    const deviceId =
+      node.properties?.data?.id || node.properties?.data?.client_id
+    const ip = node.properties?.data?.ip
+
+    if (deviceId) nodeByDeviceId.set(deviceId, node)
+    if (ip) nodeByIp.set(ip, node)
+  }
 
   // 遍历所有设备，检查网络流量数据
   for (const device of devices.value) {
@@ -525,31 +558,11 @@ const updateEdgesDataStatus = () => {
         (iface.download_rate && iface.download_rate > 0)
 
       if (hasData && iface.gateway) {
-        // 通过网关IP查找目标设备节点
-        const graphData = lf.getGraphData()
-        if (graphData) {
-          // 1. 先通过网关IP找到网关节点
-          const gatewayNode = graphData.nodes.find(
-            (n) => n.properties?.data?.ip === iface.gateway
-          )
+        const gatewayNode = nodeByIp.get(iface.gateway)
+        const currentDeviceNode = nodeByDeviceId.get(deviceId)
 
-          if (gatewayNode) {
-            // 2. 找到当前设备对应的节点（通过设备ID匹配）
-            const currentDeviceNode = graphData.nodes.find(
-              (n) =>
-                n.properties?.data?.id === deviceId ||
-                n.properties?.data?.client_id === deviceId
-            )
-
-            if (currentDeviceNode) {
-              // 3. 使用节点ID更新边的数据传输状态
-              updateEdgeDataStatus(
-                currentDeviceNode.id,
-                gatewayNode.id,
-                hasData
-              )
-            }
-          }
+        if (gatewayNode && currentDeviceNode) {
+          updateEdgeDataStatus(currentDeviceNode.id, gatewayNode.id, hasData)
         }
       }
     }
@@ -588,7 +601,7 @@ const handleCenter = () => {
   handleCenterView(lf)
 }
 
-// 处理节点点击事件
+// 处理节点点击事件（优化：使用 Map 加速查找）
 const handleNodeClick = (nodeData, event) => {
   if (!nodeData) return
 
@@ -599,14 +612,14 @@ const handleNodeClick = (nodeData, event) => {
 
   // 提取节点信息
   const deviceData = nodeData.properties?.data || {}
-
   const deviceId = deviceData.id || nodeData.id
-  deviceIndex.value = devices.value.findIndex(
-    (d) => d.id === deviceId || d.client_id === deviceId
-  )
-  switchIndex.value = switches.value.findIndex(
-    (s) => s.id === deviceId || s.switch_id === deviceId
-  )
+
+  // 优化：使用 Map 查找，然后再在数组中 findIndex
+  const device = deviceIdMap.value.get(deviceId)
+  const switchDevice = switchIdMap.value.get(deviceId)
+
+  deviceIndex.value = device ? devices.value.indexOf(device) : -1
+  switchIndex.value = switchDevice ? switches.value.indexOf(switchDevice) : -1
 
   console.log('deviceIndex:', deviceIndex.value)
   console.log('switchIndex:', switchIndex.value)
@@ -1030,40 +1043,31 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
   }
 }
 
-// 处理设备状态更新
+// 处理设备状态更新（优化：使用 Map 加速查找）
 const handleDeviceStatusUpdate = (data) => {
   console.log('设备状态更新:', data)
 
   if (!data) return
 
-  // 根据实际的WebSocket数据结构调整
-  // 后端推送的deviceStatus包含client_id字段
   const deviceId = data.client_id || data.device_id || data.id
   const status = data.status || (data.online ? 'online' : 'offline')
 
   if (deviceId) {
     updateNodeStatus(deviceId, status)
 
-    // 更新设备列表中的状态
-    const deviceIndex = devices.value.findIndex(
-      (d) => d.id === deviceId || d.client_id === deviceId
-    )
-    if (deviceIndex > -1) {
-      // 直接修改对象属性，ref 会自动追踪变化
-      devices.value[deviceIndex].status = status
-      devices.value[deviceIndex].online = status === 'online'
-      devices.value[deviceIndex].last_seen = new Date().toISOString()
+    // 优化：使用 Map 查找
+    const device = deviceIdMap.value.get(deviceId)
+    if (device) {
+      device.status = status
+      device.online = status === 'online'
+      device.last_seen = new Date().toISOString()
     }
 
-    // 更新交换机列表中的状态（如果是交换机）
-    const switchIndex = switches.value.findIndex(
-      (s) => s.id === deviceId || s.switch_id === deviceId
-    )
-    if (switchIndex !== -1) {
-      // 直接修改对象属性，ref 会自动追踪变化
-      switches.value[switchIndex].status = status
-      switches.value[switchIndex].online = status === 'online'
-      switches.value[switchIndex].last_seen = new Date().toISOString()
+    const switchDevice = switchIdMap.value.get(deviceId)
+    if (switchDevice) {
+      switchDevice.status = status
+      switchDevice.online = status === 'online'
+      switchDevice.last_seen = new Date().toISOString()
     }
     console.log('设备列表已更新:', devices.value)
   }
@@ -1082,23 +1086,23 @@ const handleSnmpDeviceUpdate = (data) => {
     updateNodeStatus(deviceId, 'online')
   }
 
-  // 更新交换机列表中的对应数据
+  // 更新交换机列表中的对应数据（优化：使用 Map 查找）
   if (deviceId) {
-    const switchIndex = switches.value.findIndex(
-      (s) => s.id === deviceId || s.switch_id === deviceId
-    )
-    if (switchIndex > -1) {
-      // 直接合并数据到现有对象，ref 会自动追踪变化
-      Object.assign(switches.value[switchIndex], data, {
+    const switchDevice = switchIdMap.value.get(deviceId)
+    if (switchDevice) {
+      Object.assign(switchDevice, data, {
         last_updated: new Date().toISOString()
       })
     } else {
       // 新交换机，添加到列表
-      switches.value.push({
+      const newSwitch = {
         ...data,
         id: deviceId,
         last_updated: new Date().toISOString()
-      })
+      }
+      switches.value.push(newSwitch)
+      // 更新 Map
+      updateSwitchIdMap()
     }
   }
 
@@ -1129,27 +1133,27 @@ const handleDeviceInfoUpdate = (data) => {
 
   const deviceId = data.client_id || data.device_id || data.id
 
-  // 更新设备列表中的对应数据
+  // 更新设备列表中的对应数据（优化：使用 Map 查找）
   if (deviceId) {
-    // 更新设备在线状态
     updateNodeStatus(deviceId, 'online')
-    const deviceIndex = devices.value.findIndex(
-      (d) => d.id === deviceId || d.client_id === deviceId
-    )
-    if (deviceIndex !== -1) {
-      // 直接合并数据到现有对象，ref 会自动追踪变化
-      Object.assign(devices.value[deviceIndex], data, {
+
+    const device = deviceIdMap.value.get(deviceId)
+    if (device) {
+      Object.assign(device, data, {
         status: 'online',
         last_updated: new Date().toISOString()
       })
     } else {
       // 新设备，添加到列表
-      devices.value.push({
+      const newDevice = {
         ...data,
         id: deviceId,
         status: 'online',
         last_updated: new Date().toISOString()
-      })
+      }
+      devices.value.push(newDevice)
+      // 更新 Map
+      updateDeviceIdMap()
     }
   }
 
@@ -1174,44 +1178,41 @@ const handleDeviceInfoUpdate = (data) => {
       return
     }
 
+    // 优化：预先获取 graphData 和构建节点 Map
+    const graphData = lf?.getGraphData()
+    if (!graphData) return
+
+    const nodeByIp = new Map()
+    const nodeByDeviceId = new Map()
+
+    for (const node of graphData.nodes) {
+      const ip = node.properties?.data?.ip
+      const id = node.properties?.data?.id
+
+      if (ip) nodeByIp.set(ip, node)
+      if (id) nodeByDeviceId.set(id, node)
+    }
+
     for (const iface of interfaces) {
       // 判断接口是否有数据传输（上传或下载速率 > 0）
       const hasData =
         (iface.upload_rate && iface.upload_rate > 0) ||
         (iface.download_rate && iface.download_rate > 0)
 
-      // 如果有流量，找到该设备连接的边并显示动画
-      // 这里假设网关是连接的目标设备
-
       if (hasData && iface.gateway) {
-        // 通过网关IP查找目标设备节点
-        const graphData = lf?.getGraphData()
-        if (graphData) {
-          // 1. 先通过网关IP找到网关节点
-          const gatewayNode = graphData.nodes.find(
-            (n) => n.properties?.data?.ip === iface.gateway
+        const gatewayNode = nodeByIp.get(iface.gateway)
+        const currentDeviceNode = nodeByDeviceId.get(deviceId)
+
+        if (gatewayNode && currentDeviceNode) {
+          console.log(
+            `找到节点: 当前设备节点 ${currentDeviceNode.id}, 网关节点 ${gatewayNode.id}`
           )
-
-          if (gatewayNode) {
-            // 2. 找到当前设备对应的节点（通过设备ID匹配）
-            const currentDeviceNode = graphData.nodes.find(
-              (n) => n.properties?.data?.id === deviceId
-            )
-
-            if (currentDeviceNode) {
-              // 3. 使用节点ID（而不是设备ID）来更新边
-              console.log(
-                `找到节点: 当前设备节点 ${currentDeviceNode.id}, 网关节点 ${gatewayNode.id}`
-              )
-              updateEdgeDataStatus(
-                currentDeviceNode.id,
-                gatewayNode.id,
-                hasData
-              )
-            } else {
-              console.warn(`未找到设备 ${deviceId} 对应的节点`)
-            }
-          } else {
+          updateEdgeDataStatus(currentDeviceNode.id, gatewayNode.id, hasData)
+        } else {
+          if (!currentDeviceNode) {
+            console.warn(`未找到设备 ${deviceId} 对应的节点`)
+          }
+          if (!gatewayNode) {
             console.warn(`未找到网关 ${iface.gateway} 对应的节点`)
           }
         }
@@ -1238,7 +1239,7 @@ const initPubSubSubscriptions = () => {
   }
 }
 
-// 响应式调整拓扑图大小
+// 响应式调整拓扑图大小（优化：添加防抖）
 const resizeLogicFlow = () => {
   if (!lf || !containerRef.value) return
 
@@ -1263,7 +1264,17 @@ const resizeLogicFlow = () => {
   }
 }
 
-// 初始化 ResizeObserver
+// 防抖的 resize 函数
+const debouncedResizeLogicFlow = () => {
+  if (resizeDebounceTimer) {
+    clearTimeout(resizeDebounceTimer)
+  }
+  resizeDebounceTimer = setTimeout(() => {
+    resizeLogicFlow()
+  }, 150)
+}
+
+// 初始化 ResizeObserver（优化：使用防抖）
 const initResizeObserver = () => {
   const container = containerRef.value
   if (!container) return
@@ -1271,12 +1282,8 @@ const initResizeObserver = () => {
   try {
     // 创建 ResizeObserver 实例
     resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        // 使用 requestAnimationFrame 优化性能
-        requestAnimationFrame(() => {
-          resizeLogicFlow()
-        })
-      }
+      // 使用防抖优化性能
+      debouncedResizeLogicFlow()
     })
 
     // 开始监听容器大小变化
@@ -1287,9 +1294,19 @@ const initResizeObserver = () => {
   }
 }
 
-// 资源清理函数
+// 资源清理函数（优化：清理定时器）
 const cleanup = () => {
   isComponentMounted.value = false
+
+  // 清理防抖定时器
+  if (resizeDebounceTimer) {
+    clearTimeout(resizeDebounceTimer)
+    resizeDebounceTimer = null
+  }
+  if (updateEdgesDebounceTimer) {
+    clearTimeout(updateEdgesDebounceTimer)
+    updateEdgesDebounceTimer = null
+  }
 
   // 移除全局点击事件监听
   document.removeEventListener('click', handleClickOutside)
@@ -1302,7 +1319,7 @@ const cleanup = () => {
     resizeObserver = null
   }
 
-  // 销毁LogicFlow实例,释放内存
+  // 销毀LogicFlow实例,释放内存
   if (lf) {
     try {
       lf.destroy()
@@ -1317,6 +1334,8 @@ const fetchDevices = async () => {
   try {
     const response = await DeviceApi.getDevicesList()
     devices.value = response?.data || []
+    // 更新 Map
+    updateDeviceIdMap()
   } catch (error) {
     console.error('获取设备列表失败:', error)
     message.error('获取设备列表失败')
@@ -1328,6 +1347,8 @@ const fetchSwitches = async () => {
   try {
     const response = await SwitchApi.getSwitchesList()
     switches.value = response?.data || []
+    // 更新 Map
+    updateSwitchIdMap()
   } catch (error) {
     console.error('获取交换机列表失败:', error)
     message.error('获取交换机列表失败')

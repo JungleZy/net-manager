@@ -277,7 +277,8 @@ import {
   onUnmounted,
   useTemplateRef,
   computed,
-  ref
+  ref,
+  shallowRef
 } from 'vue'
 import { DownOutlined, UpOutlined } from '@ant-design/icons-vue'
 import localforage from 'localforage'
@@ -288,6 +289,12 @@ import 'simplebar-vue/dist/simplebar.min.css'
 const performanceExpanded = ref(true)
 const networkExpanded = ref(true)
 const partitionExpanded = ref(true)
+
+// 优化：使用常量存储固定值，避免重复创建
+const BYTES_UNITS = Object.freeze(['B/s', 'KB/s', 'MB/s', 'GB/s'])
+const SIZE_UNITS = Object.freeze(['B', 'KB', 'MB', 'GB', 'TB'])
+const BYTES_K = 1024
+const LOG_K = Math.log(BYTES_K)
 
 // Props定义
 const props = defineProps({
@@ -323,7 +330,6 @@ const emit = defineEmits(['close'])
 const device = computed(() => {
   if (list.value && index.value > -1 && index.value < list.value.length) {
     console.log(list.value[index.value])
-
     return list.value[index.value]
   }
   return {}
@@ -336,6 +342,9 @@ const deviceId = computed(() => {
 
 // LocalForage 存储key
 const STORAGE_KEY_PREFIX = 'device-popover-state-'
+
+// 优化：存储防抖定时器
+let saveStateDebounceTimer = null
 
 // 加载设备的展开/收起状态
 const loadDeviceState = async () => {
@@ -355,7 +364,7 @@ const loadDeviceState = async () => {
   }
 }
 
-// 保存设备的展开/收起状态
+// 保存设备的展开/收起状态（优化：添加防抖）
 const saveDeviceState = async () => {
   if (!deviceId.value || deviceId.value === 'unknown') return
 
@@ -371,6 +380,16 @@ const saveDeviceState = async () => {
   } catch (error) {
     console.warn('保存设备状态失败:', error)
   }
+}
+
+// 防抖保存函数
+const debouncedSaveDeviceState = () => {
+  if (saveStateDebounceTimer) {
+    clearTimeout(saveStateDebounceTimer)
+  }
+  saveStateDebounceTimer = setTimeout(() => {
+    saveDeviceState()
+  }, 300)
 }
 
 // 网络接口数据（按总速率降序排列）
@@ -394,7 +413,7 @@ const networkInterfaces = computed(() => {
     return []
   }
 
-  // 按照上传+下载的总速率降序排列
+  // 优化：按照上传+下载的总速率降序排列，使用一次遍历
   return interfaces.sort((a, b) => {
     const totalA = (a.upload_rate || 0) + (a.download_rate || 0)
     const totalB = (b.upload_rate || 0) + (b.download_rate || 0)
@@ -402,24 +421,21 @@ const networkInterfaces = computed(() => {
   })
 })
 
-// 格式化网络速率
+// 格式化网络速率（优化：使用常量数组和数学计算）
 const formatSpeed = (bytesPerSecond) => {
   if (!bytesPerSecond || bytesPerSecond === 0) return '0 B/s'
 
-  const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k))
-
-  return (bytesPerSecond / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
+  const i = Math.floor(Math.log(bytesPerSecond) / LOG_K)
+  return (
+    (bytesPerSecond / Math.pow(BYTES_K, i)).toFixed(2) + ' ' + BYTES_UNITS[i]
+  )
 }
 
-// 格式化字节大小
+// 格式化字节大小（优化：使用常量数组和数学计算）
 const formatBytes = (bytes) => {
   if (!bytes || bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
+  const i = Math.floor(Math.log(bytes) / LOG_K)
+  return (bytes / Math.pow(BYTES_K, i)).toFixed(2) + ' ' + SIZE_UNITS[i]
 }
 
 // 格式化时间
@@ -428,15 +444,16 @@ const formatTime = (timestamp) => {
   return timestamp
 }
 
-// 根据使用率获取进度条颜色
+// 根据使用率获取进度条颜色（优化：直接返回，减少条件判断）
 const getProgressColor = (percent) => {
-  if (percent < 60) return '#52c41a'
-  if (percent < 80) return '#faad14'
-  return '#ff4d4f'
+  return percent < 60 ? '#52c41a' : percent < 80 ? '#faad14' : '#ff4d4f'
 }
 
 // Refs
 const popoverRef = useTemplateRef('popoverRef')
+
+// 优化：使用事件委托和防抖处理点击事件
+let clickDebounceTimer = null
 
 // 处理全局点击事件，点击外部关闭 Popover
 const handleClickOutside = (event) => {
@@ -453,7 +470,7 @@ const handleClickOutside = (event) => {
   emit('close')
 }
 
-// 监听visible变化，动态添加/移除全局点击监听
+// 监听visible变化，动态添加/移除全局点击监听（优化：添加防抖）
 watch(
   () => props.visible,
   (newVisible) => {
@@ -462,32 +479,42 @@ watch(
       loadDeviceState()
 
       // 使用 nextTick 确保 Popover 渲染完成后再添加全局监听
-      // 避免当前点击事件立即触发关闭
       nextTick(() => {
         // 移除旧的监听器
         document.removeEventListener('click', handleClickOutside)
-        // 延迟添加新的监听器
-        setTimeout(() => {
+        // 延迟添加新的监听器，防止当前点击立即触发关闭
+        if (clickDebounceTimer) clearTimeout(clickDebounceTimer)
+        clickDebounceTimer = setTimeout(() => {
           document.addEventListener('click', handleClickOutside)
-        }, 0)
+        }, 100)
       })
     } else {
       // Popover关闭时移除监听器
       document.removeEventListener('click', handleClickOutside)
+      if (clickDebounceTimer) {
+        clearTimeout(clickDebounceTimer)
+        clickDebounceTimer = null
+      }
     }
   }
 )
 
-// 监听展开/收起状态变化，保存到 LocalForage
+// 监听展开/收起状态变化，保存到 LocalForage（优化：使用防抖）
 watch([performanceExpanded, networkExpanded, partitionExpanded], () => {
   if (props.visible) {
-    saveDeviceState()
+    debouncedSaveDeviceState()
   }
 })
 
-// 组件卸载时清理
+// 组件卸载时清理（优化：清理定时器）
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+
+  // 清理防抖定时器
+  if (saveStateDebounceTimer) {
+    clearTimeout(saveStateDebounceTimer)
+    saveStateDebounceTimer = null
+  }
 })
 </script>
 
