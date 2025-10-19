@@ -17,6 +17,7 @@ class AnimatedEdgeModel extends LineEdgeModel {
   getEdgeStyle() {
     const style = super.getEdgeStyle()
     const { properties } = this
+    style.stroke = '#999'
 
     if (properties?.hasData) {
       return {
