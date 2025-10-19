@@ -273,6 +273,8 @@ const emit = defineEmits(['close'])
 // 当前设备数据
 const device = computed(() => {
   if (list.value && index.value > -1 && index.value < list.value.length) {
+    console.log(list.value[index.value])
+
     return list.value[index.value]
   }
   return {}

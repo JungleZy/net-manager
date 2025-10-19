@@ -267,6 +267,7 @@ class DevicesHandler(BaseHandler):
                     "cpu_info": device["cpu_info"],
                     "memory_info": device["memory_info"],
                     "disk_info": device["disk_info"],
+                    "networks": networks,  # 添加网络信息字段"
                     "online": self.get_online_status(device["client_id"]),
                     "os_name": device["os_name"],
                     "os_version": device["os_version"],
