@@ -1,7 +1,11 @@
 <template>
-  <div class="p-[12px] size-full network" ref="networkWrapperRef">
+  <div
+    class="p-[12px] size-full network"
+    ref="networkWrapperRef"
+    :class="{ 'dark-mode': isDarkMode }"
+  >
     <div
-      class="size-full bg-white rounded-lg shadow p-[6px] relative"
+      class="size-full rounded-lg shadow p-[6px] relative network-container"
       ref="networkContainerRef"
     >
       <!-- 拓扑图容器 -->
@@ -13,61 +17,150 @@
           <span class="stat-label">总节点:</span>
           <span class="stat-value">{{ stats.totalNodes }}</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-label">在线:</span>
-          <span class="stat-value online">{{ stats.onlineNodes }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">离线:</span>
-          <span class="stat-value offline">{{ stats.offlineNodes }}</span>
-        </div>
+
+        <!-- 在线设备 Popover -->
+        <a-popover
+          v-model:open="onlinePopoverVisible"
+          title="在线设备列表"
+          trigger="click"
+          placement="bottomLeft"
+          overlayClassName="device-list-popover"
+        >
+          <template #content>
+            <div class="device-list-content">
+              <div v-if="onlineDevicesList.length === 0" class="empty-state">
+                暂无在线设备
+              </div>
+              <div
+                v-else
+                class="device-item"
+                v-for="device in onlineDevicesList"
+                :key="device.id"
+              >
+                <div class="device-name">
+                  {{ device.hostname || device.name || '未命名设备' }}
+                </div>
+                <div class="device-info">
+                  <span class="device-ip">{{ device.ip || '-' }}</span>
+                  <span class="device-status online-badge">在线</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div class="stat-item clickable">
+            <span class="stat-label">在线:</span>
+            <span class="stat-value online">{{ stats.onlineNodes }}</span>
+          </div>
+        </a-popover>
+
+        <!-- 离线设备 Popover -->
+        <a-popover
+          v-model:open="offlinePopoverVisible"
+          title="离线设备列表"
+          trigger="click"
+          placement="bottomLeft"
+          overlayClassName="device-list-popover"
+        >
+          <template #content>
+            <div class="device-list-content">
+              <div v-if="offlineDevicesList.length === 0" class="empty-state">
+                暂无离线设备
+              </div>
+              <div
+                v-else
+                class="device-item"
+                v-for="device in offlineDevicesList"
+                :key="device.id"
+              >
+                <div class="device-name">
+                  {{ device.hostname || device.name || '未命名设备' }}
+                </div>
+                <div class="device-info">
+                  <span class="device-ip">{{ device.ip || '-' }}</span>
+                  <span class="device-status offline-badge">离线</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div class="stat-item clickable">
+            <span class="stat-label">离线:</span>
+            <span class="stat-value offline">{{ stats.offlineNodes }}</span>
+          </div>
+        </a-popover>
       </div>
 
       <!-- 控制按钮 -->
       <div class="control-panel">
-        <a-button
-          @click="handleRefresh"
-          :loading="loading"
-          class="layout-center"
-        >
-          <template #icon>
-            <ReloadOutlined />
-          </template>
-        </a-button>
-        <a-button @click="handleCenter" class="layout-center">
-          <template #icon>
-            <AimOutlined />
-          </template>
-        </a-button>
-        <a-dropdown v-if="!isFullscreen">
-          <template #overlay>
-            <a-menu @click="handleFullscreenMenuClick">
-              <a-menu-item key="page">
-                <template #icon>
-                  <FullscreenOutlined />
-                </template>
-                页内全屏
-              </a-menu-item>
-              <a-menu-item key="screen">
-                <template #icon>
-                  <FullscreenOutlined />
-                </template>
-                屏幕全屏
-              </a-menu-item>
-            </a-menu>
-          </template>
-          <a-button class="layout-center">
+        <!-- 刷新按钮 -->
+        <a-tooltip title="刷新拓扑图" placement="bottom">
+          <a-button
+            @click="handleRefresh"
+            :loading="loading"
+            class="layout-center"
+          >
             <template #icon>
-              <FullscreenOutlined />
+              <ReloadOutlined />
             </template>
           </a-button>
-        </a-dropdown>
+        </a-tooltip>
 
-        <a-button class="layout-center" @click="exitFullscreen" v-else>
-          <template #icon>
-            <FullscreenExitOutlined />
-          </template>
-        </a-button>
+        <!-- 居中按钮 -->
+        <a-tooltip title="居中显示" placement="bottom">
+          <a-button @click="handleCenter" class="layout-center">
+            <template #icon>
+              <AimOutlined />
+            </template>
+          </a-button>
+        </a-tooltip>
+
+        <!-- 全屏按钮 -->
+        <a-tooltip v-if="!isFullscreen" title="全屏" placement="bottom">
+          <a-dropdown>
+            <template #overlay>
+              <a-menu @click="handleFullscreenMenuClick">
+                <a-menu-item key="page">
+                  <template #icon>
+                    <FullscreenOutlined />
+                  </template>
+                  页内全屏
+                </a-menu-item>
+                <a-menu-item key="screen">
+                  <template #icon>
+                    <FullscreenOutlined />
+                  </template>
+                  屏幕全屏
+                </a-menu-item>
+              </a-menu>
+            </template>
+            <a-button class="layout-center">
+              <template #icon>
+                <FullscreenOutlined />
+              </template>
+            </a-button>
+          </a-dropdown>
+        </a-tooltip>
+
+        <!-- 退出全屏按钮 -->
+        <a-tooltip v-else title="退出全屏" placement="bottom">
+          <a-button class="layout-center" @click="exitFullscreen">
+            <template #icon>
+              <FullscreenExitOutlined />
+            </template>
+          </a-button>
+        </a-tooltip>
+
+        <!-- 主题切换按钮 -->
+        <a-tooltip
+          :title="isDarkMode ? '切换到明亮模式' : '切换到暗黑模式'"
+          placement="bottom"
+        >
+          <a-button class="layout-center" @click="toggleTheme">
+            <template #icon>
+              <BulbOutlined v-if="isDarkMode" />
+              <BulbFilled v-else />
+            </template>
+          </a-button>
+        </a-tooltip>
       </div>
 
       <!-- 节点详情 Popover (自定义) -->
@@ -103,13 +196,15 @@ import {
   nextTick,
   computed,
   shallowRef,
-  useTemplateRef
+  useTemplateRef,
+  watch
 } from 'vue'
 import { LogicFlow } from '@logicflow/core'
 import '@logicflow/core/lib/style/index.css'
 import '@logicflow/extension/lib/style/index.css'
 import { default as customNodes } from '@/common/node/index'
 import { default as customEdges } from '@/common/edge/index'
+import { setTheme } from '@/common/node/nodeConfig'
 import TopologyApi from '@/common/api/topology'
 import DeviceApi from '@/common/api/device'
 import SwitchApi from '@/common/api/switch'
@@ -120,7 +215,9 @@ import {
   ReloadOutlined,
   AimOutlined,
   FullscreenOutlined,
-  FullscreenExitOutlined
+  FullscreenExitOutlined,
+  BulbOutlined,
+  BulbFilled
 } from '@ant-design/icons-vue'
 import DeviceNodeDetailPopover from '../../components/network/DeviceNodeDetailPopover.vue'
 import SwitchNodeDetailPopover from '../../components/network/SwitchNodeDetailPopover.vue'
@@ -145,6 +242,14 @@ const switchIdMap = shallowRef(new Map()) // {id/switch_id: switch}
 // 全屏相关状态
 const isFullscreen = ref(false)
 const fullscreenMode = ref('') // 'page' | 'screen'
+
+// 主题模式状态
+const isDarkMode = ref(false)
+const THEME_STORAGE_KEY = 'network-theme-mode'
+
+// 设备列表 Popover 状态
+const onlinePopoverVisible = ref(false)
+const offlinePopoverVisible = ref(false)
 
 // Popover 相关状态
 const popoverVisible = ref(false)
@@ -174,6 +279,48 @@ const handleFullscreenMenuClick = ({ key }) => {
     enterScreenFullscreen()
   } else if (key === 'exit') {
     exitFullscreen()
+  }
+}
+
+// 切换主题模式
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value
+  // 同步更新主题配置
+  setTheme(isDarkMode.value ? 'dark' : 'light')
+  // 保存到 localStorage
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, isDarkMode.value ? 'dark' : 'light')
+    message.success(`已切换到${isDarkMode.value ? '暗黑' : '明亮'}模式`)
+  } catch (error) {
+    console.error('保存主题设置失败:', error)
+  }
+}
+
+// 监听主题切换，重新渲染节点文字颜色
+watch(isDarkMode, (newValue) => {
+  // 立即更新主题配置
+  setTheme(newValue ? 'dark' : 'light')
+
+  if (lf) {
+    // 等待 DOM 更新完成后再重新渲染
+    nextTick(() => {
+      const graphData = lf.getGraphData()
+      lf.render(graphData)
+    })
+  }
+})
+
+// 加载主题设置
+const loadThemeSettings = () => {
+  try {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+    if (savedTheme === 'dark') {
+      isDarkMode.value = true
+    }
+    // 同步设置主题配置
+    setTheme(isDarkMode.value ? 'dark' : 'light')
+  } catch (error) {
+    console.error('加载主题设置失败:', error)
   }
 }
 
@@ -304,6 +451,72 @@ const stats = computed(() => {
     onlineNodes,
     offlineNodes: totalNodes - onlineNodes
   }
+})
+
+// 在线设备列表
+const onlineDevicesList = computed(() => {
+  const list = []
+
+  // 收集在线设备
+  for (const device of devices.value) {
+    if (device.online) {
+      list.push({
+        id: device.client_id || device.id,
+        hostname: device.hostname,
+        name: device.alias || device.hostname,
+        ip: device.ip || device.networks?.[0]?.ip_address,
+        type: 'device'
+      })
+    }
+  }
+
+  // 收集在线交换机
+  for (const switchDevice of switches.value) {
+    if (switchDevice.online) {
+      list.push({
+        id: switchDevice.switch_id || switchDevice.id,
+        hostname: switchDevice.name || switchDevice.ip,
+        name: switchDevice.alias || switchDevice.name,
+        ip: switchDevice.ip,
+        type: 'switch'
+      })
+    }
+  }
+
+  return list
+})
+
+// 离线设备列表
+const offlineDevicesList = computed(() => {
+  const list = []
+
+  // 收集离线设备
+  for (const device of devices.value) {
+    if (!device.online) {
+      list.push({
+        id: device.client_id || device.id,
+        hostname: device.hostname,
+        name: device.alias || device.hostname,
+        ip: device.ip || device.networks?.[0]?.ip_address,
+        type: 'device'
+      })
+    }
+  }
+
+  // 收集离线交换机
+  for (const switchDevice of switches.value) {
+    if (!switchDevice.online) {
+      list.push({
+        id: switchDevice.switch_id || switchDevice.id,
+        hostname: switchDevice.name || switchDevice.ip,
+        name: switchDevice.alias || switchDevice.name,
+        ip: switchDevice.ip,
+        type: 'switch'
+      })
+    }
+  }
+
+  return list
 })
 
 // 更新设备/交换机 Map（优化查找性能）
@@ -1359,6 +1572,9 @@ onMounted(() => {
   nextTick(() => {
     isComponentMounted.value = true
 
+    // 加载主题设置
+    loadThemeSettings()
+
     // 初始化LogicFlow（内部会加载数据）
     initLogicFlow()
 
@@ -1405,6 +1621,18 @@ onUnmounted(() => {
 }
 
 .network {
+  // 定义 CSS 变量用于节点文字颜色
+  --node-text-color: #333;
+
+  // 网络容器基础样式
+  .network-container {
+    background: #ffffff;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .lf-graph {
+    background: transparent;
+  }
+
   // 统计面板
   .stats-panel {
     position: absolute;
@@ -1412,28 +1640,49 @@ onUnmounted(() => {
     left: 12px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    padding: 16px;
+    padding: 12px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     gap: 24px;
     z-index: 10;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 
     .stat-item {
       display: flex;
       flex-direction: column;
       gap: 4px;
 
+      // 可点击样式
+      &.clickable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 4px 8px;
+        margin: -4px -8px;
+        border-radius: 4px;
+
+        &:hover {
+          background: rgba(24, 144, 255, 0.1);
+          transform: translateY(-1px);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+
       .stat-label {
         font-size: 12px;
         color: #666;
         font-weight: 500;
+        transition: color 0.3s ease;
       }
 
       .stat-value {
         font-size: 20px;
         font-weight: 600;
         color: #333;
+        transition: color 0.3s ease;
 
         &.online {
           color: #52c41a;
@@ -1502,6 +1751,139 @@ onUnmounted(() => {
   .lf-outline {
     .lf-outline-edge {
       display: none;
+    }
+  }
+
+  // ==================== 暗黑模式样式 ====================
+  &.dark-mode {
+    background: #0a0e27;
+
+    .network-container {
+      background: #0a0e2780;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    // 统计面板暗黑模式
+    .stats-panel {
+      background: rgba(26, 31, 58, 0.95);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+
+      .stat-item {
+        &.clickable:hover {
+          background: rgba(24, 144, 255, 0.2);
+        }
+
+        .stat-label {
+          color: #a0a0a0;
+        }
+
+        .stat-value {
+          color: #e0e0e0;
+
+          &.online {
+            color: #52c41a;
+          }
+
+          &.offline {
+            color: #ff4d4f;
+          }
+        }
+      }
+    }
+
+    // LogicFlow 画布背景
+    :deep(.lf-canvas-overlay) {
+      background: #1a1f3a !important;
+    }
+
+    // 节点样式调整
+    :deep(.lf-node) {
+      .lf-node-content {
+        filter: brightness(0.9);
+      }
+    }
+
+    // 边的颜色调整
+    :deep(.lf-edge) {
+      path {
+        stroke: #6b7280 !important;
+      }
+    }
+  }
+}
+
+// 设备列表 Popover 样式
+.device-list-popover {
+  :deep(.ant-popover-inner) {
+    max-width: 400px;
+  }
+
+  .device-list-content {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 4px 0;
+
+    .empty-state {
+      padding: 32px 24px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+
+    .device-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s ease;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      .device-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #262626;
+        margin-bottom: 6px;
+        word-break: break-all;
+      }
+
+      .device-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        .device-ip {
+          font-size: 12px;
+          color: #8c8c8c;
+          font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .device-status {
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+          flex-shrink: 0;
+
+          &.online-badge {
+            background-color: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+          }
+
+          &.offline-badge {
+            background-color: #fff2f0;
+            color: #ff4d4f;
+            border: 1px solid #ffccc7;
+          }
+        }
+      }
     }
   }
 }

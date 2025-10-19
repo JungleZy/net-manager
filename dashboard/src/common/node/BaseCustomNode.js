@@ -1,6 +1,6 @@
 import { RectNode, RectNodeModel, h } from '@logicflow/core';
 import insertCss from 'insert-css';
-import { DEFAULT_STYLES } from './nodeConfig';
+import { DEFAULT_STYLES, getTextFillColor } from './nodeConfig';
 
 class BaseCustomNode extends RectNode {
   getCustomIcon = (svgContent) => {
@@ -72,7 +72,7 @@ class BaseCustomNode extends RectNode {
         y: y + height / 2 + 5, // 在节点下方显示文本
         textAnchor: 'middle',
         fontSize: textStyle.fontSize || DEFAULT_STYLES.DEFAULT_FONT_SIZE,
-        fill: textStyle.fill || DEFAULT_STYLES.TEXT_FILL,
+        fill: textStyle.fill || getTextFillColor(), // 使用主题感知的文字颜色
         ...textStyle
       },
       displayText
@@ -117,7 +117,7 @@ class BaseCustomNodeModel extends RectNodeModel {
     // 优化：避免 JSON.parse/stringify，直接展开
     return {
       ...style,
-      fill: DEFAULT_STYLES.TEXT_FILL,
+      fill: getTextFillColor(), // 使用主题感知的文字颜色
       ...textStyle
     };
   }

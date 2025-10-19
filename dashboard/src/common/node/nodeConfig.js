@@ -31,8 +31,28 @@ export const getNodeColors = (status) => {
 
 // 默认样式配置
 export const DEFAULT_STYLES = Object.freeze({
-  TEXT_FILL: '#333',
+  TEXT_FILL_LIGHT: '#333',      // 明亮模式文字颜色
+  TEXT_FILL_DARK: '#ffffff',    // 暗黑模式文字颜色
   DEFAULT_FONT_SIZE: 12,
   ONLINE_COLOR: '#0276F7',
   OFFLINE_COLOR: 'red'
 });
+
+// 当前主题状态（由外部设置）
+let currentTheme = 'light';
+
+/**
+ * 设置当前主题模式
+ * @param {string} theme - 主题模式 ('light' | 'dark')
+ */
+export const setTheme = (theme) => {
+  currentTheme = theme;
+};
+
+/**
+ * 获取当前主题下的文字颜色
+ * @returns {string} 文字颜色值
+ */
+export const getTextFillColor = () => {
+  return currentTheme === 'dark' ? DEFAULT_STYLES.TEXT_FILL_DARK : DEFAULT_STYLES.TEXT_FILL_LIGHT;
+};
