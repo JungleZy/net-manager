@@ -242,29 +242,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 服务列表（前5个） -->
-        <div class="info-section" v-if="device.services?.length">
-          <div class="section-title">
-            运行中的服务 (显示前5个，共{{ device.services.length }}个)
-          </div>
-          <div class="service-list">
-            <div
-              class="service-item"
-              v-for="(service, idx) in device.services.slice(0, 5)"
-              :key="idx"
-            >
-              <div class="service-header">
-                <span class="service-protocol">{{ service.protocol }}</span>
-                <span class="service-address">{{ service.local_address }}</span>
-              </div>
-              <div class="service-detail">
-                <span class="service-process">{{ service.process_name }}</span>
-                <span class="service-pid">PID: {{ service.pid }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
