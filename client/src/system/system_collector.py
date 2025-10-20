@@ -1185,7 +1185,7 @@ class SystemCollector:
             SystemInfoCollectionError: 收集系统信息失败
         """
         try:
-            self.logger.info("开始收集系统信息")
+            # self.logger.info("开始收集系统信息")
 
             # 分别获取各项系统信息，添加错误处理
             hostname = "unknown"
@@ -1265,7 +1265,7 @@ class SystemCollector:
                 machine_type=machine_type,
             )
 
-            self.logger.info("系统信息收集完成")
+            # self.logger.info("系统信息收集完成")
             return system_info
         except Exception as e:
             self.logger.error(f"收集系统信息失败: {e}")

@@ -396,3 +396,106 @@ export const deriveDeviceName = (description) => {
   return description || '';
 }
 
+
+// 格式化本地时间为字符串 (YYYY-MM-DD HH:mm:ss)
+export const formatLocalDateTime = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+// 居中显示功能（供 Control 插件调用）
+export const handleCenterView = (lfInstance) => {
+    if (!lfInstance) {
+      console.warn('居中操作: LogicFlow 实例不存在')
+      return
+    }
+
+    try {
+      const graphData = lfInstance.getGraphData()
+
+      if (!graphData?.nodes?.length) {
+        message.warning('画布中没有节点')
+        return
+      }
+
+      // 优化：使用条件判断代替 Math.min/max，减少函数调用
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+
+      const nodes = graphData.nodes
+      for (let i = 0, len = nodes.length; i < len; i++) {
+        const node = nodes[i]
+        const nodeWidth = node.properties?.width || 60
+        const nodeHeight = node.properties?.height || 60
+        const halfWidth = nodeWidth / 2
+        const halfHeight = nodeHeight / 2
+
+        const left = node.x - halfWidth
+        const right = node.x + halfWidth
+        const top = node.y - halfHeight
+        const bottom = node.y + halfHeight
+
+        if (left < minX) minX = left
+        if (right > maxX) maxX = right
+        if (top < minY) minY = top
+        if (bottom > maxY) maxY = bottom
+      }
+
+      // 计算内容中心点
+      const contentCenterX = (minX + maxX) / 2
+      const contentCenterY = (minY + maxY) / 2
+
+      // 获取画布尺寸和变换
+      const transform = lfInstance.getTransform()
+      const canvasWidth = lfInstance.graphModel.width
+      const canvasHeight = lfInstance.graphModel.height
+
+      // 计算画布中心点（在逻辑坐标系中，考虑当前缩放和平移）
+      const canvasCenterX =
+        (canvasWidth / 2 - transform.TRANSLATE_X) / transform.SCALE_X
+      const canvasCenterY =
+        (canvasHeight / 2 - transform.TRANSLATE_Y) / transform.SCALE_Y
+
+      // 计算需要移动的距离
+      const offsetX = canvasCenterX - contentCenterX
+      const offsetY = canvasCenterY - contentCenterY
+
+      // 优化：移动所有节点，预先计算减少重复调用
+      for (let i = 0, len = nodes.length; i < len; i++) {
+        const node = nodes[i]
+        node.x = Number((node.x + offsetX).toFixed(2))
+        node.y = Number((node.y + offsetY).toFixed(2))
+        // 更新文本位置
+        const text = node.text
+        if (text && typeof text === 'object') {
+          text.x = Number((text.x + offsetX).toFixed(2))
+          text.y = Number((text.y + offsetY).toFixed(2))
+        }
+      }
+
+      // 清空边的路径点，让LogicFlow自动重新计算
+      const edges = graphData.edges
+      if (edges?.length > 0) {
+        for (let i = 0, len = edges.length; i < len; i++) {
+          const edge = edges[i]
+          delete edge.pointsList
+          delete edge.startPoint
+          delete edge.endPoint
+        }
+      }
+
+      // 重新渲染图
+      lfInstance.render(graphData)
+    } catch (error) {
+      console.error('居中失败:', error)
+      message.error('居中失败')
+    }
+  }
+

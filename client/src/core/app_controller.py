@@ -200,7 +200,7 @@ class AppController:
             if self.tcp_client and self.tcp_client.is_connected():
                 success = self.tcp_client.send_system_info()
                 if success:
-                    self.logger.info("系统信息发送成功")
+                    # self.logger.info("系统信息发送成功")
                     return True
                 else:
                     self.logger.error("系统信息发送失败")

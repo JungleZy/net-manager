@@ -221,6 +221,7 @@ import {
 } from '@ant-design/icons-vue'
 import DeviceNodeDetailPopover from '../../components/network/DeviceNodeDetailPopover.vue'
 import SwitchNodeDetailPopover from '../../components/network/SwitchNodeDetailPopover.vue'
+import { formatLocalDateTime, handleCenterView } from '@/common/utils/Utils'
 
 const containerRef = useTemplateRef('containerRef')
 const networkWrapperRef = useTemplateRef('networkWrapperRef')
@@ -841,18 +842,28 @@ const handleNodeClick = (nodeData, event) => {
     return
   }
 
-  // 计算 Popover 位置（节点中心点）
+  // 计算 Popover 位置（使用鼠标点击位置）
   const container = containerRef.value
-  if (container) {
+  if (container && event) {
     const containerRect = container.getBoundingClientRect()
     const transform = lf.getTransform()
 
-    // 计算节点在画布中的位置（考虑缩放和平移）
-    const canvasX = nodeData.x * transform.SCALE_X + transform.TRANSLATE_X
-    const canvasY = nodeData.y * transform.SCALE_Y + transform.TRANSLATE_Y
+    // 获取鼠标点击位置（相对于容器）
+    const mouseX = event.clientX - containerRect.left
+    const mouseY = event.clientY - containerRect.top
 
-    // 智能计算 Popover 位置和方向
-    calculatePopoverPosition(canvasX, canvasY, containerRect)
+    // 计算节点在画布中的位置（考虑缩放和平移）
+    const nodeCanvasX = nodeData.x * transform.SCALE_X + transform.TRANSLATE_X
+    const nodeCanvasY = nodeData.y * transform.SCALE_Y + transform.TRANSLATE_Y
+
+    // 智能计算 Popover 位置和方向（传入鼠标点击位置和节点位置）
+    calculatePopoverPosition(
+      mouseX,
+      mouseY,
+      nodeCanvasX,
+      nodeCanvasY,
+      containerRect
+    )
   }
 
   // 显示 Popover
@@ -860,7 +871,13 @@ const handleNodeClick = (nodeData, event) => {
 }
 
 // 智能计算 Popover 位置和方向
-const calculatePopoverPosition = (nodeX, nodeY, containerRect) => {
+const calculatePopoverPosition = (
+  mouseX,
+  mouseY,
+  nodeX,
+  nodeY,
+  containerRect
+) => {
   // 安全边距（像素）
   const SAFE_MARGIN = 20
   // Popover 预估尺寸
@@ -878,7 +895,7 @@ const calculatePopoverPosition = (nodeX, nodeY, containerRect) => {
   // 节点偏移量（避免遮挡节点本身）
   const NODE_OFFSET = 70
 
-  // 计算各个方向的可用空间
+  // 计算各个方向的可用空间（基于节点位置）
   const spaceRight = containerWidth - nodeX - SAFE_MARGIN
   const spaceLeft = nodeX - SAFE_MARGIN
   // 下方和上方需要考虑节点偏移量
@@ -1040,17 +1057,17 @@ const calculatePopoverPosition = (nodeX, nodeY, containerRect) => {
   popoverPosition.value = { x: finalX, y: finalY }
   popoverPlacement.value = placement
 
-  // 计算箭头偏移量（仅对上下方向）
-  if (placement === 'top' || placement === 'bottom') {
-    // 箭头需要偏移的距离 = 节点Y坐标 - 弹出框Y坐标
-    popoverArrowOffset.value = nodeY - finalY
+  // 计算箭头偏移量（根据方向使用鼠标点击位置）
+  if (placement === 'left' || placement === 'right') {
+    // 左右方向：箭头纵向偏移 = 鼠标Y坐标 - 弹出框Y坐标
+    popoverArrowOffset.value = mouseY - finalY
   } else {
-    // 左右方向不需要偏移
-    popoverArrowOffset.value = 0
+    // 上下方向：箭头横向偏移 = 鼠标X坐标 - 弹出框X坐标
+    popoverArrowOffset.value = mouseX - finalX
   }
 
   console.log(
-    `Popover弹出方向: ${placement}, 位置: (${finalX}, ${finalY})，节点位置: (${nodeX}, ${nodeY}), 箭头偏移: ${popoverArrowOffset.value}px`
+    `Popover弹出方向: ${placement}, 位置: (${finalX}, ${finalY})，鼠标位置: (${mouseX}, ${mouseY}), 节点位置: (${nodeX}, ${nodeY}), 箭头偏移: ${popoverArrowOffset.value}px`
   )
 }
 
@@ -1060,67 +1077,68 @@ const handlePopoverClose = () => {
   selectedNode.value = null
 }
 
-// 居中显示功能（供 LogicFlow 实例调用）
-const handleCenterView = (lfInstance) => {
-  if (!lfInstance) {
-    console.warn('居中操作: LogicFlow 实例不存在')
-    return
+// 检查两个IP是否在同一网段（简单判断：前三段相同）
+const isSameSubnet = (ip1, ip2) => {
+  if (!ip1 || !ip2) return false
+  const parts1 = ip1.split('.')
+  const parts2 = ip2.split('.')
+  if (parts1.length !== 4 || parts2.length !== 4) return false
+  // 比较前三段
+  return (
+    parts1[0] === parts2[0] &&
+    parts1[1] === parts2[1] &&
+    parts1[2] === parts2[2]
+  )
+}
+
+// 查找目标节点（降级策略）
+const findTargetNode = (currentDeviceNode, gatewayIp, nodeByIp, graphData) => {
+  // 策略 1: 直接根据网关IP查找
+  let targetNode = nodeByIp.get(gatewayIp)
+  if (targetNode) {
+    console.log(`策略1: 直接找到网关节点 ${targetNode.id} (IP: ${gatewayIp})`)
+    return targetNode
   }
 
-  try {
-    const graphData = lfInstance.getGraphData()
-    if (!graphData?.nodes?.length) {
-      message.warning('画布中没有节点')
-      return
+  // 策略 2: 查找同网段的第一个节点
+  const currentIp = currentDeviceNode.properties?.data?.ip
+  if (currentIp) {
+    for (const [ip, node] of nodeByIp) {
+      if (node.id !== currentDeviceNode.id && isSameSubnet(currentIp, ip)) {
+        console.log(
+          `策略2: 找到同网段节点 ${node.id} (IP: ${ip}, 当前IP: ${currentIp})`
+        )
+        return node
+      }
     }
-
-    // 优化：使用条件判断代替 Math.min/max，减少函数调用
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-
-    const nodes = graphData.nodes
-    for (let i = 0, len = nodes.length; i < len; i++) {
-      const node = nodes[i]
-      const nodeWidth = node.properties?.width || 60
-      const nodeHeight = node.properties?.height || 60
-      const halfWidth = nodeWidth / 2
-      const halfHeight = nodeHeight / 2
-
-      const left = node.x - halfWidth
-      const right = node.x + halfWidth
-      const top = node.y - halfHeight
-      const bottom = node.y + halfHeight
-
-      if (left < minX) minX = left
-      if (right > maxX) maxX = right
-      if (top < minY) minY = top
-      if (bottom > maxY) maxY = bottom
-    }
-
-    // 计算内容中心点
-    const contentCenterX = (minX + maxX) / 2
-    const contentCenterY = (minY + maxY) / 2
-
-    // 计算画布中心点
-    const container = containerRef.value
-    if (!container) return
-
-    const canvasWidth = container.offsetWidth
-    const canvasHeight = container.offsetHeight
-    const canvasCenterX = canvasWidth / 2
-    const canvasCenterY = canvasHeight / 2
-
-    // 计算需要平移的距离
-    const deltaX = canvasCenterX - contentCenterX
-    const deltaY = canvasCenterY - contentCenterY
-
-    // 平移画布
-    lfInstance.translate(deltaX, deltaY)
-  } catch (error) {
-    console.error('居中操作失败:', error)
   }
+
+  // 策略 3: 查找所属连线的第一个节点
+  if (graphData?.edges) {
+    const connectedEdge = graphData.edges.find(
+      (edge) =>
+        edge.sourceNodeId === currentDeviceNode.id ||
+        edge.targetNodeId === currentDeviceNode.id
+    )
+    if (connectedEdge) {
+      const targetNodeId =
+        connectedEdge.sourceNodeId === currentDeviceNode.id
+          ? connectedEdge.targetNodeId
+          : connectedEdge.sourceNodeId
+      targetNode = graphData.nodes.find((node) => node.id === targetNodeId)
+      if (targetNode) {
+        console.log(
+          `策略3: 找到连线的节点 ${targetNode.id} (连线ID: ${connectedEdge.id})`
+        )
+        return targetNode
+      }
+    }
+  }
+
+  console.warn(
+    `所有策略均未找到目标节点 (网关IP: ${gatewayIp}, 当前IP: ${currentIp})`
+  )
+  return null
 }
 
 // 更新节点状态
@@ -1148,25 +1166,9 @@ const updateNodeStatus = (deviceId, status) => {
       } else {
         console.warn(`无法获取节点模型: ${node.id}`)
       }
-
       // 如果设备离线,停止所有与该节点相连的边的动画
       if (status === 'offline') {
         stopNodeRelatedEdgesAnimation(node.id, graphData)
-      }
-    } else {
-      console.warn(
-        `未找到设备ID为 ${deviceId} 的节点，当前拓扑图中有 ${graphData.nodes.length} 个节点`
-      )
-      // 打印所有节点的ID用于调试
-      if (graphData.nodes.length > 0 && graphData.nodes.length <= 10) {
-        console.log(
-          '当前节点列表:',
-          graphData.nodes.map((n) => ({
-            id: n.id,
-            dataId: n.properties?.data?.id,
-            status: n.properties?.status
-          }))
-        )
       }
     }
   } catch (error) {
@@ -1185,9 +1187,15 @@ const stopNodeRelatedEdgesAnimation = (nodeId, graphData) => {
     )
 
     if (relatedEdges.length > 0) {
-      console.log(`设备离线，停止 ${relatedEdges.length} 条相关边的动画`)
-
       for (const edge of relatedEdges) {
+        // 检查边的当前状态
+        const currentState = edgeDataMap.value.get(edge.id)
+
+        // 如果已经是关闭状态，则跳过操作
+        if (currentState === false) {
+          continue
+        }
+
         // 关闭边动画
         lf.closeEdgeAnimation(edge.id)
 
@@ -1217,38 +1225,43 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
     )
 
     if (edge) {
+      // 查找源节点和目标节点
+      const sourceNode = graphData.nodes.find((n) => n.id === sourceId)
+      const targetNode = graphData.nodes.find((n) => n.id === targetId)
+
+      // 检查节点在线状态
+      const sourceStatus = sourceNode?.properties?.status || 'offline'
+      const targetStatus = targetNode?.properties?.status || 'offline'
+      const bothOnline = sourceStatus === 'online' && targetStatus === 'online'
+
+      // 如果任意一个节点离线，强制关闭动画
+      let finalHasData = hasData
+      if (!bothOnline) {
+        finalHasData = false
+        console.log(
+          `边 ${edge.id} 的节点不全在线 (源: ${sourceStatus}, 目标: ${targetStatus})，关闭动画`
+        )
+      }
+
       // 检查边的当前状态
       const currentState = edgeDataMap.value.get(edge.id)
 
       // 如果当前状态和需要更新的状态一致，则跳过更新
-      if (currentState === hasData) {
-        console.log(`边 ${edge.id} 状态未变化 (${hasData})，跳过更新`)
+      if (currentState === finalHasData) {
+        console.log(`边 ${edge.id} 状态未变化 (${finalHasData})，跳过更新`)
         return
       }
 
-      console.log(`更新边 ${edge.id} 状态: ${currentState} -> ${hasData}`)
+      console.log(`更新边 ${edge.id} 状态: ${currentState} -> ${finalHasData}`)
 
       // 更新状态映射
-      edgeDataMap.value.set(edge.id, hasData)
+      edgeDataMap.value.set(edge.id, finalHasData)
 
       // 根据状态开启或关闭动画
-      if (hasData) {
+      if (finalHasData) {
         lf?.openEdgeAnimation(edge.id)
       } else {
         lf?.closeEdgeAnimation(edge.id)
-      }
-    } else {
-      console.warn(`未找到连接 ${sourceId} 和 ${targetId} 的边`)
-      // 打印所有边的信息用于调试
-      if (graphData.edges.length > 0 && graphData.edges.length <= 10) {
-        console.log(
-          '当前边列表:',
-          graphData.edges.map((e) => ({
-            id: e.id,
-            sourceNodeId: e.sourceNodeId,
-            targetNodeId: e.targetNodeId
-          }))
-        )
       }
     }
   } catch (error) {
@@ -1273,14 +1286,14 @@ const handleDeviceStatusUpdate = (data) => {
     if (device) {
       device.status = status
       device.online = status === 'online'
-      device.last_seen = new Date().toISOString()
+      device.last_seen = formatLocalDateTime()
     }
 
     const switchDevice = switchIdMap.value.get(deviceId)
     if (switchDevice) {
       switchDevice.status = status
       switchDevice.online = status === 'online'
-      switchDevice.last_seen = new Date().toISOString()
+      switchDevice.last_seen = formatLocalDateTime()
     }
     console.log('设备列表已更新:', devices.value)
   }
@@ -1294,24 +1307,23 @@ const handleSnmpDeviceUpdate = (data) => {
 
   const deviceId = data.switch_id || data.device_id
 
-  // 更新设备在线状态
+  // 更新交换机在线状态以及列表中的对应数据（优化：使用 Map 查找）
   if (deviceId) {
-    updateNodeStatus(deviceId, 'online')
-  }
-
-  // 更新交换机列表中的对应数据（优化：使用 Map 查找）
-  if (deviceId) {
+    // 更新设备在线状态
+    updateNodeStatus(deviceId, data?.type === 'success' ? 'online' : 'offline')
     const switchDevice = switchIdMap.value.get(deviceId)
     if (switchDevice) {
       Object.assign(switchDevice, data, {
-        last_updated: new Date().toISOString()
+        status: data?.type === 'success' ? 'online' : 'offline',
+        last_updated: formatLocalDateTime()
       })
     } else {
       // 新交换机，添加到列表
       const newSwitch = {
         ...data,
+        status: data?.type === 'success' ? 'online' : 'offline',
         id: deviceId,
-        last_updated: new Date().toISOString()
+        last_updated: formatLocalDateTime()
       }
       switches.value.push(newSwitch)
       // 更新 Map
@@ -1354,7 +1366,7 @@ const handleDeviceInfoUpdate = (data) => {
     if (device) {
       Object.assign(device, data, {
         status: 'online',
-        last_updated: new Date().toISOString()
+        last_updated: formatLocalDateTime()
       })
     } else {
       // 新设备，添加到列表
@@ -1362,7 +1374,7 @@ const handleDeviceInfoUpdate = (data) => {
         ...data,
         id: deviceId,
         status: 'online',
-        last_updated: new Date().toISOString()
+        last_updated: formatLocalDateTime()
       }
       devices.value.push(newDevice)
       // 更新 Map
@@ -1413,21 +1425,23 @@ const handleDeviceInfoUpdate = (data) => {
         (iface.download_rate && iface.download_rate > 0)
 
       if (hasData && iface.gateway) {
-        const gatewayNode = nodeByIp.get(iface.gateway)
         const currentDeviceNode = nodeByDeviceId.get(deviceId)
 
-        if (gatewayNode && currentDeviceNode) {
-          console.log(
-            `找到节点: 当前设备节点 ${currentDeviceNode.id}, 网关节点 ${gatewayNode.id}`
-          )
-          updateEdgeDataStatus(currentDeviceNode.id, gatewayNode.id, hasData)
-        } else {
-          if (!currentDeviceNode) {
-            console.warn(`未找到设备 ${deviceId} 对应的节点`)
-          }
-          if (!gatewayNode) {
-            console.warn(`未找到网关 ${iface.gateway} 对应的节点`)
-          }
+        if (!currentDeviceNode) {
+          console.warn(`未找到设备 ${deviceId} 对应的节点`)
+          continue
+        }
+
+        // 使用降级策略查找目标节点
+        const targetNode = findTargetNode(
+          currentDeviceNode,
+          iface.gateway,
+          nodeByIp,
+          graphData
+        )
+
+        if (targetNode) {
+          updateEdgeDataStatus(currentDeviceNode.id, targetNode.id, hasData)
         }
       }
     }
@@ -1522,7 +1536,6 @@ const cleanup = () => {
   }
 
   // 移除全局点击事件监听
-  document.removeEventListener('click', handleClickOutside)
   PubSub.unsubscribe(wsCode.DEVICE_STATUS)
   PubSub.unsubscribe(wsCode.DEVICE_INFO)
   PubSub.unsubscribe(wsCode.SNMP_DEVICE_UPDATE)
@@ -1586,9 +1599,6 @@ onMounted(() => {
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
     document.addEventListener('mozfullscreenchange', handleFullscreenChange)
     document.addEventListener('msfullscreenchange', handleFullscreenChange)
-
-    // 注意：不在这里添加全局点击监听
-    // 全局点击监听会在点击节点时动态添加
   })
 })
 
@@ -1605,286 +1615,5 @@ onUnmounted(() => {
 </script>
 
 <style lang="less">
-// 页内全屏样式
-.page-fullscreen {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 99 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  background: #f0f2f5;
-}
-
-.network {
-  // 定义 CSS 变量用于节点文字颜色
-  --node-text-color: #333;
-
-  // 网络容器基础样式
-  .network-container {
-    background: #ffffff;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  }
-  .lf-graph {
-    background: transparent;
-  }
-
-  // 统计面板
-  .stats-panel {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    display: flex;
-    gap: 24px;
-    z-index: 10;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
-
-    .stat-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-
-      // 可点击样式
-      &.clickable {
-        cursor: pointer;
-        transition: all 0.2s ease;
-        padding: 4px 8px;
-        margin: -4px -8px;
-        border-radius: 4px;
-
-        &:hover {
-          background: rgba(24, 144, 255, 0.1);
-          transform: translateY(-1px);
-        }
-
-        &:active {
-          transform: translateY(0);
-        }
-      }
-
-      .stat-label {
-        font-size: 12px;
-        color: #666;
-        font-weight: 500;
-        transition: color 0.3s ease;
-      }
-
-      .stat-value {
-        font-size: 20px;
-        font-weight: 600;
-        color: #333;
-        transition: color 0.3s ease;
-
-        &.online {
-          color: #52c41a;
-        }
-
-        &.offline {
-          color: #ff4d4f;
-        }
-      }
-    }
-  }
-
-  // 控制面板
-  .control-panel {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: flex;
-    gap: 8px;
-    z-index: 10;
-  }
-
-  // 边的样式
-  :deep(.lf-edge) {
-    path {
-      transition: all 0.3s ease;
-    }
-
-    // 禁用边的选中效果
-    &.lf-edge-selected {
-      path {
-        stroke: #afafaf !important;
-        stroke-width: 2 !important;
-      }
-    }
-
-    // 禁用边的悬停效果
-    &:hover {
-      path {
-        stroke: #afafaf !important;
-        stroke-width: 2 !important;
-        cursor: default !important;
-      }
-    }
-  }
-
-  // 取消边的箭头
-  :deep(.lf-edge) {
-    .lf-arrow {
-      display: none !important;
-    }
-  }
-
-  :deep(.lf-edge-line),
-  :deep(.lf-edge-polyline),
-  :deep(.lf-edge-bezier) {
-    marker-end: none !important;
-    marker-start: none !important;
-  }
-
-  // 小球动画透明度过渡
-  :deep(.edge-animation-ball) {
-    transition: opacity 0.3s ease;
-  }
-
-  .lf-outline {
-    .lf-outline-edge {
-      display: none;
-    }
-  }
-
-  // ==================== 暗黑模式样式 ====================
-  &.dark-mode {
-    background: #0a0e27;
-
-    .network-container {
-      background: #0a0e2780;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    }
-
-    // 统计面板暗黑模式
-    .stats-panel {
-      background: rgba(26, 31, 58, 0.95);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-
-      .stat-item {
-        &.clickable:hover {
-          background: rgba(24, 144, 255, 0.2);
-        }
-
-        .stat-label {
-          color: #a0a0a0;
-        }
-
-        .stat-value {
-          color: #e0e0e0;
-
-          &.online {
-            color: #52c41a;
-          }
-
-          &.offline {
-            color: #ff4d4f;
-          }
-        }
-      }
-    }
-
-    // LogicFlow 画布背景
-    :deep(.lf-canvas-overlay) {
-      background: #1a1f3a !important;
-    }
-
-    // 节点样式调整
-    :deep(.lf-node) {
-      .lf-node-content {
-        filter: brightness(0.9);
-      }
-    }
-
-    // 边的颜色调整
-    :deep(.lf-edge) {
-      path {
-        stroke: #6b7280 !important;
-      }
-    }
-  }
-}
-
-// 设备列表 Popover 样式
-.device-list-popover {
-  :deep(.ant-popover-inner) {
-    max-width: 400px;
-  }
-
-  .device-list-content {
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 4px 0;
-
-    .empty-state {
-      padding: 32px 24px;
-      text-align: center;
-      color: #999;
-      font-size: 14px;
-    }
-
-    .device-item {
-      padding: 12px 16px;
-      border-bottom: 1px solid #f0f0f0;
-      transition: background-color 0.2s ease;
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      &:hover {
-        background-color: #f5f5f5;
-      }
-
-      .device-name {
-        font-size: 14px;
-        font-weight: 500;
-        color: #262626;
-        margin-bottom: 6px;
-        word-break: break-all;
-      }
-
-      .device-info {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-
-        .device-ip {
-          font-size: 12px;
-          color: #8c8c8c;
-          font-family: 'Consolas', 'Monaco', monospace;
-        }
-
-        .device-status {
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 500;
-          flex-shrink: 0;
-
-          &.online-badge {
-            background-color: #f6ffed;
-            color: #52c41a;
-            border: 1px solid #b7eb8f;
-          }
-
-          &.offline-badge {
-            background-color: #fff2f0;
-            color: #ff4d4f;
-            border: 1px solid #ffccc7;
-          }
-        }
-      }
-    }
-  }
-}
+@import './style.less';
 </style>

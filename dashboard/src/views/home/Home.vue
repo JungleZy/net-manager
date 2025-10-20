@@ -8,7 +8,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[12px]">
         <div class="bg-blue-100 rounded-lg p-4 shadow">
           <div class="text-2xl font-bold text-blue-800">
-            {{ statistics.deviceCount }}
+            {{ statistics.deviceCount + statistics.switchCount }}
           </div>
           <div class="text-gray-600">总设备数</div>
         </div>
@@ -284,6 +284,12 @@ export default {
         const switchList = response.data || []
         switches.value = response.data || []
         statistics.value.switchCount = switchList.length
+        statistics.value.onlineCount = switchList.filter(
+          (device) => device.online
+        ).length
+        statistics.value.offlineCount = switchList.filter(
+          (device) => !device.online
+        ).length
       } catch (error) {
         console.error('获取交换机统计信息失败:', error)
       }

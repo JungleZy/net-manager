@@ -1,0 +1,282 @@
+// 页内全屏样式
+.page-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: #f0f2f5;
+}
+
+.network {
+  // 定义 CSS 变量用于节点文字颜色
+  --node-text-color: #333;
+
+  // 网络容器基础样式
+  .network-container {
+    background: #ffffff;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .lf-graph {
+    background: transparent;
+  }
+
+  // 统计面板
+  .stats-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 24px;
+    z-index: 10;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      // 可点击样式
+      &.clickable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 4px 8px;
+        margin: -4px -8px;
+        border-radius: 4px;
+
+        &:hover {
+          background: rgba(24, 144, 255, 0.1);
+          transform: translateY(-1px);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #666;
+        font-weight: 500;
+        transition: color 0.3s ease;
+      }
+
+      .stat-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        transition: color 0.3s ease;
+
+        &.online {
+          color: #52c41a;
+        }
+
+        &.offline {
+          color: #ff4d4f;
+        }
+      }
+    }
+  }
+
+  // 控制面板
+  .control-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  // 边的样式
+  :deep(.lf-edge) {
+    path {
+      transition: all 0.3s ease;
+    }
+
+    // 禁用边的选中效果
+    &.lf-edge-selected {
+      path {
+        stroke: #afafaf !important;
+        stroke-width: 2 !important;
+      }
+    }
+
+    // 禁用边的悬停效果
+    &:hover {
+      path {
+        stroke: #afafaf !important;
+        stroke-width: 2 !important;
+        cursor: default !important;
+      }
+    }
+  }
+
+  // 取消边的箭头
+  :deep(.lf-edge) {
+    .lf-arrow {
+      display: none !important;
+    }
+  }
+
+  :deep(.lf-edge-line),
+  :deep(.lf-edge-polyline),
+  :deep(.lf-edge-bezier) {
+    marker-end: none !important;
+    marker-start: none !important;
+  }
+
+  // 小球动画透明度过渡
+  :deep(.edge-animation-ball) {
+    transition: opacity 0.3s ease;
+  }
+
+  .lf-outline {
+    .lf-outline-edge {
+      display: none;
+    }
+  }
+
+  // ==================== 暗黑模式样式 ====================
+  &.dark-mode {
+    background: #0a0e27;
+
+    .network-container {
+      background: #0a0e2780;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    // 统计面板暗黑模式
+    .stats-panel {
+      background: rgba(26, 31, 58, 0.95);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+
+      .stat-item {
+        &.clickable:hover {
+          background: rgba(24, 144, 255, 0.2);
+        }
+
+        .stat-label {
+          color: #a0a0a0;
+        }
+
+        .stat-value {
+          color: #e0e0e0;
+
+          &.online {
+            color: #52c41a;
+          }
+
+          &.offline {
+            color: #ff4d4f;
+          }
+        }
+      }
+    }
+
+    // LogicFlow 画布背景
+    :deep(.lf-canvas-overlay) {
+      background: #1a1f3a !important;
+    }
+
+    // 节点样式调整
+    :deep(.lf-node) {
+      .lf-node-content {
+        filter: brightness(0.9);
+      }
+    }
+
+    // 边的颜色调整
+    :deep(.lf-edge) {
+      path {
+        stroke: #6b7280 !important;
+      }
+    }
+  }
+}
+
+// 设备列表 Popover 样式
+.device-list-popover {
+  :deep(.ant-popover-inner) {
+    max-width: 400px;
+  }
+
+  .device-list-content {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 4px 0;
+
+    .empty-state {
+      padding: 32px 24px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+
+    .device-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s ease;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      .device-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #262626;
+        margin-bottom: 6px;
+        word-break: break-all;
+      }
+
+      .device-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        .device-ip {
+          font-size: 12px;
+          color: #8c8c8c;
+          font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .device-status {
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+          flex-shrink: 0;
+
+          &.online-badge {
+            background-color: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+          }
+
+          &.offline-badge {
+            background-color: #fff2f0;
+            color: #ff4d4f;
+            border: 1px solid #ffccc7;
+          }
+        }
+      }
+    }
+  }
+}
