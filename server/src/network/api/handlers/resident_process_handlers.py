@@ -144,15 +144,30 @@ class ResidentProcessBatchCreateHandler(BaseHandler):
                 self.write({"status": "error", "message": "没有有效的进程名称"})
                 return
 
-            # 批量保存到数据库
+            # 批量保存到数据库（自动去重并删除不在列表中的进程）
             result = self.resident_process_manager.batch_add_resident_processes(
                 valid_names
+            )
+
+            # 构建响应消息
+            message_parts = []
+            if result["success_count"] > 0:
+                message_parts.append(f"新增: {result['success_count']} 个")
+            if result["skipped_count"] > 0:
+                message_parts.append(f"已存在: {result['skipped_count']} 个")
+            if result.get("deleted_count", 0) > 0:
+                message_parts.append(f"删除: {result['deleted_count']} 个")
+            if result["failed_count"] > 0:
+                message_parts.append(f"失败: {result['failed_count']} 个")
+
+            response_message = (
+                "保存完成，" + "，".join(message_parts) if message_parts else "保存完成"
             )
 
             self.write(
                 {
                     "status": "success",
-                    "message": f"批量添加完成，成功: {result['success_count']}, 失败: {result['failed_count']}",
+                    "message": response_message,
                     "data": result,
                 }
             )

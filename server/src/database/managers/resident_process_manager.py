@@ -216,7 +216,7 @@ class ResidentProcessManager(BaseDatabaseManager):
                     """
                     SELECT id, name, created_at
                     FROM resident_process_info
-                    ORDER BY created_at DESC
+                    ORDER BY created_at
                 """
                 )
 
@@ -415,40 +415,98 @@ class ResidentProcessManager(BaseDatabaseManager):
 
     def batch_add_resident_processes(self, process_names: List[str]) -> Dict[str, Any]:
         """
-        批量添加常驻进程信息
+        批量添加常驻进程信息（自动去重，已存在的进程不会重复添加，不在列表中的进程将被删除）
 
         Args:
             process_names: 进程名称列表
 
         Returns:
-            包含成功数量、失败数量和详细信息的字典
+            包含新增、跳过、删除、失败等详细统计信息的字典
 
         Raises:
             DatabaseQueryError: 批量添加失败时抛出
         """
         success_count = 0
         failed_count = 0
+        skipped_count = 0
+        deleted_count = 0
         details = []
 
-        for name in process_names:
-            try:
-                process_info = ResidentProcessInfo(name=name)
-                process_id = self.add_resident_process(process_info)
-                success_count += 1
-                details.append({"name": name, "id": process_id, "status": "success"})
-            except Exception as e:
-                failed_count += 1
-                details.append({"name": name, "status": "failed", "error": str(e)})
-                logger.error(f"添加常驻进程 {name} 失败: {e}")
+        try:
+            # 1. 先获取所有已存在的进程名称
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM resident_process_info")
+                existing_names = {row[0] for row in cursor.fetchall()}
+
+            logger.info(f"当前数据库中已存在 {len(existing_names)} 个常驻进程")
+
+            # 2. 转换为集合以便高效查找
+            new_names_set = set(process_names)
+
+            # 3. 找出需要删除的进程（数据库中有但提交列表中没有的）
+            names_to_delete = existing_names - new_names_set
+            if names_to_delete:
+                logger.info(
+                    f"需要删除 {len(names_to_delete)} 个进程: {names_to_delete}"
+                )
+                for name in names_to_delete:
+                    try:
+                        if self.delete_resident_process_by_name(name):
+                            deleted_count += 1
+                            details.append(
+                                {
+                                    "name": name,
+                                    "status": "deleted",
+                                    "reason": "不在提交列表中",
+                                }
+                            )
+                            logger.info(f"删除进程 '{name}' 成功")
+                    except Exception as e:
+                        logger.error(f"删除进程 '{name}' 失败: {e}")
+
+            # 4. 处理提交的进程列表
+            for name in process_names:
+                if name in existing_names:
+                    # 进程已存在，跳过
+                    skipped_count += 1
+                    details.append(
+                        {"name": name, "status": "skipped", "reason": "已存在"}
+                    )
+                    logger.info(f"进程 '{name}' 已存在，跳过添加")
+                else:
+                    # 进程不存在，添加到数据库
+                    try:
+                        process_info = ResidentProcessInfo(name=name)
+                        process_id = self.add_resident_process(process_info)
+                        success_count += 1
+                        details.append(
+                            {"name": name, "id": process_id, "status": "success"}
+                        )
+                        # 将新添加的进程加入已存在集合，避免同一批次中的重复
+                        existing_names.add(name)
+                        logger.info(f"新增进程 '{name}' 成功")
+                    except Exception as e:
+                        failed_count += 1
+                        details.append(
+                            {"name": name, "status": "failed", "error": str(e)}
+                        )
+                        logger.error(f"添加常驻进程 {name} 失败: {e}")
+
+        except Exception as e:
+            logger.error(f"批量添加常驻进程时发生错误: {e}")
+            raise DatabaseQueryError(f"批量添加常驻进程失败: {e}") from e
 
         result = {
             "success_count": success_count,
             "failed_count": failed_count,
+            "skipped_count": skipped_count,
+            "deleted_count": deleted_count,
             "total": len(process_names),
             "details": details,
         }
 
         logger.info(
-            f"批量添加常驻进程完成，成功: {success_count}, 失败: {failed_count}"
+            f"批量处理常驻进程完成，新增: {success_count}, 跳过: {skipped_count}, 删除: {deleted_count}, 失败: {failed_count}"
         )
         return result
