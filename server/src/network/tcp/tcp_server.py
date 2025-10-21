@@ -152,17 +152,18 @@ class TCPServer:
                     info["id"] = existing_device["id"]
                     logger.debug(f"使用现有设备ID更新: {info['id']}")
                 else:
-                    # 如果不存在，则生成新的ID
+                    # 如果不存在，则生成新的ID、类型
                     import uuid
 
                     info["id"] = str(uuid.uuid4())
+                    info["type"] = "台式机"
                     logger.debug(f"为新设备生成ID: {info['id']}")
             else:
-                # 如果没有提供client_id，则生成新的ID
-                import uuid
-
-                info["id"] = str(uuid.uuid4())
-                logger.debug(f"未提供client_id，生成新ID: {info['id']}")
+                # 如果没有提供client_id，则忽略
+                logger.warning(
+                    f"收到来自 {address} 的信息，设备信息缺少 client_id，忽略"
+                )
+                return
 
             # 创建DeviceInfo对象用于保存到数据库
             device_info = self._create_device_info_with_id(info)

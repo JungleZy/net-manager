@@ -113,8 +113,6 @@ export class Ws {
    * @param {Object} deviceData - 单个设备数据
    */
   async handleDeviceUpdate(deviceData) {
-    console.log('handleDeviceUpdate', deviceData);
-
     try {
       // 计算更新频率（用于监控）
       const currentTime = Date.now();
@@ -133,7 +131,6 @@ export class Ws {
    * @param {Object} interfaceData - 单个接口数据
    */
   async handleInterfaceUpdate(interfaceData) {
-    console.log('handleInterfaceUpdate', interfaceData);
     try {
       // 计算更新频率（用于监控）
       const currentTime = Date.now();

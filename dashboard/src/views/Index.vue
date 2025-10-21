@@ -65,7 +65,13 @@
       <!-- 路由出口 -->
       <router-view></router-view>
     </div>
-    <a-modal v-model:open="agentVisible" centered title="下载探针" :footer="null">
+    <a-modal
+      v-model:open="agentVisible"
+      width="724px"
+      centered
+      title="下载探针"
+      :footer="null"
+    >
       <AgentDownload />
     </a-modal>
   </div>

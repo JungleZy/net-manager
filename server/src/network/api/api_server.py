@@ -59,6 +59,7 @@ from src.network.api.handlers.health_handler import HealthHandler
 from src.network.api.handlers.performance_handler import PerformanceHandler
 from src.network.api.websocket_handler import WebSocketHandler
 from src.network.api.handlers.static_handler import StaticFileHandler
+from src.network.api.handlers.well_known_handler import WellKnownHandler
 
 
 class APIServer:
@@ -249,6 +250,8 @@ class APIServer:
             (r"/api/performance", PerformanceHandler),
             (r"/health", HealthHandler),
             (r"/healthz", HealthHandler),  # Kubernetes健康检查标准端点
+            # Chrome DevTools配置请求处理
+            (r"/.well-known/(.*)", WellKnownHandler),
             # 静态文件服务（必须放在最后，作为SPA应用的默认处理器）
             (
                 r"/(.*)",

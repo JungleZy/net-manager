@@ -438,7 +438,7 @@ class SystemCollector:
         interface_lower = interface_name.lower()
 
         # 回环接口标识
-        loopback_indicators = ("lo", "loopback")
+        loopback_indicators = ("lo", "loopback", "Loopback")
 
         # 检查是否为回环接口
         if interface_lower.startswith(loopback_indicators):

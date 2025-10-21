@@ -450,7 +450,7 @@ export default {
 }
 
 .header h1 {
-  color: #1890ff;
+  color: #456a63;
   font-size: 2em;
 }
 
@@ -470,7 +470,7 @@ export default {
 .statistic-value {
   font-size: 2em;
   font-weight: bold;
-  color: #1890ff;
+  color: #456a63;
   margin: 0;
 }
 
@@ -482,7 +482,7 @@ export default {
 .device-card h3,
 .switch-card h3 {
   margin-top: 0;
-  color: #1890ff;
+  color: #456a63;
 }
 
 .device-card p,
