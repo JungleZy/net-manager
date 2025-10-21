@@ -353,6 +353,16 @@ def build_dashboard():
         shutil.copytree(dist_dir, server_static_dir)
         print("✓ 前端构建产物已复制到server/static目录")
 
+        # 复制agent文件夹到server/static目录
+        agent_dir = PROJECT_ROOT / "agent"
+        if agent_dir.exists():
+            agent_dest_dir = server_static_dir / "agent"
+            print(f"复制agent文件夹到: {agent_dest_dir}")
+            shutil.copytree(agent_dir, agent_dest_dir)
+            print("✓ agent文件夹已复制到server/static目录")
+        else:
+            print(f"⚠ agent文件夹不存在: {agent_dir}")
+
         return True
 
     except subprocess.CalledProcessError as e:

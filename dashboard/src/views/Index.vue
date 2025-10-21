@@ -53,7 +53,10 @@
       </div>
 
       <div class="h-full layout-right-center">
-        <div class="h-full layout-center cursor-pointer text-sm">
+        <div
+          class="h-full layout-center cursor-pointer text-sm"
+          @click="openAgentModal"
+        >
           <DownloadOutlined class="mr-[2px]" />下载探针
         </div>
       </div>
@@ -62,30 +65,39 @@
       <!-- 路由出口 -->
       <router-view></router-view>
     </div>
+    <a-modal v-model:open="agentVisible" centered title="下载探针" :footer="null">
+      <AgentDownload />
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { DownloadOutlined } from '@ant-design/icons-vue'
+import AgentDownload from '@/components/agent/AgentDownload.vue'
 
 // 获取路由信息
 const route = useRoute()
 const router = useRouter()
+const agentVisible = ref(false)
 
 // 页面切换方法
 const switchTo = (path) => {
   router.push(path)
 }
+const openAgentModal = () => {
+  agentVisible.value = true
+}
 </script>
 
 <style lang="less" scoped>
+@import '../styles/color.less';
 .main {
   background-color: #f5f7fa;
 }
 .title {
-  background-color: #1677ff;
+  background-color: @firstColor;
   color: #fff;
 
   .menu-item {

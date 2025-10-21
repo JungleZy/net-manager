@@ -11,7 +11,14 @@ const locale = zhCN
 </script>
 
 <template>
-  <a-config-provider :locale="locale">
+  <a-config-provider
+    :locale="locale"
+    :theme="{
+      token: {
+        colorPrimary: '#456a63'
+      }
+    }"
+  >
     <router-view />
   </a-config-provider>
 </template>

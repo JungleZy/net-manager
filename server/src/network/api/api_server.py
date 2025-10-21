@@ -16,6 +16,7 @@ from src.core.config import API_PORT, API_HOST
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.database.managers.topology_manager import TopologyManager
+from src.database.managers.resident_process_manager import ResidentProcessManager
 
 # 导入拆分后的handlers
 from src.network.api.handlers.main_handler import MainHandler
@@ -46,6 +47,14 @@ from src.network.api.handlers.topology_handlers import (
     TopologiesHandler,
     TopologyLatestHandler,
 )
+from src.network.api.handlers.resident_process_handlers import (
+    ResidentProcessListHandler,
+    ResidentProcessCreateHandler,
+    ResidentProcessBatchCreateHandler,
+    ResidentProcessDeleteHandler,
+    ResidentProcessClearHandler,
+    ResidentProcessGetHandler,
+)
 from src.network.api.handlers.health_handler import HealthHandler
 from src.network.api.handlers.performance_handler import PerformanceHandler
 from src.network.api.websocket_handler import WebSocketHandler
@@ -62,6 +71,8 @@ class APIServer:
         self.db_manager = db_manager if db_manager else DatabaseManager()
         # 初始化拓扑图管理器
         self.topology_manager = TopologyManager()
+        # 初始化常驻进程管理器
+        self.resident_process_manager = ResidentProcessManager()
         self.tcp_server = None
         self.app = self.make_app()
         self.server = None
@@ -202,6 +213,37 @@ class APIServer:
                 r"/api/topologies/(?P<topology_id>[^/]+)",
                 TopologyHandler,
                 dict(topology_manager=self.topology_manager),
+            ),
+            # 常驻进程相关路由
+            (
+                r"/api/resident-processes",
+                ResidentProcessListHandler,
+                dict(resident_process_manager=self.resident_process_manager),
+            ),
+            (
+                r"/api/resident-processes/get",
+                ResidentProcessGetHandler,
+                dict(resident_process_manager=self.resident_process_manager),
+            ),
+            (
+                r"/api/resident-processes/create",
+                ResidentProcessCreateHandler,
+                dict(resident_process_manager=self.resident_process_manager),
+            ),
+            (
+                r"/api/resident-processes/batch-create",
+                ResidentProcessBatchCreateHandler,
+                dict(resident_process_manager=self.resident_process_manager),
+            ),
+            (
+                r"/api/resident-processes/delete",
+                ResidentProcessDeleteHandler,
+                dict(resident_process_manager=self.resident_process_manager),
+            ),
+            (
+                r"/api/resident-processes/clear",
+                ResidentProcessClearHandler,
+                dict(resident_process_manager=self.resident_process_manager),
             ),
             (r"/ws", WebSocketHandler),
             (r"/api/performance", PerformanceHandler),

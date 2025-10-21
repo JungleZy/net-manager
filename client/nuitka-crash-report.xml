@@ -2,68 +2,10 @@
 <nuitka-compilation-report nuitka_version="2.7.16" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="Failed unexpectedly in Scons C backend compilation.">
   <scons_error_reports>
     <scons_error_report>
-      <command>gcc -o "module.psutil._pslinux.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._pslinux.c"</command>
+      <command>gcc -o "module.psutil._pswindows.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._pswindows.c"</command>
       <stderr>
 
-cc1.exe: out of memory allocating 431048 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.psutil._psposix.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._psposix.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 431048 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.psutil._psaix.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._psaix.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 431048 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.psutil._common.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.psutil._common.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 321504 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "__constants.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "__constants.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 1052671 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "__helpers.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "__helpers.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 321504 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "__loader.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "__loader.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 431048 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.__main__.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.__main__.c"</command>
-      <stderr>
-
-cc1.exe: out of memory allocating 321504 bytes
-</stderr>
-    </scons_error_report>
-    <scons_error_report>
-      <command>gcc -o "module.src.exceptions.o" -c -std=c11 -flto=20 -fuse-linker-plugin -fno-fat-lto-objects -fvisibility=hidden -fwrapv -pipe -Wno-unused-but-set-variable -fpartial-inlining -ftrack-macro-expansion=0 -Wno-deprecated-declarations -fno-var-tracking -Wno-misleading-indentation -fcompare-debug-second -O3 -shared -D_NUITKA_STANDALONE_MODE -D_NUITKA_ONEFILE_MODE -D_NUITKA_ONEFILE_TEMP_BOOL -D_NUITKA_DLL_MODE -D_NUITKA_ONEFILE_DLL_MODE -D_WIN32_WINNT=0x0601 -D__NUITKA_NO_ASSERT__ -D_NUITKA_HIDE_CONSOLE_WINDOW -DMS_WIN64 -D_NUITKA_CONSTANTS_FROM_RESOURCE -D_NUITKA_FROZEN=153 -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\zlib -IC:\PYTHON~1\include -I. -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\include -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\static_src -IE:\workspace\project\net-manager\venv\Lib\site-packages\nuitka\build\inline_copy\libbacktrace "module.src.exceptions.c"</command>
-      <stderr>
-Mingw-w64 runtime failure:
-  VirtualProtect failed with code 0x5afgcc: internal compiler error: Aborted signal terminated program cc1
-Please submit a full bug report, with preprocessed source (by using -freport-bug).
-See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
+cc1.exe: out of memory allocating 33558527 bytes
 </stderr>
     </scons_error_report>
   </scons_error_reports>
@@ -78,17 +20,17 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     <module_usages />
   </module>
   <module name="__main__" kind="PythonMainModule" usage="root_module" reason="Root module" source_path="${cwd}\main.py">
-    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="24" merged_total="600" />
-    <optimization-time pass="2" time="0.05" micro_passes="1" max_branch_merge="20" merged_total="104" />
+    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="36" merged_total="600" />
+    <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="20" merged_total="101" />
     <module_usages>
       <module_usage name="sys" finding="absolute" line="9" />
       <module_usage name="os" finding="absolute" line="10" />
       <module_usage name="signal" finding="absolute" line="11" />
       <module_usage name="typing" finding="absolute" line="12" />
-      <module_usage name="src.utils.singleton_manager" finding="absolute" line="48" />
-      <module_usage name="src.core.state_manager" finding="absolute" line="61" />
-      <module_usage name="src.utils.logger" finding="absolute" line="74" />
-      <module_usage name="src.core.app_controller" finding="absolute" line="80" />
+      <module_usage name="src.utils.singleton_manager" finding="absolute" line="52" />
+      <module_usage name="src.core.state_manager" finding="absolute" line="66" />
+      <module_usage name="src.utils.logger" finding="absolute" line="80" />
+      <module_usage name="src.core.app_controller" finding="absolute" line="87" />
       <module_usage name="_collections_abc" finding="absolute" line="1" />
       <module_usage name="abc" finding="absolute" line="1" />
       <module_usage name="ast" finding="absolute" line="1" />
@@ -2524,7 +2466,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
   </module>
   <module name="importlib.metadata" kind="UncompiledPythonPackage" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.real_prefix}\Lib\importlib\metadata\__init__.py">
     <optimization-time pass="1" time="0.72" micro_passes="7" max_branch_merge="73" merged_total="11525" />
-    <optimization-time pass="2" time="0.01" />
+    <optimization-time pass="2" time="0.00" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
       <module_usage name="re" finding="absolute" line="2" />
@@ -3217,7 +3159,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\__init__.py" distribution="psutil">
-    <optimization-time pass="1" time="0.77" micro_passes="7" max_branch_merge="137" merged_total="16232" />
+    <optimization-time pass="1" time="0.79" micro_passes="7" max_branch_merge="137" merged_total="16232" />
     <optimization-time pass="2" time="0.06" micro_passes="1" max_branch_merge="51" merged_total="2074" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
@@ -3310,7 +3252,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._common" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_common.py" distribution="psutil">
-    <optimization-time pass="1" time="0.34" micro_passes="7" max_branch_merge="36" merged_total="7722" />
+    <optimization-time pass="1" time="0.23" micro_passes="7" max_branch_merge="36" merged_total="7722" />
     <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="32" merged_total="1025" />
     <module_usages>
       <module_usage name="collections" finding="absolute" line="11" />
@@ -3335,7 +3277,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._psaix" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psaix.py" distribution="psutil">
-    <optimization-time pass="1" time="0.17" micro_passes="7" max_branch_merge="116" merged_total="6075" />
+    <optimization-time pass="1" time="0.27" micro_passes="7" max_branch_merge="116" merged_total="6075" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="54" merged_total="777" />
     <module_usages>
       <module_usage name="functools" finding="absolute" line="9" />
@@ -3373,7 +3315,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._psbsd" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psbsd.py" distribution="psutil">
-    <optimization-time pass="1" time="0.25" micro_passes="6" max_branch_merge="141" merged_total="8407" />
+    <optimization-time pass="1" time="0.26" micro_passes="6" max_branch_merge="141" merged_total="8407" />
     <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="67" merged_total="1319" />
     <module_usages>
       <module_usage name="contextlib" finding="absolute" line="7" />
@@ -3410,7 +3352,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._pslinux" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pslinux.py" distribution="psutil">
-    <optimization-time pass="1" time="0.87" micro_passes="7" max_branch_merge="221" merged_total="30406" />
+    <optimization-time pass="1" time="0.79" micro_passes="7" max_branch_merge="221" merged_total="30406" />
     <optimization-time pass="2" time="0.12" micro_passes="1" max_branch_merge="112" merged_total="4138" />
     <module_usages>
       <module_usage name="base64" finding="absolute" line="8" />
@@ -3478,7 +3420,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._psosx" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psosx.py" distribution="psutil">
-    <optimization-time pass="1" time="0.11" micro_passes="6" max_branch_merge="114" merged_total="4618" />
+    <optimization-time pass="1" time="0.10" micro_passes="6" max_branch_merge="114" merged_total="4618" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="54" merged_total="708" />
     <module_usages>
       <module_usage name="errno" finding="absolute" line="7" />
@@ -3509,7 +3451,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
   </module>
   <module name="psutil._psposix" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_psposix.py" distribution="psutil">
     <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="46" merged_total="810" />
-    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="34" merged_total="144" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="34" merged_total="144" />
     <module_usages>
       <module_usage name="enum" finding="absolute" line="7" />
       <module_usage name="glob" finding="absolute" line="8" />
@@ -3526,8 +3468,8 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="psutil._pssunos" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pssunos.py" distribution="psutil">
-    <optimization-time pass="1" time="0.24" micro_passes="7" max_branch_merge="136" merged_total="7610" />
-    <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="64" merged_total="994" />
+    <optimization-time pass="1" time="0.18" micro_passes="7" max_branch_merge="136" merged_total="7610" />
+    <optimization-time pass="2" time="0.14" micro_passes="1" max_branch_merge="64" merged_total="994" />
     <module_usages>
       <module_usage name="errno" finding="absolute" line="7" />
       <module_usage name="functools" finding="absolute" line="8" />
@@ -3568,7 +3510,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     <module_usages />
   </module>
   <module name="psutil._pswindows" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\psutil\_pswindows.py" distribution="psutil">
-    <optimization-time pass="1" time="0.23" micro_passes="6" max_branch_merge="140" merged_total="9118" />
+    <optimization-time pass="1" time="0.24" micro_passes="6" max_branch_merge="140" merged_total="9118" />
     <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="67" merged_total="1387" />
     <module_usages>
       <module_usage name="contextlib" finding="absolute" line="7" />
@@ -3947,8 +3889,8 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="src.core.app_controller" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\core\app_controller.py">
-    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="53" merged_total="2680" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="53" merged_total="494" />
+    <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="54" merged_total="2613" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="54" merged_total="481" />
     <distribution-usages>
       <distribution-usage name="psutil" />
     </distribution-usages>
@@ -3964,15 +3906,15 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
       <module_usage name="src.network.tcp_client" finding="absolute" line="26" />
       <module_usage name="src.system.system_collector" finding="absolute" line="27" />
       <module_usage name="src.system.autostart" finding="absolute" line="28" />
-      <module_usage name="src.utils.logger" finding="absolute" line="29" />
-      <module_usage name="src.utils.platform_utils" finding="absolute" line="30" />
-      <module_usage name="hashlib" finding="absolute" line="101" />
-      <module_usage name="src.config_module.config" finding="absolute" line="245" />
+      <module_usage name="src.utils.logger" finding="absolute" line="33" />
+      <module_usage name="src.utils.platform_utils" finding="absolute" line="34" />
+      <module_usage name="hashlib" finding="absolute" line="105" />
+      <module_usage name="src.config_module.config" finding="absolute" line="249" />
     </module_usages>
   </module>
   <module name="src.core.state_manager" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\core\state_manager.py">
-    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="44" merged_total="2043" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="18" merged_total="376" />
+    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="68" merged_total="2524" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="35" merged_total="452" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="9" />
       <module_usage name="sys" finding="absolute" line="10" />
@@ -3983,12 +3925,12 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
       <module_usage name="typing" finding="absolute" line="15" />
       <module_usage name="src.exceptions.exceptions" finding="relative" line="17" />
       <module_usage name="src.utils.logger" finding="relative" line="53" />
-      <module_usage name="src.utils.logger" finding="relative" line="78" />
-      <module_usage name="src.utils.logger" finding="relative" line="111" />
-      <module_usage name="src.utils.logger" finding="relative" line="151" />
-      <module_usage name="src.utils.logger" finding="relative" line="177" />
-      <module_usage name="src.utils.logger" finding="relative" line="200" />
-      <module_usage name="src.utils.logger" finding="relative" line="235" />
+      <module_usage name="src.utils.logger" finding="relative" line="110" />
+      <module_usage name="src.utils.logger" finding="relative" line="156" />
+      <module_usage name="src.utils.logger" finding="relative" line="219" />
+      <module_usage name="src.utils.logger" finding="relative" line="246" />
+      <module_usage name="src.utils.logger" finding="relative" line="270" />
+      <module_usage name="src.utils.logger" finding="relative" line="308" />
     </module_usages>
   </module>
   <module name="src.exceptions" kind="CompiledPythonPackage" usage="root_module" reason="Root module" source_path="${cwd}\src\exceptions\__init__.py">
@@ -4001,13 +3943,13 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
   </module>
   <module name="src.exceptions.exceptions" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\exceptions\exceptions.py">
     <optimization-time pass="1" time="0.06" micro_passes="6" max_branch_merge="19" merged_total="2511" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="15" merged_total="387" />
+    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="15" merged_total="387" />
     <module_usages>
       <module_usage name="typing" finding="absolute" line="10" />
     </module_usages>
   </module>
   <module name="src.network" kind="CompiledPythonPackage" usage="root_module" reason="Root module" source_path="${cwd}\src\network\__init__.py">
-    <optimization-time pass="1" time="0.02" micro_passes="3" />
+    <optimization-time pass="1" time="0.00" micro_passes="3" />
     <optimization-time pass="2" time="0.00" micro_passes="1" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
@@ -4015,8 +3957,8 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="src.network.tcp_client" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\network\tcp_client.py">
-    <optimization-time pass="1" time="0.13" micro_passes="6" max_branch_merge="90" merged_total="7074" />
-    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="80" merged_total="1122" />
+    <optimization-time pass="1" time="0.12" micro_passes="6" max_branch_merge="91" merged_total="7175" />
+    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="80" merged_total="1143" />
     <distribution-usages>
       <distribution-usage name="psutil" />
     </distribution-usages>
@@ -4034,9 +3976,9 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
       <module_usage name="src.utils.logger" finding="absolute" line="22" />
       <module_usage name="src.system.system_collector" finding="absolute" line="23" />
       <module_usage name="datetime" finding="absolute" line="24" />
-      <module_usage name="src.config_module.config" finding="relative" line="44" />
-      <module_usage name="src.core.state_manager" finding="absolute" line="53" />
-      <module_usage name="struct" finding="absolute" line="353" />
+      <module_usage name="src.config_module.config" finding="relative" line="46" />
+      <module_usage name="src.core.state_manager" finding="absolute" line="56" />
+      <module_usage name="struct" finding="absolute" line="389" />
     </module_usages>
   </module>
   <module name="src.system" kind="CompiledPythonPackage" usage="root_module" reason="Root module" source_path="${cwd}\src\system\__init__.py">
@@ -4049,25 +3991,27 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="src.system.autostart" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\system\autostart.py">
-    <optimization-time pass="1" time="0.04" micro_passes="5" max_branch_merge="27" merged_total="2290" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="24" merged_total="445" />
+    <optimization-time pass="1" time="0.06" micro_passes="5" max_branch_merge="89" merged_total="3797" />
+    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="81" merged_total="737" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="10" />
       <module_usage name="sys" finding="absolute" line="11" />
       <module_usage name="platform" finding="absolute" line="12" />
-      <module_usage name="pathlib" finding="absolute" line="13" />
-      <module_usage name="typing" finding="absolute" line="14" />
-      <module_usage name="src.exceptions.exceptions" finding="absolute" line="20" />
-      <module_usage name="src.utils.logger" finding="absolute" line="21" />
-      <module_usage name="src.utils.platform_utils" finding="absolute" line="22" />
-      <module_usage name="winreg" finding="absolute" line="137" />
-      <module_usage name="winreg" finding="absolute" line="172" />
-      <module_usage name="winreg" finding="absolute" line="206" />
+      <module_usage name="subprocess" finding="absolute" line="13" />
+      <module_usage name="pathlib" finding="absolute" line="14" />
+      <module_usage name="typing" finding="absolute" line="15" />
+      <module_usage name="src.exceptions.exceptions" finding="absolute" line="21" />
+      <module_usage name="src.utils.logger" finding="absolute" line="22" />
+      <module_usage name="src.utils.platform_utils" finding="absolute" line="23" />
+      <module_usage name="winreg" finding="absolute" line="138" />
+      <module_usage name="winreg" finding="absolute" line="173" />
+      <module_usage name="winreg" finding="absolute" line="207" />
+      <module_usage name="traceback" finding="absolute" line="444" />
     </module_usages>
   </module>
   <module name="src.system.system_collector" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\system\system_collector.py">
-    <optimization-time pass="1" time="0.28" micro_passes="7" max_branch_merge="88" merged_total="8808" />
-    <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="38" merged_total="1195" />
+    <optimization-time pass="1" time="0.40" micro_passes="7" max_branch_merge="94" merged_total="14053" />
+    <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="38" merged_total="1907" />
     <distribution-usages>
       <distribution-usage name="psutil" />
     </distribution-usages>
@@ -4083,13 +4027,12 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
       <module_usage name="datetime" finding="absolute" line="17" />
       <module_usage name="src.exceptions.exceptions" finding="absolute" line="23" />
       <module_usage name="src.utils.logger" finding="absolute" line="24" />
-      <module_usage name="psutil" finding="absolute" line="99" />
-      <module_usage name="subprocess" finding="absolute" line="184" />
-      <module_usage name="subprocess" finding="absolute" line="246" />
-      <module_usage name="src.utils.logger" finding="absolute" line="381" />
-      <module_usage name="time" finding="absolute" line="450" />
-      <module_usage name="src.utils.logger" finding="absolute" line="589" />
-      <module_usage name="src.core.state_manager" finding="absolute" line="652" />
+      <module_usage name="re" finding="absolute" line="369" />
+      <module_usage name="re" finding="absolute" line="403" />
+      <module_usage name="struct" finding="absolute" line="418" />
+      <module_usage name="src.utils.logger" finding="absolute" line="531" />
+      <module_usage name="time" finding="absolute" line="601" />
+      <module_usage name="src.core.state_manager" finding="absolute" line="1246" />
     </module_usages>
   </module>
   <module name="src.utils" kind="CompiledPythonPackage" usage="root_module" reason="Root module" source_path="${cwd}\src\utils\__init__.py">
@@ -4103,7 +4046,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
   </module>
   <module name="src.utils.logger" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\utils\logger.py">
     <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="35" merged_total="911" />
-    <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="32" merged_total="174" />
+    <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="32" merged_total="174" />
     <module_usages>
       <module_usage name="logging" finding="absolute" line="1" />
       <module_usage name="os" finding="absolute" line="2" />
@@ -4130,7 +4073,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="src.utils.singleton_manager" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\utils\singleton_manager.py">
-    <optimization-time pass="1" time="2.09" micro_passes="5" max_branch_merge="42" merged_total="2803" />
+    <optimization-time pass="1" time="2.05" micro_passes="5" max_branch_merge="42" merged_total="2803" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="42" merged_total="514" />
     <distribution-usages>
       <distribution-usage name="pywin32" />
@@ -4157,7 +4100,7 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <module name="src.utils.unique_id" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${cwd}\src\utils\unique_id.py">
-    <optimization-time pass="1" time="0.09" micro_passes="4" max_branch_merge="29" merged_total="691" />
+    <optimization-time pass="1" time="0.10" micro_passes="4" max_branch_merge="29" merged_total="691" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="24" merged_total="164" />
     <module_usages>
       <module_usage name="os" finding="absolute" line="9" />
@@ -4688,8 +4631,8 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     <module_usages />
   </module>
   <module name="winerror" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\win32\lib\winerror.py">
-    <optimization-time pass="1" time="0.21" micro_passes="5" max_branch_merge="15" merged_total="246" />
-    <optimization-time pass="2" time="0.12" micro_passes="1" max_branch_merge="10" merged_total="18" />
+    <optimization-time pass="1" time="0.22" micro_passes="5" max_branch_merge="15" merged_total="246" />
+    <optimization-time pass="2" time="0.03" micro_passes="1" max_branch_merge="10" merged_total="18" />
     <module_usages>
       <module_usage name="warnings" finding="absolute" line="5" />
     </module_usages>
@@ -4810,9 +4753,9 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     </module_usages>
   </module>
   <performance>
-    <memory_usage name="after_launch" value="49844224" />
-    <memory_usage name="before_c_code_generation" value="111722496" />
-    <memory_usage name="before_running_scons" value="114147328" />
+    <memory_usage name="after_launch" value="49758208" />
+    <memory_usage name="before_c_code_generation" value="112128000" />
+    <memory_usage name="before_running_scons" value="116088832" />
   </performance>
   <included_extension name="_bz2.pyd" dest_path="_bz2.pyd" source_path="${sys.real_prefix}\DLLs\_bz2.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="_ctypes.pyd" dest_path="_ctypes.pyd" source_path="${sys.real_prefix}\DLLs\_ctypes.pyd" package="" ignored="no" reason="used extension module" />
@@ -4828,10 +4771,10 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
   <included_extension name="unicodedata.pyd" dest_path="unicodedata.pyd" source_path="${sys.real_prefix}\DLLs\unicodedata.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32api.pyd" dest_path="win32api.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32api.pyd" package="" ignored="no" reason="used extension module" />
   <included_extension name="win32event.pyd" dest_path="win32event.pyd" source_path="${sys.prefix}\Lib\site-packages\win32\win32event.pyd" package="" ignored="no" reason="used extension module" />
-  <data_composer blob_size="6765038" total="21113">
+  <data_composer blob_size="6770806" total="21294">
     <module_data filename="__bytecode.const" blob_name=".bytecode" blob_size="6348484" input_size="6371534" />
     <module_data filename="__constants.const" blob_name="" blob_size="872" input_size="2226" />
-    <module_data filename="module.__main__.const" blob_name="__main__" blob_size="1889" input_size="2655" />
+    <module_data filename="module.__main__.const" blob_name="__main__" blob_size="1881" input_size="2647" />
     <module_data filename="module.psutil._common.const" blob_name="psutil._common" blob_size="11948" input_size="17881" />
     <module_data filename="module.psutil._psaix.const" blob_name="psutil._psaix" blob_size="5931" input_size="10104" />
     <module_data filename="module.psutil._psbsd.const" blob_name="psutil._psbsd" blob_size="8621" input_size="14010" />
@@ -4844,16 +4787,16 @@ See &lt;https://gcc.gnu.org/bugs/&gt; for instructions.
     <module_data filename="module.src.config_module.config.const" blob_name="src.config_module.config" blob_size="1785" input_size="2769" />
     <module_data filename="module.src.config_module.const" blob_name="src.config_module" blob_size="375" input_size="665" />
     <module_data filename="module.src.const" blob_name="src" blob_size="1526" input_size="1664" />
-    <module_data filename="module.src.core.app_controller.const" blob_name="src.core.app_controller" blob_size="5069" input_size="7369" />
+    <module_data filename="module.src.core.app_controller.const" blob_name="src.core.app_controller" blob_size="5009" input_size="7309" />
     <module_data filename="module.src.core.const" blob_name="src.core" blob_size="346" input_size="631" />
-    <module_data filename="module.src.core.state_manager.const" blob_name="src.core.state_manager" blob_size="3332" input_size="4914" />
+    <module_data filename="module.src.core.state_manager.const" blob_name="src.core.state_manager" blob_size="3813" input_size="5636" />
     <module_data filename="module.src.exceptions.const" blob_name="src.exceptions" blob_size="1028" input_size="1402" />
     <module_data filename="module.src.exceptions.exceptions.const" blob_name="src.exceptions.exceptions" blob_size="3548" input_size="4683" />
     <module_data filename="module.src.network.const" blob_name="src.network" blob_size="339" input_size="632" />
-    <module_data filename="module.src.network.tcp_client.const" blob_name="src.network.tcp_client" blob_size="7214" input_size="10592" />
-    <module_data filename="module.src.system.autostart.const" blob_name="src.system.autostart" blob_size="5115" input_size="6715" />
+    <module_data filename="module.src.network.tcp_client.const" blob_name="src.network.tcp_client" blob_size="7097" input_size="10497" />
+    <module_data filename="module.src.system.autostart.const" blob_name="src.system.autostart" blob_size="7500" input_size="10161" />
     <module_data filename="module.src.system.const" blob_name="src.system" blob_size="632" input_size="960" />
-    <module_data filename="module.src.system.system_collector.const" blob_name="src.system.system_collector" blob_size="8458" input_size="12170" />
+    <module_data filename="module.src.system.system_collector.const" blob_name="src.system.system_collector" blob_size="11545" input_size="16505" />
     <module_data filename="module.src.utils.const" blob_name="src.utils" blob_size="1046" input_size="1244" />
     <module_data filename="module.src.utils.logger.const" blob_name="src.utils.logger" blob_size="1928" input_size="2852" />
     <module_data filename="module.src.utils.platform_utils.const" blob_name="src.utils.platform_utils" blob_size="2368" input_size="3352" />

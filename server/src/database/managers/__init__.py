@@ -10,6 +10,7 @@ from src.database.managers.base_manager import BaseDatabaseManager
 from src.database.managers.device_manager import DeviceManager
 from src.database.managers.switch_manager import SwitchManager
 from src.database.managers.topology_manager import TopologyManager
+from src.database.managers.resident_process_manager import ResidentProcessManager
 
 __all__ = [
     "DatabaseManager",
@@ -17,4 +18,5 @@ __all__ = [
     "DeviceManager",
     "SwitchManager",
     "TopologyManager",
+    "ResidentProcessManager",
 ]

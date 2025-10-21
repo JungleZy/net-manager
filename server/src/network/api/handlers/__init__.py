@@ -36,6 +36,14 @@ from src.network.api.handlers.snmp_scan_handler import (
     SNMPScanHandlerSimple,
 )
 from src.network.api.handlers.performance_handler import PerformanceHandler
+from src.network.api.handlers.resident_process_handlers import (
+    ResidentProcessListHandler,
+    ResidentProcessCreateHandler,
+    ResidentProcessBatchCreateHandler,
+    ResidentProcessDeleteHandler,
+    ResidentProcessClearHandler,
+    ResidentProcessGetHandler,
+)
 
 __all__ = [
     "BaseHandler",
@@ -61,4 +69,10 @@ __all__ = [
     "SNMPScanHandler",
     "SNMPScanHandlerSimple",
     "PerformanceHandler",
+    "ResidentProcessListHandler",
+    "ResidentProcessCreateHandler",
+    "ResidentProcessBatchCreateHandler",
+    "ResidentProcessDeleteHandler",
+    "ResidentProcessClearHandler",
+    "ResidentProcessGetHandler",
 ]

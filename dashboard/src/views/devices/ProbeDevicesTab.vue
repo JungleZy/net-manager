@@ -45,12 +45,12 @@
         </a-select>
         <a-button @click="clearFilter">重置</a-button>
       </div>
-      <!-- <a-button class="layout-center" type="primary" @click="openCreateModal">
+      <a-button class="layout-center" type="primary" @click="openCreateModal">
         <template #icon>
-          <PlusOutlined />
+          <AlertOutlined />
         </template>
-        添加设备
-      </a-button> -->
+        进程管理
+      </a-button>
     </div>
     <!-- 设备列表 -->
     <div class="w-full h-[calc(100%-44px)] overflow-auto">
@@ -168,7 +168,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons-vue'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  AlertOutlined
+} from '@ant-design/icons-vue'
 import { formatMachineType } from '@/common/utils/Utils.js'
 import { message, Tooltip } from 'ant-design-vue'
 import { h } from 'vue'
