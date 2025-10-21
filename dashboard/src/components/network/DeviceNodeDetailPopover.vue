@@ -236,18 +236,17 @@
           <div class="section-title">统计信息</div>
           <div class="stats-grid">
             <div class="stat-card clickable" @click="showServicesDetail">
-              <div class="stat-value">{{ device.services_count || 0 }}</div>
+              <div class="stat-value">{{ filteredServices.length || 0 }}</div>
               <div class="stat-label">服务数</div>
             </div>
             <div class="stat-card clickable" @click="showProcessesDetail">
-              <div class="stat-value">{{ device.processes_count || 0 }}</div>
+              <div class="stat-value">{{ filteredProcesses.length || 0 }}</div>
               <div class="stat-label">进程数</div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
     <!-- 服务详情弹窗 -->
     <div
       v-if="servicesDetailVisible"
@@ -285,16 +284,20 @@
             v-for="(service, idx) in filteredServices"
             :key="idx"
           >
-            <div class="item-header">
-              <span class="protocol-tag">{{ service.protocol }}</span>
-              <span class="item-address">{{ service.local_address }}</span>
+            <div class="item-header layout-side">
+              <div class="layout-left-center">
+                <span class="protocol-tag">{{ service.protocol }}</span>
+                <span class="item-address layout-left-center">{{
+                  service.local_address
+                }}</span>
+              </div>
+              <span :class="['status-tag', service.status?.toLowerCase()]">{{
+                formatServiceStatus(service.status)
+              }}</span>
             </div>
             <div class="item-meta">
-              <span class="item-process">{{ service.process_name }}</span>
               <span class="item-pid">PID: {{ service.pid }}</span>
-              <span :class="['status-tag', service.status?.toLowerCase()]">{{
-                service.status
-              }}</span>
+              <span class="item-process">{{ service.process_name }}</span>
             </div>
           </div>
         </div>
@@ -341,14 +344,14 @@
             <div class="item-header">
               <span class="item-name">{{ process.name }}</span>
               <span :class="['status-tag', process.status?.toLowerCase()]">{{
-                process.status
+                formatProcessStatus(process.status)
               }}</span>
             </div>
             <div class="item-meta">
-              <span class="item-pid">PID: {{ process.pid }}</span>
-              <span class="item-user" v-if="process.username">{{
-                process.username
-              }}</span>
+              <span class="item-pid"
+                >PID: {{ process.pid }}
+                {{ process.username }}
+              </span>
             </div>
             <div
               class="item-stats"
@@ -386,7 +389,7 @@
             >
               <span class="ports-label">监听端口:</span>
               <span class="ports-list">{{
-                process.listening_ports.join(', ')
+                formatListeningPorts(process.listening_ports)
               }}</span>
             </div>
           </div>
@@ -579,6 +582,81 @@ const formatPercent = (value) => {
   return Number(value).toFixed(1)
 }
 
+// 格式化监听端口（处理对象数组格式）
+const formatListeningPorts = (ports) => {
+  if (!ports || ports.length === 0) return ''
+
+  // 如果是简单的端口号数组
+  if (typeof ports[0] === 'number' || typeof ports[0] === 'string') {
+    return ports.join(', ')
+  }
+
+  // 如果是对象数组 [{protocol: 'TCP', local_address: '127.0.0.1:8080'}, ...]
+  if (typeof ports[0] === 'object' && ports[0].local_address) {
+    return ports
+      .map((port) => {
+        // 提取端口号（从 '127.0.0.1:8080' 中提取 '8080'）
+        const address = port.local_address || ''
+        const parts = address.split(':')
+        const portNum = parts[parts.length - 1] // 获取最后一部分（端口号）
+        const protocol = port.protocol ? `${port.protocol}/` : ''
+        return `${protocol}${portNum}`
+      })
+      .join(', ')
+  }
+
+  return ports.join(', ')
+}
+
+// 格式化进程状态为中文
+const formatProcessStatus = (status) => {
+  if (!status) return '未知'
+
+  const statusMap = {
+    running: '运行中',
+    sleeping: '睡眠',
+    'disk-sleep': '磁盘睡眠',
+    stopped: '已停止',
+    'tracing-stop': '追踪停止',
+    zombie: '僵尸进程',
+    dead: '已终止',
+    'wake-kill': '唤醒终止',
+    waking: '唤醒中',
+    idle: '空闲',
+    locked: '已锁定',
+    waiting: '等待中',
+    suspended: '已挂起',
+    parked: '已停泊'
+  }
+
+  const lowerStatus = status.toLowerCase()
+  return statusMap[lowerStatus] || status
+}
+
+// 格式化服务状态为中文
+const formatServiceStatus = (status) => {
+  if (!status) return '未知'
+
+  const statusMap = {
+    listen: '监听中',
+    established: '已建立',
+    close_wait: '关闭等待',
+    time_wait: '时间等待',
+    syn_sent: '同步已发送',
+    syn_recv: '同步接收',
+    fin_wait1: '终止等待1',
+    fin_wait2: '终止等待2',
+    last_ack: '最后确认',
+    closing: '关闭中',
+    closed: '已关闭',
+    none: '无',
+    unknown: '未知'
+  }
+
+  const lowerStatus = status.toLowerCase()
+  return statusMap[lowerStatus] || status
+}
+
 // Refs
 const popoverRef = useTemplateRef('popoverRef')
 const servicesDetailRef = useTemplateRef('servicesDetailRef')
@@ -690,18 +768,44 @@ const showServicesDetail = (event) => {
   const relativeX = targetRect.left - popoverRect.left
   const relativeY = targetRect.top - popoverRect.top
 
-  // 判断弹出方向：如果点击元素在 popover 左侧，向右弹出；否则向左弹出
-  if (relativeX < popoverRect.width / 2) {
-    servicesDetailPlacement.value = 'popup-right'
+  // 预估弹窗高度（根据实际内容可能会变化）
+  const estimatedPopupHeight = 400
+  const targetCenterY = relativeY + targetRect.height / 2
+
+  // 判断弹出方向：优先在正上方或正下方
+  // 检查下方空间
+  const spaceBelow = popoverRect.height - (relativeY + targetRect.height)
+  // 检查上方空间
+  const spaceAbove = relativeY
+
+  if (spaceBelow >= estimatedPopupHeight) {
+    // 下方空间足够，在正下方弹出
+    servicesDetailPlacement.value = 'popup-bottom'
     servicesDetailPosition.value = {
-      x: relativeX + targetRect.width + 10,
-      y: relativeY + targetRect.height / 2
+      x: relativeX + targetRect.width / 2, // 水平居中对齐
+      y: relativeY + targetRect.height + 8 // 下方留8px间距
+    }
+  } else if (spaceAbove >= estimatedPopupHeight) {
+    // 上方空间足够，在正上方弹出
+    servicesDetailPlacement.value = 'popup-top'
+    servicesDetailPosition.value = {
+      x: relativeX + targetRect.width / 2, // 水平居中对齐
+      y: relativeY - 8 // 上方留8px间距
     }
   } else {
-    servicesDetailPlacement.value = 'popup-left'
-    servicesDetailPosition.value = {
-      x: relativeX - 10,
-      y: relativeY + targetRect.height / 2
+    // 上下空间都不足，选择空间较大的一侧
+    if (spaceBelow >= spaceAbove) {
+      servicesDetailPlacement.value = 'popup-bottom'
+      servicesDetailPosition.value = {
+        x: relativeX + targetRect.width / 2,
+        y: relativeY + targetRect.height + 8
+      }
+    } else {
+      servicesDetailPlacement.value = 'popup-top'
+      servicesDetailPosition.value = {
+        x: relativeX + targetRect.width / 2,
+        y: relativeY - 8
+      }
     }
   }
 
@@ -733,18 +837,42 @@ const showProcessesDetail = (event) => {
   const relativeX = targetRect.left - popoverRect.left
   const relativeY = targetRect.top - popoverRect.top
 
-  // 判断弹出方向
-  if (relativeX < popoverRect.width / 2) {
-    processesDetailPlacement.value = 'popup-right'
+  // 预估弹窗高度
+  const estimatedPopupHeight = 400
+  const targetCenterY = relativeY + targetRect.height / 2
+
+  // 判断弹出方向：优先在正上方或正下方
+  const spaceBelow = popoverRect.height - (relativeY + targetRect.height)
+  const spaceAbove = relativeY
+
+  if (spaceBelow >= estimatedPopupHeight) {
+    // 下方空间足够，在正下方弹出
+    processesDetailPlacement.value = 'popup-bottom'
     processesDetailPosition.value = {
-      x: relativeX + targetRect.width + 10,
-      y: relativeY + targetRect.height / 2
+      x: relativeX + targetRect.width / 2, // 水平居中对齐
+      y: relativeY + targetRect.height + 8 // 下方留8px间距
+    }
+  } else if (spaceAbove >= estimatedPopupHeight) {
+    // 上方空间足够，在正上方弹出
+    processesDetailPlacement.value = 'popup-top'
+    processesDetailPosition.value = {
+      x: relativeX + targetRect.width / 2, // 水平居中对齐
+      y: relativeY - 8 // 上方留8px间距
     }
   } else {
-    processesDetailPlacement.value = 'popup-left'
-    processesDetailPosition.value = {
-      x: relativeX - 10,
-      y: relativeY + targetRect.height / 2
+    // 上下空间都不足，选择空间较大的一侧
+    if (spaceBelow >= spaceAbove) {
+      processesDetailPlacement.value = 'popup-bottom'
+      processesDetailPosition.value = {
+        x: relativeX + targetRect.width / 2,
+        y: relativeY + targetRect.height + 8
+      }
+    } else {
+      processesDetailPlacement.value = 'popup-top'
+      processesDetailPosition.value = {
+        x: relativeX + targetRect.width / 2,
+        y: relativeY - 8
+      }
     }
   }
 

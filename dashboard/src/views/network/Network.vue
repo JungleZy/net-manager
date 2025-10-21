@@ -14,7 +14,7 @@
       <!-- 状态统计面板 -->
       <div class="stats-panel">
         <div class="stat-item">
-          <span class="stat-label">总节点:</span>
+          <span class="stat-label">总节点</span>
           <span class="stat-value">{{ stats.totalNodes }}</span>
         </div>
 
@@ -48,7 +48,7 @@
             </div>
           </template>
           <div class="stat-item clickable">
-            <span class="stat-label">在线:</span>
+            <span class="stat-label">在线</span>
             <span class="stat-value online">{{ stats.onlineNodes }}</span>
           </div>
         </a-popover>
@@ -83,7 +83,7 @@
             </div>
           </template>
           <div class="stat-item clickable">
-            <span class="stat-label">离线:</span>
+            <span class="stat-label">离线</span>
             <span class="stat-value offline">{{ stats.offlineNodes }}</span>
           </div>
         </a-popover>
@@ -91,6 +91,25 @@
 
       <!-- 控制按钮 -->
       <div class="control-panel">
+        <a-input-search
+          ref="searchInputRef"
+          v-model:value="searchValue"
+          style="width: 180px"
+          placeholder="输入设备名称或IP"
+          @search="handleSearchImmediate"
+          @input="handleSearch"
+          @focus="
+            () => {
+              if (searchValue) handleSearchImmediate()
+            }
+          "
+        >
+          <template #enterButton>
+            <a-button class="layout-center search-button" style="width: 32px">
+              <SearchOutlined style="font-size: 16px" />
+            </a-button>
+          </template>
+        </a-input-search>
         <!-- 刷新按钮 -->
         <a-tooltip title="刷新拓扑图" placement="bottom">
           <a-button
@@ -114,7 +133,7 @@
         </a-tooltip>
 
         <!-- 全屏按钮 -->
-        <a-tooltip v-if="!isFullscreen" title="全屏" placement="bottom">
+        <a-tooltip v-if="!isFullscreen" title="全屏" placement="top">
           <a-dropdown>
             <template #overlay>
               <a-menu @click="handleFullscreenMenuClick">
@@ -152,12 +171,12 @@
         <!-- 主题切换按钮 -->
         <a-tooltip
           :title="isDarkMode ? '切换到明亮模式' : '切换到暗黑模式'"
-          placement="bottom"
+          placement="bottomRight"
         >
           <a-button class="layout-center" @click="toggleTheme">
             <template #icon>
-              <BulbOutlined v-if="isDarkMode" />
-              <BulbFilled v-else />
+              <BulbFilled v-if="isDarkMode" />
+              <BulbOutlined v-else />
             </template>
           </a-button>
         </a-tooltip>
@@ -184,6 +203,46 @@
         :arrow-offset="popoverArrowOffset"
         @close="handlePopoverClose"
       />
+
+      <!-- 搜索结果面板 -->
+      <div v-if="showSearchResults" class="search-results-panel" @click.stop>
+        <div class="search-results-header">
+          <span>搜索结果 ({{ searchResults.length }})</span>
+          <a-button
+            type="text"
+            size="small"
+            @click="closeSearchResults"
+            class="close-btn"
+          >
+            <template #icon>
+              <CloseOutlined />
+            </template>
+          </a-button>
+        </div>
+        <div class="search-results-list">
+          <div
+            v-for="result in searchResults"
+            :key="result.id"
+            class="search-result-item"
+            @click="handleSearchResultClick(result)"
+          >
+            <div class="result-info">
+              <div class="result-name">
+                <span class="result-type-badge device">
+                  {{ result.type }}
+                </span>
+                {{ result.name }}
+              </div>
+              <div class="result-details">
+                <span class="result-ip">{{ result.ip || '-' }}</span>
+                <span class="result-status" :class="result.status">
+                  {{ result.status === 'online' ? '在线' : '离线' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -217,7 +276,9 @@ import {
   FullscreenOutlined,
   FullscreenExitOutlined,
   BulbOutlined,
-  BulbFilled
+  BulbFilled,
+  SearchOutlined,
+  CloseOutlined
 } from '@ant-design/icons-vue'
 import DeviceNodeDetailPopover from '../../components/network/DeviceNodeDetailPopover.vue'
 import SwitchNodeDetailPopover from '../../components/network/SwitchNodeDetailPopover.vue'
@@ -226,6 +287,7 @@ import { formatLocalDateTime, handleCenterView } from '@/common/utils/Utils'
 const containerRef = useTemplateRef('containerRef')
 const networkWrapperRef = useTemplateRef('networkWrapperRef')
 const networkContainerRef = useTemplateRef('networkContainerRef')
+const searchInputRef = useTemplateRef('searchInputRef')
 const devices = ref([])
 const switches = ref([])
 // 使用 ref 确保响应式更新能够正确触发
@@ -271,6 +333,267 @@ let updateEdgesDebounceTimer = null
 
 // 插件配置移到外部常量,避免重复创建对象
 const PLUGINS_OPTIONS = Object.freeze({})
+
+// 搜索相关
+const searchValue = ref('')
+const searchResults = ref([])
+const showSearchResults = ref(false)
+const searchResultsPosition = ref({ x: 0, y: 0 })
+let searchDebounceTimer = null // 搜索防抖定时器
+
+// 执行搜索（内部函数，不防抖）
+const performSearch = (searchText) => {
+  if (!searchText) {
+    searchResults.value = []
+    showSearchResults.value = false
+    return
+  }
+
+  const results = []
+
+  // 搜索设备
+  for (const device of devices.value) {
+    const hostname = (device.hostname || '').toLowerCase()
+    const alias = (device.alias || '').toLowerCase()
+    const ip = device.ip || device.networks?.[0]?.ip_address || ''
+
+    if (
+      hostname.includes(searchText) ||
+      alias.includes(searchText) ||
+      ip.includes(searchText)
+    ) {
+      results.push({
+        id: device.client_id || device.id,
+        name: device.alias || device.hostname || '未命名设备',
+        ip: ip,
+        type: device.type,
+        status: device.online ? 'online' : 'offline'
+      })
+    }
+  }
+
+  // 搜索交换机
+  for (const switchDevice of switches.value) {
+    const name = (switchDevice.device_name || '').toLowerCase()
+    const alias = (switchDevice.alias || '').toLowerCase()
+    const ip = (switchDevice.ip || '').toLowerCase()
+
+    if (
+      name.includes(searchText) ||
+      alias.includes(searchText) ||
+      ip.includes(searchText)
+    ) {
+      results.push({
+        id: switchDevice.switch_id || switchDevice.id,
+        name:
+          switchDevice.alias ||
+          switchDevice.device_name ||
+          '未命名' + switchDevice.device_type,
+        ip: switchDevice.ip,
+        type: switchDevice.device_type,
+        status: switchDevice.online ? 'online' : 'offline'
+      })
+    }
+  }
+
+  searchResults.value = results
+  showSearchResults.value = results.length > 0
+
+  // 计算搜索结果框位置（在搜索框下方）
+  calculateSearchResultsPosition()
+
+  // 只在有搜索文本且没有结果时提示
+  if (results.length === 0) {
+    message.info('未找到匹配的设备')
+  }
+}
+
+// 搜索处理函数（带防抖）
+const handleSearch = (value) => {
+  // 清除之前的定时器
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+
+  // 处理不同的输入情况：
+  // 1. @search 事件传入字符串
+  // 2. @input 事件传入事件对象
+  // 3. 直接调用时传入字符串
+  let searchText = ''
+
+  if (typeof value === 'string') {
+    searchText = value.trim().toLowerCase()
+  } else if (value && typeof value === 'object' && 'target' in value) {
+    // 事件对象，从 target.value 获取
+    searchText = (value.target?.value || '').trim().toLowerCase()
+  } else {
+    // 使用 searchValue.value
+    searchText = (searchValue.value || '').trim().toLowerCase()
+  }
+
+  // 如果搜索文本为空，立即清空结果，不需要防抖
+  if (!searchText) {
+    searchResults.value = []
+    showSearchResults.value = false
+    return
+  }
+
+  // 对于 @input 事件，使用防抖（300ms）
+  searchDebounceTimer = setTimeout(() => {
+    performSearch(searchText)
+  }, 300)
+}
+
+// 立即搜索（用于 @search 事件和快捷键）
+const handleSearchImmediate = (value) => {
+  // 清除防抖定时器
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+
+  let searchText = ''
+  if (typeof value === 'string') {
+    searchText = value.trim().toLowerCase()
+  } else {
+    searchText = (searchValue.value || '').trim().toLowerCase()
+  }
+
+  performSearch(searchText)
+}
+
+// 计算搜索结果框位置
+const calculateSearchResultsPosition = () => {
+  // 搜索框在控制面板中，位于右上角
+  // 我们将结果框显示在搜索框下方
+  const controlPanel = document.querySelector('.control-panel')
+  if (controlPanel) {
+    const rect = controlPanel.getBoundingClientRect()
+    searchResultsPosition.value = {
+      x: rect.left,
+      y: rect.bottom + 8
+    }
+  }
+}
+
+// 点击搜索结果
+const handleSearchResultClick = (result) => {
+  if (!lf) return
+
+  // 关闭搜索结果
+  showSearchResults.value = false
+  searchValue.value = ''
+
+  // 查找对应的节点
+  const graphData = lf.getGraphData()
+  const node = graphData.nodes.find(
+    (n) => n.properties?.data?.id === result.id || n.id === result.id
+  )
+
+  if (node) {
+    // 居中显示节点
+    lf.focusOn({
+      id: node.id,
+      coordinate: {
+        x: node.x,
+        y: node.y
+      }
+    })
+
+    // 延迟一点再触发节点详情
+    setTimeout(() => {
+      // 模拟点击事件数据
+      const container = containerRef.value
+      if (container) {
+        const containerRect = container.getBoundingClientRect()
+        const transform = lf.getTransform()
+
+        // 计算节点在画布中的位置
+        const nodeCanvasX = node.x * transform.SCALE_X + transform.TRANSLATE_X
+        const nodeCanvasY = node.y * transform.SCALE_Y + transform.TRANSLATE_Y
+
+        // 创建模拟的事件对象
+        const mockEvent = {
+          clientX: containerRect.left + nodeCanvasX,
+          clientY: containerRect.top + nodeCanvasY
+        }
+
+        // 触发节点点击处理
+        handleNodeClick(node, mockEvent)
+      }
+    }, 300)
+
+    message.success(`已定位到: ${result.name}`)
+  } else {
+    message.warning('该设备未在拓扑图中显示')
+  }
+}
+
+// 关闭搜索结果
+const closeSearchResults = () => {
+  showSearchResults.value = false
+}
+
+// 点击容器外部关闭搜索结果
+const handleClickOutside = (event) => {
+  if (!showSearchResults.value) return
+
+  const searchPanel = document.querySelector('.search-results-panel')
+  const searchInput = document.querySelector('.control-panel .ant-input-search')
+
+  if (searchPanel && searchInput) {
+    const clickedInsidePanel = searchPanel.contains(event.target)
+    const clickedInsideInput = searchInput.contains(event.target)
+
+    if (!clickedInsidePanel && !clickedInsideInput) {
+      closeSearchResults()
+    }
+  }
+}
+
+// 处理 Ctrl+F 快捷键聚焦搜索框
+const handleKeyboardShortcut = (event) => {
+  // Ctrl+F 或 Command+F（Mac）聚焦搜索框
+  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+    event.preventDefault() // 阻止浏览器默认的查找功能
+
+    // 使用 nextTick 确保 DOM 已渲染
+    nextTick(() => {
+      if (searchInputRef.value) {
+        // 方法1: 尝试通过 focus 方法聚焦（Ant Design Vue 3.x）
+        if (typeof searchInputRef.value.focus === 'function') {
+          searchInputRef.value.focus()
+
+          // 如果有内容，延迟一点再全选
+          if (searchValue.value) {
+            setTimeout(() => {
+              const inputElement =
+                searchInputRef.value?.input ||
+                searchInputRef.value?.$el?.querySelector('input')
+              if (inputElement) {
+                inputElement.select()
+              }
+            }, 50)
+          }
+        }
+        // 方法2: 直接访问原生 input 元素
+        else {
+          const inputElement =
+            searchInputRef.value.input ||
+            searchInputRef.value.$el?.querySelector('input')
+          if (inputElement) {
+            inputElement.focus()
+            // 如果有内容，全选文本方便用户直接输入新内容
+            if (searchValue.value) {
+              inputElement.select()
+            }
+          }
+        }
+      }
+    })
+  }
+}
 
 // 处理全屏菜单点击
 const handleFullscreenMenuClick = ({ key }) => {
@@ -439,7 +762,12 @@ const handleFullscreenChange = () => {
 
 // 统计信息（优化：避免 Array.from 和 filter）
 const stats = computed(() => {
-  const totalNodes = topologyData.value.nodes.length
+  let totalNodes = 0
+  topologyData.value.nodes.forEach((node) => {
+    if (node.type !== 'customGroup') {
+      totalNodes++
+    }
+  })
   let onlineNodes = 0
 
   // 优化：直接遍历 Map，避免创建中间数组
@@ -835,8 +1163,6 @@ const handleNodeClick = (nodeData, event) => {
   deviceIndex.value = device ? devices.value.indexOf(device) : -1
   switchIndex.value = switchDevice ? switches.value.indexOf(switchDevice) : -1
 
-  console.log('deviceIndex:', deviceIndex.value)
-  console.log('switchIndex:', switchIndex.value)
   if (deviceIndex.value === -1 && switchIndex.value === -1) {
     message.error('该节点为虚拟设备，不支持查看详情!')
     return
@@ -879,7 +1205,7 @@ const calculatePopoverPosition = (
   containerRect
 ) => {
   // 安全边距（像素）
-  const SAFE_MARGIN = 20
+  const SAFE_MARGIN = 1
   // Popover 预估尺寸
   const POPOVER_WIDTH = 450
 
@@ -1056,15 +1382,6 @@ const calculatePopoverPosition = (
   // 设置位置和方向
   popoverPosition.value = { x: finalX, y: finalY }
   popoverPlacement.value = placement
-
-  // 计算箭头偏移量（根据方向使用鼠标点击位置）
-  if (placement === 'left' || placement === 'right') {
-    // 左右方向：箭头纵向偏移 = 鼠标Y坐标 - 弹出框Y坐标
-    popoverArrowOffset.value = mouseY - finalY
-  } else {
-    // 上下方向：箭头横向偏移 = 鼠标X坐标 - 弹出框X坐标
-    popoverArrowOffset.value = mouseX - finalX
-  }
 
   console.log(
     `Popover弹出方向: ${placement}, 位置: (${finalX}, ${finalY})，鼠标位置: (${mouseX}, ${mouseY}), 节点位置: (${nodeX}, ${nodeY}), 箭头偏移: ${popoverArrowOffset.value}px`
@@ -1534,6 +1851,10 @@ const cleanup = () => {
     clearTimeout(updateEdgesDebounceTimer)
     updateEdgesDebounceTimer = null
   }
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
 
   // 移除全局点击事件监听
   PubSub.unsubscribe(wsCode.DEVICE_STATUS)
@@ -1599,6 +1920,12 @@ onMounted(() => {
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
     document.addEventListener('mozfullscreenchange', handleFullscreenChange)
     document.addEventListener('msfullscreenchange', handleFullscreenChange)
+
+    // 添加点击外部事件监听
+    document.addEventListener('click', handleClickOutside)
+
+    // 添加键盘快捷键监听
+    document.addEventListener('keydown', handleKeyboardShortcut)
   })
 })
 
@@ -1608,6 +1935,12 @@ onUnmounted(() => {
   document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
   document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
   document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+
+  // 移除点击外部事件监听
+  document.removeEventListener('click', handleClickOutside)
+
+  // 移除键盘快捷键监听
+  document.removeEventListener('keydown', handleKeyboardShortcut)
 
   // 组件销毁时清理资源
   cleanup()

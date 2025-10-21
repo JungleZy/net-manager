@@ -42,6 +42,7 @@ export class Ws {
       notification.success({
         key,
         message: `恭喜`,
+        placement: 'bottomRight',
         description:
           '已连接后端服务器'
       });
@@ -51,6 +52,7 @@ export class Ws {
       notification.error({
         key,
         message: `请检查`,
+        placement: 'bottomRight',
         description:
           '已断开后端服务器！'
       });
@@ -96,6 +98,7 @@ export class Ws {
       notification.error({
         key,
         message: `请检查`,
+        placement: 'bottomRight',
         description:
           '正在重连后端服务器！'
       });

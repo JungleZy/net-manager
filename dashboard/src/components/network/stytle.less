@@ -558,6 +558,16 @@
     transform: translate(-100%, -50%);
   }
 
+  &.popup-top {
+    transform: translate(-50%, calc(-100% - 8px));
+    animation: popupFadeInTop 0.2s ease-out;
+  }
+
+  &.popup-bottom {
+    transform: translate(-50%, 8px);
+    animation: popupFadeInBottom 0.2s ease-out;
+  }
+
   .popup-header {
     padding: 12px;
     background: linear-gradient(135deg, #667eea 0%, #1677ff 100%);
@@ -627,6 +637,41 @@
           word-break: break-all;
         }
 
+        .status-tag {
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+
+          &.running,
+          &.listen {
+            background-color: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+          }
+
+          &.stopped,
+          &.close_wait {
+            background-color: #fff2f0;
+            color: #ff4d4f;
+            border: 1px solid #ffccc7;
+          }
+
+          &.active,
+          &.established {
+            background-color: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+          }
+
+          &.inactive,
+          &.time_wait {
+            background-color: #fff7e6;
+            color: #fa8c16;
+            border: 1px solid #ffd591;
+          }
+        }
+
         .item-meta {
           display: flex;
           align-items: center;
@@ -643,41 +688,6 @@
             font-size: 11px;
             color: #262626;
             font-weight: 500;
-          }
-
-          .status-tag {
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-
-            &.running,
-            &.listen {
-              background-color: #f6ffed;
-              color: #52c41a;
-              border: 1px solid #b7eb8f;
-            }
-
-            &.stopped,
-            &.close_wait {
-              background-color: #fff2f0;
-              color: #ff4d4f;
-              border: 1px solid #ffccc7;
-            }
-
-            &.active,
-            &.established {
-              background-color: #f6ffed;
-              color: #52c41a;
-              border: 1px solid #b7eb8f;
-            }
-
-            &.inactive,
-            &.time_wait {
-              background-color: #fff7e6;
-              color: #fa8c16;
-              border: 1px solid #ffd591;
-            }
           }
         }
 
@@ -807,5 +817,27 @@
   to {
     opacity: 1;
     transform: translateY(-50%) scale(1);
+  }
+}
+
+@keyframes popupFadeInTop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 4px)) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 8px)) scale(1);
+  }
+}
+
+@keyframes popupFadeInBottom {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 8px) scale(1);
   }
 }

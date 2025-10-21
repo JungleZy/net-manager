@@ -33,11 +33,11 @@
     left: 12px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    padding: 12px;
+    padding: 8px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
-    gap: 24px;
+    gap: 16px;
     z-index: 10;
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
 
@@ -72,7 +72,7 @@
       }
 
       .stat-value {
-        font-size: 20px;
+        font-size: 16px;
         font-weight: 600;
         color: #333;
         transition: color 0.3s ease;
@@ -96,6 +96,189 @@
     display: flex;
     gap: 8px;
     z-index: 10;
+
+    // 搜索按钮图标颜色
+    .search-button {
+      .anticon {
+        color: #000;
+        transition: color 0.3s ease;
+      }
+    }
+
+    // 其他按钮图标颜色
+    .ant-btn {
+      .anticon {
+        color: rgba(0, 0, 0, 0.88);
+        transition: color 0.3s ease;
+      }
+    }
+
+    // 搜索框样式
+    :deep(.ant-input-search) {
+      .ant-input {
+        transition: all 0.3s ease;
+      }
+    }
+  }
+
+  // 搜索结果面板
+  .search-results-panel {
+    position: absolute;
+    top: 60px;
+    right: 12px;
+    width: 320px;
+    max-height: 400px;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    animation: slideDown 0.3s ease;
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .search-results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #262626;
+      background: #fafafa;
+      transition: all 0.3s ease;
+
+      .close-btn {
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.06);
+        }
+      }
+    }
+
+    .search-results-list {
+      max-height: 352px;
+      overflow-y: auto;
+
+      // 滚动条样式
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: #d9d9d9;
+        border-radius: 3px;
+
+        &:hover {
+          background: #bfbfbf;
+        }
+      }
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: #f5f5f5;
+        transform: translateX(4px);
+      }
+
+      &:active {
+        background: #e6f7ff;
+      }
+
+      .result-info {
+        .result-name {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #262626;
+          margin-bottom: 6px;
+          word-break: break-all;
+
+          .result-type-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+            flex-shrink: 0;
+            line-height: 1;
+
+            &.device {
+              background: #e6f7ff;
+              color: #1890ff;
+              border: 1px solid #91d5ff;
+            }
+          }
+        }
+
+        .result-details {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+
+          .result-ip {
+            font-size: 12px;
+            color: #8c8c8c;
+            font-family: 'Consolas', 'Monaco', monospace;
+          }
+
+          .result-status {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            flex-shrink: 0;
+
+            &.online {
+              background: #f6ffed;
+              color: #52c41a;
+              border: 1px solid #b7eb8f;
+            }
+
+            &.offline {
+              background: #fff2f0;
+              color: #ff4d4f;
+              border: 1px solid #ffccc7;
+            }
+          }
+        }
+      }
+    }
   }
 
   // 边的样式
@@ -180,6 +363,178 @@
 
           &.offline {
             color: #ff4d4f;
+          }
+        }
+      }
+    }
+
+    // 控制面板暗黑模式
+    .control-panel {
+      // 搜索框暗黑模式
+      :deep(.ant-input-search) {
+        .ant-input {
+          background: rgba(26, 31, 58, 0.6);
+          border-color: rgba(255, 255, 255, 0.15);
+          color: #e0e0e0;
+
+          &::placeholder {
+            color: rgba(255, 255, 255, 0.45);
+          }
+
+          &:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            background: rgba(26, 31, 58, 0.8);
+          }
+
+          &:focus {
+            border-color: #1890ff;
+            background: rgba(26, 31, 58, 0.9);
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+          }
+        }
+
+        .ant-input-group-addon {
+          background: transparent;
+          border: none;
+        }
+      }
+
+      // 按钮暗黑模式
+      .ant-btn {
+        background: rgba(26, 31, 58, 0.6);
+        border-color: rgba(255, 255, 255, 0.15);
+        transition: all 0.3s ease;
+
+        .anticon {
+          color: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        &:hover {
+          background: rgba(26, 31, 58, 0.8);
+          border-color: rgba(255, 255, 255, 0.25);
+
+          .anticon {
+            color: #fff !important;
+          }
+        }
+
+        &:active,
+        &:focus {
+          background: rgba(26, 31, 58, 0.9);
+          border-color: #1890ff;
+        }
+      }
+
+      // 搜索按钮特殊处理
+      .search-button {
+        background: rgba(24, 144, 255, 0.15);
+        border-color: rgba(24, 144, 255, 0.3);
+
+        .anticon {
+          color: #ffffff !important;
+        }
+
+        &:hover {
+          background: rgba(24, 144, 255, 0.25);
+          border-color: rgba(24, 144, 255, 0.5);
+
+          .anticon {
+            color: #91d5ff !important;
+          }
+        }
+      }
+
+      // 下拉菜单暗黑模式
+      :deep(.ant-dropdown) {
+        .ant-dropdown-menu {
+          background: rgba(26, 31, 58, 0.95);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+          .ant-dropdown-menu-item {
+            color: #e0e0e0;
+
+            &:hover {
+              background: rgba(24, 144, 255, 0.15);
+            }
+
+            .anticon {
+              color: rgba(255, 255, 255, 0.65);
+            }
+          }
+        }
+      }
+    }
+
+    // 搜索结果面板暗黑模式
+    .search-results-panel {
+      background: rgba(26, 31, 58, 0.98);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+
+      .search-results-header {
+        background: rgba(20, 24, 45, 0.8);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e0e0e0;
+
+        .close-btn {
+          &:hover {
+            background: rgba(255, 255, 255, 0.1);
+          }
+        }
+      }
+
+      .search-results-list {
+        &::-webkit-scrollbar-thumb {
+          background: #4a4a4a;
+
+          &:hover {
+            background: #5a5a5a;
+          }
+        }
+      }
+
+      .search-result-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.05);
+        }
+
+        &:active {
+          background: rgba(24, 144, 255, 0.15);
+        }
+
+        .result-info {
+          .result-name {
+            color: #e0e0e0;
+
+            .result-type-badge {
+              &.device {
+                background: rgba(24, 144, 255, 0.2);
+                color: #69c0ff;
+                border: 1px solid rgba(24, 144, 255, 0.4);
+              }
+            }
+          }
+
+          .result-details {
+            .result-ip {
+              color: #a0a0a0;
+            }
+
+            .result-status {
+              &.online {
+                background: rgba(82, 196, 26, 0.15);
+                color: #73d13d;
+                border: 1px solid rgba(82, 196, 26, 0.3);
+              }
+
+              &.offline {
+                background: rgba(255, 77, 79, 0.15);
+                color: #ff7875;
+                border: 1px solid rgba(255, 77, 79, 0.3);
+              }
+            }
           }
         }
       }
