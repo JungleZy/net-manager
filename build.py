@@ -541,12 +541,53 @@ def create_run_scripts():
     print("✓ 运行脚本创建完成")
 
 
-def clean_build():
-    """清理之前的构建"""
+def clean_build(build_type=None):
+    """清理之前的构建
+
+    Args:
+        build_type: 构建类型 ('client', 'server', None)
+                   None表示清理全部
+    """
     print("清理之前的构建...")
-    if DIST_DIR.exists():
-        shutil.rmtree(DIST_DIR)
-        print("✓ 清理完成")
+
+    if build_type is None:
+        # 清理全部
+        if DIST_DIR.exists():
+            shutil.rmtree(DIST_DIR)
+            print("✓ 清理完成（全部）")
+    elif build_type == "client":
+        # 仅清理客户端构建
+        client_dist = DIST_DIR / "client"
+        if client_dist.exists():
+            shutil.rmtree(client_dist)
+            print("✓ 清理完成（客户端）")
+        else:
+            print("  客户端构建目录不存在，跳过清理")
+    elif build_type == "server":
+        # 仅清理服务端构建
+        server_dist = DIST_DIR / "server"
+        if server_dist.exists():
+            shutil.rmtree(server_dist)
+            print("✓ 清理完成（服务端）")
+        else:
+            print("  服务端构建目录不存在，跳过清理")
+
+        # 同时清理server/static目录（因为是dashboard构建产物）
+        server_static_dir = SERVER_DIR / "static"
+        if server_static_dir.exists():
+
+            def remove_readonly(func, path, exc_info):
+                """处理只读文件的删除"""
+                import stat
+
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+
+            try:
+                shutil.rmtree(server_static_dir, onerror=remove_readonly)
+                print("✓ 清理完成（服务端静态文件目录）")
+            except Exception as e:
+                print(f"⚠ 清理服务端静态文件目录失败: {e}")
 
 
 def main():
@@ -580,15 +621,23 @@ def main():
         sys.exit(1)
     _compiler_option = compiler_result
 
-    # 清理之前的构建
-    clean_build()
-
-    # 创建输出目录
-    DIST_DIR.mkdir(exist_ok=True)
-
     # 确定要打包的目标
     build_client_flag = args.client or (not args.client and not args.server)
     build_server_flag = args.server or (not args.client and not args.server)
+
+    # 根据打包类型清理之前的构建
+    if build_client_flag and build_server_flag:
+        # 两个都要打包，清理全部
+        clean_build()
+    elif build_client_flag:
+        # 仅打包客户端
+        clean_build("client")
+    elif build_server_flag:
+        # 仅打包服务端
+        clean_build("server")
+
+    # 创建输出目录
+    DIST_DIR.mkdir(exist_ok=True)
 
     success = True
 
@@ -606,15 +655,19 @@ def main():
         print("\n" + "=" * 50)
         print("打包完成!")
         print("=" * 50)
-        print(f"客户端输出目录: {DIST_DIR / 'client'}")
-        print(f"服务端输出目录: {DIST_DIR / 'server'}")
+        if build_client_flag:
+            print(f"客户端输出目录: {DIST_DIR / 'client'}")
+        if build_server_flag:
+            print(f"服务端输出目录: {DIST_DIR / 'server'}")
         print("\n使用说明:")
-        print("1. 客户端运行:")
-        print(f"   cd {DIST_DIR / 'client'}")
-        print("   run_client.bat 或 main.exe")
-        print("\n2. 服务端运行:")
-        print(f"   cd {DIST_DIR / 'server'}")
-        print("   run_server.bat 或 main.exe")
+        if build_client_flag:
+            print(" 客户端运行:")
+            print(f"   cd {DIST_DIR / 'client'}")
+            print("   run_client.bat 或 main.exe\n")
+        if build_server_flag:
+            print(" 服务端运行:")
+            print(f"   cd {DIST_DIR / 'server'}")
+            print("   run_server.bat 或 main.exe")
     else:
         print("\n打包过程中出现错误，请检查上面的错误信息。")
         sys.exit(1)
