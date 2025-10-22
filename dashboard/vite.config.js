@@ -55,13 +55,38 @@ export default defineConfig({
   },
   // 优化构建配置
   build: {
+    // 增加chunk大小警告限制
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         // 优化文件名
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+        // 手动分割chunks以减小bundle大小
+        manualChunks: (id) => {
+          // 将大型第三方库分离到单独的chunk中
+          if (id.includes('node_modules')) {
+            if (id.includes('@logicflow')) {
+              return 'logicflow'
+            }
+            if (id.includes('echarts') || id.includes('vue-echarts')) {
+              return 'echarts'
+            }
+            if (id.includes('ant-design-vue')) {
+              return 'ant-design'
+            }
+            if (id.includes('@vueuse')) {
+              return 'vue-use'
+            }
+            if (id.includes('localforage') || id.includes('dayjs') || id.includes('lodash-es')) {
+              return 'utils'
+            }
+          }
+        }
       }
-    }
+    },
+    // 启用CSS代码分割
+    cssCodeSplit: true
   }
 })

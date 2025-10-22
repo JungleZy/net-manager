@@ -209,16 +209,10 @@ import {
   shallowRef,
   computed
 } from 'vue'
-import { LogicFlow } from '@logicflow/core'
-import { Control, DndPanel, SelectionSelect, Group } from '@logicflow/extension'
-import { Dagre } from '@logicflow/layout'
 import '@logicflow/core/lib/style/index.css'
 import '@logicflow/extension/lib/style/index.css'
-import CustomHtml from '@/common/node/HtmlNode'
-import { default as customNodes } from '@/common/node/index'
 import DeviceApi from '@/common/api/device'
 import SwitchApi from '@/common/api/switch'
-import TopologyApi from '@/common/api/topology'
 import { message } from 'ant-design-vue'
 import Firewall from '@/assets/firewall.png'
 import Laptop from '@/assets/laptop.png'
@@ -227,7 +221,7 @@ import Router from '@/assets/router.png'
 import Server from '@/assets/server.png'
 import Switches from '@/assets/switches.png'
 import Printer from '@/assets/printer.png'
-import { deriveDeviceName,handleCenterView } from '@/common/utils/Utils.js'
+import { deriveDeviceName, handleCenterView } from '@/common/utils/Utils.js'
 import {
   generateTopologyByScale,
   getTopologyStats
@@ -566,7 +560,7 @@ const PLUGINS_OPTIONS = Object.freeze({
   }
 })
 
-const initTopology = () => {
+const initTopology = async () => {
   // 清理旧实例
   if (lf) {
     try {
@@ -588,6 +582,41 @@ const initTopology = () => {
   const height = container.offsetHeight || 600
 
   try {
+    // 动态导入 LogicFlow 核心库
+    const LogicFlowModule = await import(
+      /* webpackChunkName: "logicflow-core" */
+      '@logicflow/core'
+    )
+    const LogicFlow = LogicFlowModule.default || LogicFlowModule.LogicFlow
+
+    // 动态导入 LogicFlow 扩展
+    const ExtensionModule = await import(
+      /* webpackChunkName: "logicflow-extensions" */
+      '@logicflow/extension'
+    )
+    const { Control, DndPanel, SelectionSelect, Group } = ExtensionModule
+
+    // 动态导入布局库
+    const LayoutModule = await import(
+      /* webpackChunkName: "logicflow-layout" */
+      '@logicflow/layout'
+    )
+    const { Dagre } = LayoutModule
+
+    // 动态导入自定义节点
+    const CustomHtmlModule = await import(
+      /* webpackChunkName: "logicflow-node" */
+      '@/common/node/HtmlNode'
+    )
+    const CustomHtml = CustomHtmlModule.default || CustomHtmlModule
+
+    // 动态导入自定义节点注册模块
+    const CustomNodesModule = await import(
+      /* webpackChunkName: "logicflow-nodes" */
+      '@/common/node/index'
+    )
+    const customNodes = CustomNodesModule.default || CustomNodesModule
+
     lf = new LogicFlow({
       grid: true,
       container: container,
@@ -636,17 +665,6 @@ const initTopology = () => {
   }
 
   lf.extension.dndPanel.setPatternItems([])
-
-  // 添加一键美化按钮
-  // lf.extension.control.addItem({
-  //   key: 'beautify',
-  //   iconClass: 'lf-control-beautify',
-  //   title: '一键美化',
-  //   text: '美化',
-  //   onClick: (lf) => {
-  //     handleBeautifyAction(lf)
-  //   }
-  // })
 
   // 添加居中按钮
   lf.extension.control.addItem({
@@ -775,6 +793,13 @@ const loadLatestTopology = async () => {
   }
 
   try {
+    // 动态导入拓扑图API
+    const TopologyApiModule = await import(
+      /* webpackChunkName: "topology-api" */
+      '@/common/api/topology'
+    )
+    const TopologyApi = TopologyApiModule.default || TopologyApiModule
+
     const response = await TopologyApi.getLatestTopology()
     if (response?.data?.content) {
       const topologyData = response.data.content
@@ -1638,20 +1663,20 @@ const handleGroupEditCancel = () => {
   }
 
   // 取消边的箭头
-  /deep/ .lf-edge .lf-arrow {
+  :deep(.lf-edge .lf-arrow) {
     display: none !important;
   }
 
   // 确保所有类型的边都没有箭头
-  /deep/ .lf-edge-polyline,
-  /deep/ .lf-edge-line,
-  /deep/ .lf-edge-bezier {
+  :deep(.lf-edge-polyline),
+  :deep(.lf-edge-line),
+  :deep(.lf-edge-bezier) {
     marker-end: none !important;
     marker-start: none !important;
   }
 
   // 分组节点文本样式
-  /deep/ .lf-node-group .lf-node-text {
+  :deep(.lf-node-group .lf-node-text) {
     font-size: 14px;
     font-weight: 600;
     fill: #1890ff;
@@ -1659,7 +1684,7 @@ const handleGroupEditCancel = () => {
     user-select: none;
   }
 
-  /deep/ .lf-node-group .lf-node-text-edit {
+  :deep(.lf-node-group .lf-node-text-edit) {
     font-size: 14px;
     font-weight: 600;
     color: #1890ff;
