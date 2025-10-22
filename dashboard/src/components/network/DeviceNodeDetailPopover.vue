@@ -278,28 +278,33 @@
           <span v-if="servicesSearchKeyword">没有找到匹配的服务</span>
           <span v-else>暂无服务数据</span>
         </div>
-        <div v-else class="list-content">
-          <div
-            class="list-item service-item"
-            v-for="(service, idx) in filteredServices"
-            :key="idx"
+        <div v-else class="list-content" style="height: 312px">
+          <VList
+            class="scroller h-full"
+            :data="filteredServices"
+            #default="{ item, index }"
           >
-            <div class="item-header layout-side">
-              <div class="layout-left-center">
-                <span class="protocol-tag">{{ service.protocol }}</span>
-                <span class="item-address layout-left-center">{{
-                  service.local_address
+            <div
+              class="list-item service-item"
+              style="height: 60px; margin: 6px 0"
+              :key="index"
+            >
+              <div class="item-header layout-side">
+                <div class="layout-left-center">
+                  <span class="protocol-tag">{{ item.protocol }}</span>
+                  <span class="item-address layout-left-center">{{
+                    item.local_address
+                  }}</span>
+                </div>
+                <span :class="['status-tag', item.status?.toLowerCase()]">{{
+                  formatServiceStatus(item.status)
                 }}</span>
               </div>
-              <span :class="['status-tag', service.status?.toLowerCase()]">{{
-                formatServiceStatus(service.status)
-              }}</span>
+              <div class="item-meta">
+                <span class="item-pid">PID: {{ item.pid }}  {{ item.process_name }}</span>
+              </div>
             </div>
-            <div class="item-meta">
-              <span class="item-pid">PID: {{ service.pid }}</span>
-              <span class="item-process">{{ service.process_name }}</span>
-            </div>
-          </div>
+          </VList>
         </div>
       </div>
     </div>
@@ -335,64 +340,68 @@
           <span v-if="processesSearchKeyword">没有找到匹配的进程</span>
           <span v-else>暂无进程数据</span>
         </div>
-        <div v-else class="list-content">
-          <div
-            class="list-item process-item"
-            v-for="(process, idx) in filteredProcesses"
-            :key="idx"
+        <div v-else class="list-content" style="height: 312px">
+          <VList
+            class="scroller h-full"
+            :data="filteredProcesses"
+            #default="{ item, index }"
           >
-            <div class="item-header">
-              <span class="item-name">{{ process.name }}</span>
-              <span :class="['status-tag', process.status?.toLowerCase()]">{{
-                formatProcessStatus(process.status)
-              }}</span>
-            </div>
-            <div class="item-meta">
-              <span class="item-pid"
-                >PID: {{ process.pid }}
-                {{ process.username }}
-              </span>
-            </div>
             <div
-              class="item-stats"
-              v-if="
-                process.cpu_percent !== undefined ||
-                process.memory_percent !== undefined
-              "
+              class="list-item process-item"
+              style="margin: 6px 0"
+              :key="index"
             >
-              <span
-                class="stat-item cpu"
-                v-if="process.cpu_percent !== undefined"
+              <div class="item-header">
+                <span class="item-name">{{ item.name }}</span>
+                <span :class="['status-tag', item.status?.toLowerCase()]">{{
+                  formatProcessStatus(item.status)
+                }}</span>
+              </div>
+              <div class="item-meta">
+                <span class="item-pid"
+                  >PID: {{ item.pid }}
+                  {{ item.username }}
+                </span>
+              </div>
+              <div
+                class="item-stats"
+                v-if="
+                  item.cpu_percent !== undefined ||
+                  item.memory_percent !== undefined
+                "
               >
-                <span class="stat-icon">⚡</span>
-                <span class="stat-label">CPU:</span>
-                <span class="stat-value"
-                  >{{ formatPercent(process.cpu_percent) }}%</span
+                <span
+                  class="stat-item cpu"
+                  v-if="item.cpu_percent !== undefined"
                 >
-              </span>
-              <span
-                class="stat-item memory"
-                v-if="process.memory_percent !== undefined"
+                  <span class="stat-icon">⚡</span>
+                  <span class="stat-label">CPU:</span>
+                  <span class="stat-value"
+                    >{{ formatPercent(item.cpu_percent) }}%</span
+                  >
+                </span>
+                <span
+                  class="stat-item memory"
+                  v-if="item.memory_percent !== undefined"
+                >
+                  <span class="stat-icon">💾</span>
+                  <span class="stat-label">内存:</span>
+                  <span class="stat-value"
+                    >{{ formatPercent(item.memory_percent) }}%</span
+                  >
+                </span>
+              </div>
+              <div
+                class="item-ports"
+                v-if="item.listening_ports && item.listening_ports.length > 0"
               >
-                <span class="stat-icon">💾</span>
-                <span class="stat-label">内存:</span>
-                <span class="stat-value"
-                  >{{ formatPercent(process.memory_percent) }}%</span
-                >
-              </span>
+                <span class="ports-label">监听端口:</span>
+                <span class="ports-list">{{
+                  formatListeningPorts(item.listening_ports)
+                }}</span>
+              </div>
             </div>
-            <div
-              class="item-ports"
-              v-if="
-                process.listening_ports && process.listening_ports.length > 0
-              "
-            >
-              <span class="ports-label">监听端口:</span>
-              <span class="ports-list">{{
-                formatListeningPorts(process.listening_ports)
-              }}</span>
-            </div>
-          </div>
+          </VList>
         </div>
       </div>
     </div>
@@ -411,6 +420,7 @@ import {
 } from 'vue'
 import { DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import localforage from 'localforage'
+import { VList } from 'virtua/vue'
 
 // 展开/收起状态
 const performanceExpanded = ref(true)
@@ -639,6 +649,7 @@ const formatServiceStatus = (status) => {
 
   const statusMap = {
     listen: '监听中',
+    listening: '监听中',
     established: '已建立',
     close_wait: '关闭等待',
     time_wait: '时间等待',
