@@ -150,21 +150,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 统计信息 -->
-        <div class="info-section">
-          <div class="section-title">统计信息</div>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">{{ device.if_count || 0 }}</div>
-              <div class="stat-label">接口数</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ interfaceList.length }}</div>
-              <div class="stat-label">已配置</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
