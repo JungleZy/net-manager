@@ -364,9 +364,10 @@ def diagnose_node_environment():
     """诊断Node.js环境问题"""
     print_info("诊断Node.js环境...")
 
-    # 检查PATH环境变量
-    path_env = os.environ.get("PATH", "")
-    print(f"{Colors.DIM}当前PATH环境变量: {path_env}{Colors.RESET}")
+    # 获取增强的环境变量
+    enhanced_env = get_enhanced_env()
+    path_env = enhanced_env.get("PATH", "")
+    print(f"{Colors.DIM}增强后的PATH环境变量: {path_env}{Colors.RESET}")
 
     # 检查常见Node.js安装路径
     common_paths = []
@@ -391,38 +392,48 @@ def diagnose_node_environment():
         else:
             print_warning(f"  不存在: {path}")
 
-    # 尝试直接查找node和npm命令
+    # 尝试直接查找node和npm命令（使用增强的环境变量）
     import shutil
 
-    node_path = shutil.which("node")
-    npm_path = shutil.which("npm")
+    # 临时设置环境变量来查找命令
+    original_path = os.environ.get("PATH", "")
+    os.environ["PATH"] = path_env
 
-    if node_path:
-        print_success(f"找到node命令: {node_path}")
-    else:
-        print_error("未找到node命令")
+    try:
+        node_path = shutil.which("node")
+        npm_path = shutil.which("npm")
 
-    if npm_path:
-        print_success(f"找到npm命令: {npm_path}")
-    else:
-        print_error("未找到npm命令")
+        if node_path:
+            print_success(f"找到node命令: {node_path}")
+        else:
+            print_error("未找到node命令")
 
-    # 如果找不到，提供安装建议
-    if not node_path or not npm_path:
-        print(f"\n{Colors.BOLD}{Colors.YELLOW}安装建议:{Colors.RESET}")
-        if os.name != "nt":  # Unix/Linux/macOS
-            print(
-                f"  {Colors.CYAN}Ubuntu/Debian:{Colors.RESET} sudo apt install nodejs npm"
-            )
-            print(
-                f"  {Colors.CYAN}CentOS/RHEL:{Colors.RESET} sudo dnf install nodejs npm"
-            )
-            print(f"  {Colors.CYAN}Arch Linux:{Colors.RESET} sudo pacman -S nodejs npm")
-            print(f"  {Colors.CYAN}macOS:{Colors.RESET} brew install node")
-        else:  # Windows
-            print(f"  {Colors.CYAN}从官网下载:{Colors.RESET} https://nodejs.org/")
-            print(f"  {Colors.CYAN}使用choco:{Colors.RESET} choco install nodejs")
-            print(f"  {Colors.CYAN}使用scoop:{Colors.RESET} scoop install nodejs")
+        if npm_path:
+            print_success(f"找到npm命令: {npm_path}")
+        else:
+            print_error("未找到npm命令")
+
+        # 如果找不到，提供安装建议
+        if not node_path or not npm_path:
+            print(f"\n{Colors.BOLD}{Colors.YELLOW}安装建议:{Colors.RESET}")
+            if os.name != "nt":  # Unix/Linux/macOS
+                print(
+                    f"  {Colors.CYAN}Ubuntu/Debian:{Colors.RESET} sudo apt install nodejs npm"
+                )
+                print(
+                    f"  {Colors.CYAN}CentOS/RHEL:{Colors.RESET} sudo dnf install nodejs npm"
+                )
+                print(
+                    f"  {Colors.CYAN}Arch Linux:{Colors.RESET} sudo pacman -S nodejs npm"
+                )
+                print(f"  {Colors.CYAN}macOS:{Colors.RESET} brew install node")
+            else:  # Windows
+                print(f"  {Colors.CYAN}从官网下载:{Colors.RESET} https://nodejs.org/")
+                print(f"  {Colors.CYAN}使用choco:{Colors.RESET} choco install nodejs")
+                print(f"  {Colors.CYAN}使用scoop:{Colors.RESET} scoop install nodejs")
+    finally:
+        # 恢复原始PATH
+        os.environ["PATH"] = original_path
 
 
 def build_client():
@@ -516,14 +527,26 @@ def build_dashboard():
 
             for cmd in ["pnpm", "npm", "yarn"]:
                 try:
-                    result = subprocess.run(
-                        [cmd, "--version"],
-                        capture_output=True,
-                        check=True,
-                        text=True,
-                        env=enhanced_env,
-                    )
-                    npm_cmd = cmd
+                    # 在Windows上，需要处理.cmd扩展名
+                    if os.name == "nt" and cmd in ["npm", "yarn"]:
+                        cmd_with_ext = cmd + ".cmd"
+                        result = subprocess.run(
+                            [cmd_with_ext, "--version"],
+                            capture_output=True,
+                            check=True,
+                            text=True,
+                            env=enhanced_env,
+                        )
+                        npm_cmd = cmd_with_ext
+                    else:
+                        result = subprocess.run(
+                            [cmd, "--version"],
+                            capture_output=True,
+                            check=True,
+                            text=True,
+                            env=enhanced_env,
+                        )
+                        npm_cmd = cmd
                     print_success(
                         f"找到包管理器: {cmd} (版本: {result.stdout.strip()})"
                     )
@@ -566,14 +589,26 @@ def build_dashboard():
 
         for cmd in ["pnpm", "npm", "yarn"]:
             try:
-                result = subprocess.run(
-                    [cmd, "--version"],
-                    capture_output=True,
-                    check=True,
-                    text=True,
-                    env=enhanced_env,
-                )
-                npm_cmd = cmd
+                # 在Windows上，需要处理.cmd扩展名
+                if os.name == "nt" and cmd in ["npm", "yarn"]:
+                    cmd_with_ext = cmd + ".cmd"
+                    result = subprocess.run(
+                        [cmd_with_ext, "--version"],
+                        capture_output=True,
+                        check=True,
+                        text=True,
+                        env=enhanced_env,
+                    )
+                    npm_cmd = cmd_with_ext
+                else:
+                    result = subprocess.run(
+                        [cmd, "--version"],
+                        capture_output=True,
+                        check=True,
+                        text=True,
+                        env=enhanced_env,
+                    )
+                    npm_cmd = cmd
                 print_success(f"找到包管理器: {cmd} (版本: {result.stdout.strip()})")
                 break
             except (subprocess.CalledProcessError, FileNotFoundError) as e:
