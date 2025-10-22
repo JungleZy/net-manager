@@ -14,6 +14,86 @@ import argparse
 import shutil
 from pathlib import Path
 
+
+# 颜色代码
+class Colors:
+    """控制台颜色代码"""
+
+    # 前景色
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+
+    # 亮色
+    BRIGHT_BLACK = "\033[90m"
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_BLUE = "\033[94m"
+    BRIGHT_MAGENTA = "\033[95m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_WHITE = "\033[97m"
+
+    # 样式
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    UNDERLINE = "\033[4m"
+    BLINK = "\033[5m"
+    REVERSE = "\033[7m"
+
+    # 重置
+    RESET = "\033[0m"
+
+    @staticmethod
+    def init():
+        """初始化Windows控制台颜色支持"""
+        if os.name == "nt":
+            # 启用Windows 10+的ANSI颜色支持
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+
+
+# 辅助函数
+def print_success(msg):
+    """打印成功消息（绿色）"""
+    print(f"{Colors.BRIGHT_GREEN}✓ {msg}{Colors.RESET}")
+
+
+def print_error(msg):
+    """打印错误消息（红色）"""
+    print(f"{Colors.BRIGHT_RED}✗ {msg}{Colors.RESET}")
+
+
+def print_warning(msg):
+    """打印警告消息（黄色）"""
+    print(f"{Colors.BRIGHT_YELLOW}⚠ {msg}{Colors.RESET}")
+
+
+def print_info(msg):
+    """打印信息消息（蓝色）"""
+    print(f"{Colors.BRIGHT_BLUE}ℹ {msg}{Colors.RESET}")
+
+
+def print_header(msg):
+    """打印标题（青色加粗）"""
+    print(f"\n{Colors.BOLD}{Colors.BRIGHT_CYAN}{msg}{Colors.RESET}")
+
+
+def print_section(msg):
+    """打印分节标题（洋红色）"""
+    separator = "=" * 50
+    print(f"\n{Colors.BRIGHT_MAGENTA}{separator}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_MAGENTA}{msg}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_MAGENTA}{separator}{Colors.RESET}")
+
+
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.resolve()
 CLIENT_DIR = PROJECT_ROOT / "client"
@@ -48,7 +128,7 @@ def check_mingw64():
     path_env = os.environ.get("PATH", "")
     # 检查PATH中是否包含mingw64
     if "mingw64" in path_env.lower():
-        print("✓ 检测到mingw64在环境变量PATH中")
+        print_success("检测到mingw64在环境变量PATH中")
         return True
 
     return False
@@ -64,7 +144,7 @@ def check_compiler():
     try:
         result = subprocess.run(["clang", "--version"], capture_output=True, check=True)
         clang_available = True
-        print("✓ clang 编译器可用")
+        print_success("clang 编译器可用")
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
@@ -73,33 +153,35 @@ def check_compiler():
     try:
         result = subprocess.run(["gcc", "--version"], capture_output=True, check=True)
         gcc_available = True
-        print("✓ gcc 编译器可用")
+        print_success("gcc 编译器可用")
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
     if not gcc_available and not clang_available:
-        print("\n" + "=" * 60)
-        print("✗ 错误: 未找到可用的C编译器")
-        print("=" * 60)
+        print(f"\n{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}")
+        print_error("错误: 未找到可用的C编译器")
+        print(f"{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}")
         print("在Linux下使用Nuitka需要安装C编译器。")
-        print("\n请根据您的Linux发行版执行以下命令安装：")
-        print("\n  Ubuntu/Debian系统:")
+        print(f"\n{Colors.BOLD}请根据您的Linux发行版执行以下命令安装：{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}Ubuntu/Debian系统:{Colors.RESET}")
         print("    sudo apt update")
         print("    sudo apt install gcc clang")
-        print("\n  CentOS/RHEL/Fedora系统:")
+        print(f"\n  {Colors.CYAN}CentOS/RHEL/Fedora系统:{Colors.RESET}")
         print("    sudo dnf install gcc clang")
-        print("\n  Arch Linux:")
+        print(f"\n  {Colors.CYAN}Arch Linux:{Colors.RESET}")
         print("    sudo pacman -S gcc clang")
-        print("=" * 60 + "\n")
+        print(f"{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}\n")
         return False
 
     # 优先推荐使用clang（更稳定，较少崩溃）
     if clang_available:
-        print("ℹ 将使用 clang 编译器（推荐，更稳定）")
+        print_info("将使用 clang 编译器（推荐，更稳定）")
         return "--clang"
     else:
-        print("ℹ 将使用 gcc 编译器")
-        print("  提示：如果遇到编译器崩溃问题，建议安装clang编译器")
+        print_info("将使用 gcc 编译器")
+        print(
+            f"  {Colors.DIM}提示：如果遇到编译器崩溃问题，建议安装clang编译器{Colors.RESET}"
+        )
         return None
 
 
@@ -110,24 +192,24 @@ def check_patchelf():
 
     try:
         subprocess.run(["patchelf", "--version"], capture_output=True, check=True)
-        print("✓ patchelf 已安装")
+        print_success("patchelf 已安装")
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("\n" + "=" * 60)
-        print("✗ 错误: 未安装 patchelf")
-        print("=" * 60)
+        print(f"\n{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}")
+        print_error("错误: 未安装 patchelf")
+        print(f"{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}")
         print("在Linux下使用Nuitka standalone模式需要安装patchelf工具。")
-        print("\n请根据您的Linux发行版执行以下命令安装：")
-        print("\n  Ubuntu/Debian系统:")
+        print(f"\n{Colors.BOLD}请根据您的Linux发行版执行以下命令安装：{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}Ubuntu/Debian系统:{Colors.RESET}")
         print("    sudo apt update")
         print("    sudo apt install patchelf")
-        print("\n  CentOS/RHEL/Fedora系统:")
+        print(f"\n  {Colors.CYAN}CentOS/RHEL/Fedora系统:{Colors.RESET}")
         print("    sudo dnf install patchelf")
         print("    或")
         print("    sudo yum install patchelf")
-        print("\n  Arch Linux:")
+        print(f"\n  {Colors.CYAN}Arch Linux:{Colors.RESET}")
         print("    sudo pacman -S patchelf")
-        print("=" * 60 + "\n")
+        print(f"{Colors.BRIGHT_RED}{'=' * 60}{Colors.RESET}\n")
         return False
 
 
@@ -147,7 +229,7 @@ def check_nuitka():
                     capture_output=True,
                     check=True,
                 )
-                print("✓ 虚拟环境中Nuitka已安装")
+                print_success("虚拟环境中Nuitka已安装")
                 return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
@@ -159,7 +241,7 @@ def check_nuitka():
             capture_output=True,
             check=True,
         )
-        print("✓ Nuitka 已安装")
+        print_success("Nuitka 已安装")
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         try:
@@ -167,10 +249,10 @@ def check_nuitka():
             subprocess.run(
                 ["py", "-m", "nuitka", "--version"], capture_output=True, check=True
             )
-            print("✓ Nuitka 已安装")
+            print_success("Nuitka 已安装")
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("✗ Nuitka 未安装，请先安装：pip install nuitka")
+            print_error("Nuitka 未安装，请先安装：pip install nuitka")
             return False
 
 
@@ -186,7 +268,7 @@ def _build_application(
         console_mode: 控制台模式 ('hide' 或 'force')
         compiler_option: 编译器选项 (如 '--clang')
     """
-    print(f"开始打包{app_type}...")
+    print_header(f"开始打包{app_type}...")
 
     # 切换到应用目录
     os.chdir(app_dir)
@@ -246,14 +328,14 @@ def _build_application(
         # 检测是否使用mingw64
         if check_mingw64():
             cmd.append("--mingw64")
-            print("ℹ 使用mingw64编译器进行server打包")
+            print_info("使用mingw64编译器进行server打包")
 
         static_dir = app_dir / "static"
         if static_dir.exists():
             cmd.append(f"--include-data-dir={static_dir}=static")
-            print(f"✓ 包含静态文件目录: {static_dir}")
+            print_success(f"包含静态文件目录: {static_dir}")
         else:
-            print(f"⚠ 警告: 静态文件目录不存在: {static_dir}")
+            print_warning(f"警告: 静态文件目录不存在: {static_dir}")
 
     # 如果指定了编译器选项，添加到命令中
     if compiler_option:
@@ -266,20 +348,81 @@ def _build_application(
     if sys.executable == "" or not os.path.exists(sys.executable):
         cmd[0] = "py"
 
-    print(f"执行命令: {' '.join(cmd)}")
+    print(f"{Colors.DIM}执行命令: {' '.join(cmd)}{Colors.RESET}")
 
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print(f"✓ {app_type}打包成功")
+        print_success(f"{app_type}打包成功")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"✗ {app_type}打包失败: {e}")
-        print(f"错误详情: {e.stderr}")
+        print_error(f"{app_type}打包失败: {e}")
+        print(f"{Colors.RED}错误详情: {e.stderr}{Colors.RESET}")
         return False
 
 
-# 全局变量存储编译器选项
-_compiler_option = None
+def diagnose_node_environment():
+    """诊断Node.js环境问题"""
+    print_info("诊断Node.js环境...")
+
+    # 检查PATH环境变量
+    path_env = os.environ.get("PATH", "")
+    print(f"{Colors.DIM}当前PATH环境变量: {path_env}{Colors.RESET}")
+
+    # 检查常见Node.js安装路径
+    common_paths = []
+    if os.name != "nt":  # Unix/Linux/macOS
+        common_paths = [
+            "/usr/local/bin",
+            "/usr/bin",
+            os.path.expanduser("~/.npm-global/bin"),
+            os.path.expanduser("~/.nvm/versions/node"),
+        ]
+    else:  # Windows
+        common_paths = [
+            os.path.expanduser("~\\AppData\\Roaming\\npm"),
+            "C:\\Program Files\\nodejs",
+            "C:\\Program Files (x86)\\nodejs",
+        ]
+
+    print_info("检查常见Node.js安装路径:")
+    for path in common_paths:
+        if os.path.exists(path):
+            print_success(f"  存在: {path}")
+        else:
+            print_warning(f"  不存在: {path}")
+
+    # 尝试直接查找node和npm命令
+    import shutil
+
+    node_path = shutil.which("node")
+    npm_path = shutil.which("npm")
+
+    if node_path:
+        print_success(f"找到node命令: {node_path}")
+    else:
+        print_error("未找到node命令")
+
+    if npm_path:
+        print_success(f"找到npm命令: {npm_path}")
+    else:
+        print_error("未找到npm命令")
+
+    # 如果找不到，提供安装建议
+    if not node_path or not npm_path:
+        print(f"\n{Colors.BOLD}{Colors.YELLOW}安装建议:{Colors.RESET}")
+        if os.name != "nt":  # Unix/Linux/macOS
+            print(
+                f"  {Colors.CYAN}Ubuntu/Debian:{Colors.RESET} sudo apt install nodejs npm"
+            )
+            print(
+                f"  {Colors.CYAN}CentOS/RHEL:{Colors.RESET} sudo dnf install nodejs npm"
+            )
+            print(f"  {Colors.CYAN}Arch Linux:{Colors.RESET} sudo pacman -S nodejs npm")
+            print(f"  {Colors.CYAN}macOS:{Colors.RESET} brew install node")
+        else:  # Windows
+            print(f"  {Colors.CYAN}从官网下载:{Colors.RESET} https://nodejs.org/")
+            print(f"  {Colors.CYAN}使用choco:{Colors.RESET} choco install nodejs")
+            print(f"  {Colors.CYAN}使用scoop:{Colors.RESET} scoop install nodejs")
 
 
 def build_client():
@@ -293,20 +436,71 @@ def build_client():
     )
 
 
+def get_enhanced_env():
+    """获取增强的环境变量，确保能找到Node.js命令"""
+    # 获取当前环境变量
+    env = os.environ.copy()
+
+    if os.name != "nt":  # Unix/Linux/macOS
+        # 添加常见的Node.js安装路径到PATH
+        additional_paths = [
+            "/usr/local/bin",
+            "/usr/bin",
+            os.path.expanduser("~/.npm-global/bin"),
+            os.path.expanduser("~/.nvm/versions/node"),
+        ]
+
+        # 获取当前PATH
+        current_path = env.get("PATH", "")
+        path_dirs = current_path.split(":") if current_path else []
+
+        # 添加额外路径
+        for path in additional_paths:
+            if path not in path_dirs and os.path.exists(path):
+                path_dirs.append(path)
+
+        # 更新环境变量
+        env["PATH"] = ":".join(path_dirs)
+    else:  # Windows
+        # Windows上Node.js通常安装在以下位置
+        additional_paths = [
+            os.path.expanduser("~\AppData\Roaming\npm"),
+            "C:\\Program Files\\nodejs",
+            "C:\\Program Files (x86)\\nodejs",
+        ]
+
+        # 获取当前PATH
+        current_path = env.get("PATH", "")
+        path_dirs = current_path.split(";") if current_path else []
+
+        # 添加额外路径
+        for path in additional_paths:
+            if path not in path_dirs and os.path.exists(path):
+                path_dirs.append(path)
+
+        # 更新环境变量
+        env["PATH"] = ";".join(path_dirs)
+
+    return env
+
+
 def build_dashboard():
     """打包前端控制面板"""
-    print("开始打包前端控制面板...")
+    print_header("开始打包前端控制面板...")
 
     # 检查dashboard目录是否存在
     if not DASHBOARD_DIR.exists():
-        print(f"✗ Dashboard目录不存在: {DASHBOARD_DIR}")
+        print_error(f"Dashboard目录不存在: {DASHBOARD_DIR}")
         return False
 
     # 检查package.json是否存在
     package_json = DASHBOARD_DIR / "package.json"
     if not package_json.exists():
-        print(f"✗ package.json不存在: {package_json}")
+        print_error(f"package.json不存在: {package_json}")
         return False
+
+    # 获取增强的环境变量
+    enhanced_env = get_enhanced_env()
 
     # 切换到dashboard目录
     original_dir = os.getcwd()
@@ -316,60 +510,113 @@ def build_dashboard():
         # 检查node_modules是否存在，如果不存在则安装依赖
         node_modules = DASHBOARD_DIR / "node_modules"
         if not node_modules.exists():
-            print("正在安装前端依赖...")
+            print_info("正在安装前端依赖...")
             # 检测npm或pnpm或yarn
             npm_cmd = None
+
             for cmd in ["pnpm", "npm", "yarn"]:
                 try:
-                    subprocess.run(
-                        [cmd, "--version"], capture_output=True, check=True, shell=True
+                    result = subprocess.run(
+                        [cmd, "--version"],
+                        capture_output=True,
+                        check=True,
+                        text=True,
+                        env=enhanced_env,
                     )
                     npm_cmd = cmd
-                    print(f"✓ 找到包管理器: {cmd}")
+                    print_success(
+                        f"找到包管理器: {cmd} (版本: {result.stdout.strip()})"
+                    )
                     break
-                except (subprocess.CalledProcessError, FileNotFoundError):
+                except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                    print_warning(f"未找到 {cmd}: {e}")
                     continue
 
             if not npm_cmd:
-                print("✗ 未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+                print_error("未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+                print(
+                    f"{Colors.DIM}提示: 确保Node.js已安装且npm命令在PATH环境变量中{Colors.RESET}"
+                )
+                if os.name != "nt":
+                    print(
+                        f"{Colors.DIM}建议检查: /usr/local/bin, ~/.npm-global/bin, ~/.nvm/versions/node 等路径{Colors.RESET}"
+                    )
+                else:
+                    print(
+                        f"{Colors.DIM}建议检查: %APPDATA%\\npm, C:\\Program Files\\nodejs 等路径{Colors.RESET}"
+                    )
+
+                # 提供诊断信息
+                diagnose_node_environment()
                 return False
 
             # 安装依赖
+            print_info(f"使用 {npm_cmd} 安装依赖...")
             install_cmd = [npm_cmd, "install"]
-            subprocess.run(install_cmd, check=True, shell=True)
-            print("✓ 前端依赖安装完成")
+            try:
+                subprocess.run(install_cmd, check=True, env=enhanced_env)
+                print_success("前端依赖安装完成")
+            except subprocess.CalledProcessError as e:
+                print_error(f"依赖安装失败: {e}")
+                return False
 
         # 执行构建
-        print("正在构建前端项目...")
+        print_info("正在构建前端项目...")
         npm_cmd = None
+
         for cmd in ["pnpm", "npm", "yarn"]:
             try:
-                subprocess.run(
-                    [cmd, "--version"], capture_output=True, check=True, shell=True
+                result = subprocess.run(
+                    [cmd, "--version"],
+                    capture_output=True,
+                    check=True,
+                    text=True,
+                    env=enhanced_env,
                 )
                 npm_cmd = cmd
+                print_success(f"找到包管理器: {cmd} (版本: {result.stdout.strip()})")
                 break
-            except (subprocess.CalledProcessError, FileNotFoundError):
+            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                print_warning(f"未找到 {cmd}: {e}")
                 continue
 
         if not npm_cmd:
-            print("✗ 未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+            print_error("未找到npm/pnpm/yarn，请先安装Node.js和包管理器")
+            print(
+                f"{Colors.DIM}提示: 确保Node.js已安装且npm命令在PATH环境变量中{Colors.RESET}"
+            )
+            if os.name != "nt":
+                print(
+                    f"{Colors.DIM}建议检查: /usr/local/bin, ~/.npm-global/bin, ~/.nvm/versions/node 等路径{Colors.RESET}"
+                )
+            else:
+                print(
+                    f"{Colors.DIM}建议检查: %APPDATA%\\npm, C:\\Program Files\\nodejs 等路径{Colors.RESET}"
+                )
+
+            # 提供诊断信息
+            diagnose_node_environment()
             return False
 
+        print_info(f"使用 {npm_cmd} 构建项目...")
         build_cmd = [npm_cmd, "run", "build"]
-        subprocess.run(build_cmd, check=True, shell=True)
-        print("✓ 前端构建完成")
+        try:
+            subprocess.run(build_cmd, check=True, env=enhanced_env)
+            print_success("前端构建完成")
+        except subprocess.CalledProcessError as e:
+            print_error(f"构建失败: {e}")
+            return False
 
         # 检查构建产物
         dist_dir = DASHBOARD_DIR / "dist"
         if not dist_dir.exists():
-            print(f"✗ 构建产物不存在: {dist_dir}")
+            print_error(f"构建产物不存在: {dist_dir}")
             return False
 
         # 移动构建产物到server/static目录
         server_static_dir = SERVER_DIR / "static"
         if server_static_dir.exists():
-            print(f"清理旧的静态文件目录: {server_static_dir}")
+            print_info(f"清理旧的静态文件目录: {server_static_dir}")
 
             # 定义强制删除只读文件的错误处理函数
             def remove_readonly(func, path, exc_info):
@@ -381,32 +628,32 @@ def build_dashboard():
 
             try:
                 shutil.rmtree(server_static_dir, onerror=remove_readonly)
-                print("✓ 静态文件目录清理完成")
+                print_success("静态文件目录清理完成")
             except Exception as e:
-                print(f"✗ 清理静态文件目录失败: {e}")
+                print_error(f"清理静态文件目录失败: {e}")
                 return False
 
-        print(f"复制构建产物到: {server_static_dir}")
+        print_info(f"复制构建产物到: {server_static_dir}")
         shutil.copytree(dist_dir, server_static_dir)
-        print("✓ 前端构建产物已复制到server/static目录")
+        print_success("前端构建产物已复制到server/static目录")
 
         # 复制agent文件夹到server/static目录
         agent_dir = PROJECT_ROOT / "agent"
         if agent_dir.exists():
             agent_dest_dir = server_static_dir / "agent"
-            print(f"复制agent文件夹到: {agent_dest_dir}")
+            print_info(f"复制agent文件夹到: {agent_dest_dir}")
             shutil.copytree(agent_dir, agent_dest_dir)
-            print("✓ agent文件夹已复制到server/static目录")
+            print_success("agent文件夹已复制到server/static目录")
         else:
-            print(f"⚠ agent文件夹不存在: {agent_dir}")
+            print_warning(f"agent文件夹不存在: {agent_dir}")
 
         return True
 
     except subprocess.CalledProcessError as e:
-        print(f"✗ 前端打包失败: {e}")
+        print_error(f"前端打包失败: {e}")
         return False
     except Exception as e:
-        print(f"✗ 打包前端时发生错误: {e}")
+        print_error(f"打包前端时发生错误: {e}")
         return False
     finally:
         # 恢复原始工作目录
@@ -416,16 +663,12 @@ def build_dashboard():
 def build_server():
     """打包服务端"""
     # 在打包server之前先打包dashboard
-    print("\n" + "=" * 50)
-    print("步骤1: 打包前端控制面板")
-    print("=" * 50)
+    print_section("步骤1: 打包前端控制面板")
     if not build_dashboard():
-        print("✗ 前端打包失败，无法继续打包服务端")
+        print_error("前端打包失败，无法继续打包服务端")
         return False
 
-    print("\n" + "=" * 50)
-    print("步骤2: 打包服务端")
-    print("=" * 50)
+    print_section("步骤2: 打包服务端")
     return _build_application(
         app_type="server",
         app_dir=SERVER_DIR,
@@ -438,14 +681,14 @@ def build_server():
 def ensure_virtual_environment():
     """确保虚拟环境存在并已安装必要的依赖"""
     if not VENV_DIR.exists():
-        print("虚拟环境不存在，正在创建...")
+        print_info("虚拟环境不存在，正在创建...")
         try:
             import venv
 
             venv.create(VENV_DIR, with_pip=True)
-            print("✓ 虚拟环境创建成功")
+            print_success("虚拟环境创建成功")
         except Exception as e:
-            print(f"✗ 创建虚拟环境时出错: {e}")
+            print_error(f"创建虚拟环境时出错: {e}")
             return False
 
     # 检查是否已安装依赖
@@ -461,33 +704,33 @@ def ensure_virtual_environment():
                 [str(pip_path), "show", "nuitka"], capture_output=True, text=True
             )
             if result.returncode != 0:
-                print("正在安装Nuitka...")
+                print_info("正在安装Nuitka...")
                 subprocess.run([str(pip_path), "install", "nuitka"], check=True)
-                print("✓ Nuitka安装成功")
+                print_success("Nuitka安装成功")
 
             # 检查是否已安装项目依赖
             result = subprocess.run(
                 [str(pip_path), "show", "psutil"], capture_output=True, text=True
             )
             if result.returncode != 0:
-                print("正在安装项目依赖...")
+                print_info("正在安装项目依赖...")
                 subprocess.run(
                     [str(pip_path), "install", "-r", "requirements.txt"], check=True
                 )
-                print("✓ 项目依赖安装成功")
+                print_success("项目依赖安装成功")
 
             return True
         else:
-            print("✗ 虚拟环境中的pip不存在")
+            print_error("虚拟环境中的pip不存在")
             return False
     except Exception as e:
-        print(f"✗ 检查或安装依赖时出错: {e}")
+        print_error(f"检查或安装依赖时出错: {e}")
         return False
 
 
 def create_run_scripts():
     """创建运行脚本"""
-    print("创建运行脚本...")
+    print_info("创建运行脚本...")
 
     # 客户端运行脚本
     client_bat = DIST_DIR / "client" / "run_client.bat"
@@ -537,7 +780,7 @@ def create_run_scripts():
         f.write("net-manager-server.exe\n")
         f.write("pause\n")
 
-    print("✓ 运行脚本创建完成")
+    print_success("运行脚本创建完成")
 
 
 def clean_build(build_type=None):
@@ -547,29 +790,29 @@ def clean_build(build_type=None):
         build_type: 构建类型 ('client', 'server', None)
                    None表示清理全部
     """
-    print("清理之前的构建...")
+    print_info("清理之前的构建...")
 
     if build_type is None:
         # 清理全部
         if DIST_DIR.exists():
             shutil.rmtree(DIST_DIR)
-            print("✓ 清理完成（全部）")
+            print_success("清理完成（全部）")
     elif build_type == "client":
         # 仅清理客户端构建
         client_dist = DIST_DIR / "client"
         if client_dist.exists():
             shutil.rmtree(client_dist)
-            print("✓ 清理完成（客户端）")
+            print_success("清理完成（客户端）")
         else:
-            print("  客户端构建目录不存在，跳过清理")
+            print(f"  {Colors.DIM}客户端构建目录不存在，跳过清理{Colors.RESET}")
     elif build_type == "server":
         # 仅清理服务端构建
         server_dist = DIST_DIR / "server"
         if server_dist.exists():
             shutil.rmtree(server_dist)
-            print("✓ 清理完成（服务端）")
+            print_success("清理完成（服务端）")
         else:
-            print("  服务端构建目录不存在，跳过清理")
+            print(f"  {Colors.DIM}服务端构建目录不存在，跳过清理{Colors.RESET}")
 
         # 同时清理server/static目录（因为是dashboard构建产物）
         server_static_dir = SERVER_DIR / "static"
@@ -584,14 +827,17 @@ def clean_build(build_type=None):
 
             try:
                 shutil.rmtree(server_static_dir, onerror=remove_readonly)
-                print("✓ 清理完成（服务端静态文件目录）")
+                print_success("清理完成（服务端静态文件目录）")
             except Exception as e:
-                print(f"⚠ 清理服务端静态文件目录失败: {e}")
+                print_warning(f"清理服务端静态文件目录失败: {e}")
 
 
 def main():
     """主函数"""
     global _compiler_option
+
+    # 初始化颜色支持
+    Colors.init()
 
     parser = argparse.ArgumentParser(description="Net Manager 打包脚本")
     parser.add_argument("--client", action="store_true", help="仅打包客户端")
@@ -600,9 +846,9 @@ def main():
     args = parser.parse_args()
 
     # 如果不是指定不使用虚拟环境，则确保虚拟环境存在
-    print("检查虚拟环境...")
+    print_header("检查虚拟环境...")
     if not ensure_virtual_environment():
-        print("✗ 虚拟环境准备失败")
+        print_error("虚拟环境准备失败")
         sys.exit(1)
 
     # 检查Nuitka
@@ -614,7 +860,7 @@ def main():
         sys.exit(1)
 
     # 检查编译器并获取推荐的编译器选项
-    print("检查C编译器...")
+    print_header("检查C编译器...")
     compiler_result = check_compiler()
     if compiler_result is False:
         sys.exit(1)
@@ -651,24 +897,27 @@ def main():
             success = False
 
     if success:
-        print("\n" + "=" * 50)
-        print("打包完成!")
-        print("=" * 50)
+        print_section("打包完成!")
         if build_client_flag:
-            print(f"客户端输出目录: {DIST_DIR / 'client'}")
+            print(
+                f"{Colors.CYAN}客户端输出目录:{Colors.RESET} {Colors.BOLD}{DIST_DIR / 'client'}{Colors.RESET}"
+            )
         if build_server_flag:
-            print(f"服务端输出目录: {DIST_DIR / 'server'}")
-        print("\n使用说明:")
+            print(
+                f"{Colors.CYAN}服务端输出目录:{Colors.RESET} {Colors.BOLD}{DIST_DIR / 'server'}{Colors.RESET}"
+            )
+        print(f"\n{Colors.BOLD}{Colors.YELLOW}使用说明:{Colors.RESET}")
         if build_client_flag:
-            print(" 客户端运行:")
+            print(f"{Colors.GREEN}1. 客户端运行:{Colors.RESET}")
             print(f"   cd {DIST_DIR / 'client'}")
-            print("   run_client.bat 或 main.exe\n")
+            print(f"   run_client.bat 或 main.exe\n")
         if build_server_flag:
-            print(" 服务端运行:")
+            print(f"{Colors.GREEN}2. 服务端运行:{Colors.RESET}")
             print(f"   cd {DIST_DIR / 'server'}")
-            print("   run_server.bat 或 main.exe")
+            print(f"   run_server.bat 或 main.exe")
     else:
-        print("\n打包过程中出现错误，请检查上面的错误信息。")
+        print_section("打包失败")
+        print_error("打包过程中出现错误，请检查上面的错误信息。")
         sys.exit(1)
 
 
