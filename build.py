@@ -40,6 +40,21 @@ NUITKA_NO_PYI_FILE = "--no-pyi-file"  # 不生成pyi文件
 NUITKA_REMOVE_OUTPUT = "--remove-output"  # 构建完成后清理临时文件
 
 
+def check_mingw64():
+    """检查Windows系统PATH中是否存在mingw64"""
+    if os.name != "nt":  # 仅在Windows系统检查
+        return False
+
+    path_env = os.environ.get("PATH", "")
+    print(path_env)
+    # 检查PATH中是否包含mingw64
+    if "mingw64" in path_env.lower():
+        print("✓ 检测到mingw64在环境变量PATH中")
+        return True
+
+    return False
+
+
 def check_compiler():
     """检查可用的C编译器并返回推荐的编译器选项"""
     if os.name == "nt":  # Windows系统使用默认编译器
@@ -207,7 +222,8 @@ def _build_application(
         f"--output-dir={output_dir}",  # 输出目录
         f"--windows-console-mode={console_mode}",  # 控制台模式
         "--standalone",  # 独立模式
-        "--onefile",  # 单文件
+        "--show-memory",
+        "--show-progress",
         NUITKA_STATIC_LIBPYTHON_NO,  # 不静态链接Python库
         NUITKA_ASSUME_YES_FOR_DOWNLOADS,  # 自动下载必要的依赖
         NUITKA_ENABLE_PLUGIN_MULTIPROCESSING,  # 启用多进程插件
@@ -223,8 +239,16 @@ def _build_application(
         NUITKA_REMOVE_OUTPUT,  # 构建完成后清理临时文件
     ]
 
+    if app_type == "client":
+        cmd.append("--onefile")  # 单文件
+
     # 如果是server，需要包含static目录
     if app_type == "server":
+        # 检测是否使用mingw64
+        if check_mingw64():
+            cmd.append("--mingw64")
+            print("ℹ 使用mingw64编译器进行server打包")
+
         static_dir = app_dir / "static"
         if static_dir.exists():
             cmd.append(f"--include-data-dir={static_dir}=static")
@@ -347,7 +371,21 @@ def build_dashboard():
         server_static_dir = SERVER_DIR / "static"
         if server_static_dir.exists():
             print(f"清理旧的静态文件目录: {server_static_dir}")
-            shutil.rmtree(server_static_dir)
+
+            # 定义强制删除只读文件的错误处理函数
+            def remove_readonly(func, path, exc_info):
+                """处理只读文件的删除"""
+                import stat
+
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+
+            try:
+                shutil.rmtree(server_static_dir, onerror=remove_readonly)
+                print("✓ 静态文件目录清理完成")
+            except Exception as e:
+                print(f"✗ 清理静态文件目录失败: {e}")
+                return False
 
         print(f"复制构建产物到: {server_static_dir}")
         shutil.copytree(dist_dir, server_static_dir)
