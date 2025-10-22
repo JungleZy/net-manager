@@ -142,7 +142,7 @@ def check_compiler():
     # 检查clang是否可用
     clang_available = False
     try:
-        result = subprocess.run(["clang", "--version"], capture_output=True, check=True)
+        subprocess.run(["clang", "--version"], capture_output=True, check=True)
         clang_available = True
         print_success("clang 编译器可用")
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -151,7 +151,7 @@ def check_compiler():
     # 检查gcc是否可用
     gcc_available = False
     try:
-        result = subprocess.run(["gcc", "--version"], capture_output=True, check=True)
+        subprocess.run(["gcc", "--version"], capture_output=True, check=True)
         gcc_available = True
         print_success("gcc 编译器可用")
     except (subprocess.CalledProcessError, FileNotFoundError):
