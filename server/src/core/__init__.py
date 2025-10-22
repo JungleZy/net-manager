@@ -3,30 +3,44 @@
 Core module package initialization.
 
 This package contains core functionality for the network management server,
-including configuration, logging, and singleton management.
+including configuration, logging, and state management.
 """
 
 # Import core components for easier access
-from src.core.config import VERSION, UDP_HOST, UDP_PORT, TCP_PORT, API_PORT, LOG_LEVEL, LOG_FILE
-from src.core.logger import logger, setup_logger, get_log_level
-from src.core.singleton_manager import SingletonManager, get_server_singleton_manager
-from src.core.state_manager import StateManager, state_manager
+from .config import (
+    VERSION,
+    UDP_HOST,
+    UDP_PORT,
+    TCP_PORT,
+    API_HOST,
+    API_PORT,
+    LOG_LEVEL,
+    LOG_FILE,
+    SERVER_MONITOR_INTERVAL,
+)
+from .logger import logger
+from .state_manager import state_manager
+from .singleton_manager import get_server_singleton_manager
+
+
+def get_state_manager():
+    """获取全局状态管理器实例"""
+    return state_manager
+
 
 __all__ = [
-    'VERSION',
-    'UDP_HOST',
-    'UDP_PORT',
-    'TCP_PORT',
-    'API_PORT',
-    'LOG_LEVEL',
-    'LOG_FILE',
-    'logger',
-    'setup_logger',
-    'get_log_level',
-    'SingletonManager',
-    'get_server_singleton_manager',
-    'StateManager',
-    'state_manager',
+    "VERSION",
+    "UDP_HOST",
+    "UDP_PORT",
+    "TCP_PORT",
+    "API_HOST",
+    "API_PORT",
+    "LOG_LEVEL",
+    "LOG_FILE",
+    "SERVER_MONITOR_INTERVAL",
+    "logger",
+    "get_state_manager",
+    "get_server_singleton_manager",
 ]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

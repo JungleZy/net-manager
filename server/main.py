@@ -16,6 +16,7 @@ parent_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, parent_dir)
 
 from src.network.udp.udp_server import udp_server
+from src.network.udp.broadcast_server import broadcast_server
 from src.network.tcp.tcp_server import TCPServer
 from src.network.api.api_server import APIServer
 from src.database import DatabaseManager
@@ -96,14 +97,23 @@ def cleanup_on_exit():
         except Exception as e:
             logger.error(f"停止API服务器时出错: {e}")
 
-    # 停止UDP服务器
+    # 停止UDP服务器（组播）
     try:
         from src.network.udp.udp_server import stop_udp_server
 
-        logger.info("停止UDP服务器...")
+        logger.info("停止UDP组播服务器...")
         stop_udp_server()
     except Exception as e:
-        logger.error(f"停止UDP服务器时出错: {e}")
+        logger.error(f"停止UDP组播服务器时出错: {e}")
+
+    # 停止UDP广播服务器
+    try:
+        from src.network.udp.broadcast_server import stop_broadcast_server
+
+        logger.info("停止UDP广播服务器...")
+        stop_broadcast_server()
+    except Exception as e:
+        logger.error(f"停止UDP广播服务器时出错: {e}")
 
     # 释放单例锁
     try:
@@ -196,15 +206,23 @@ def main():
         # 等待TCP服务器完全启动
         time.sleep(0.5)
 
-        # 7. 启动UDP服务发现线程
-        udp_thread = threading.Thread(target=udp_server)
-        udp_thread.daemon = True
-        udp_thread.start()
+        # 7. 启动UDP组播服务发现线程
+        udp_multicast_thread = threading.Thread(target=udp_server)
+        udp_multicast_thread.daemon = True
+        udp_multicast_thread.start()
 
-        # 等待UDP服务器完全启动
+        # 等待UDP组播服务器完全启动
         time.sleep(0.5)
 
-        # 8. 启动SNMP轮询器（统一管理）
+        # 8. 启动UDP广播服务发现线程
+        udp_broadcast_thread = threading.Thread(target=broadcast_server)
+        udp_broadcast_thread.daemon = True
+        udp_broadcast_thread.start()
+
+        # 等待UDP广播服务器完全启动
+        time.sleep(0.5)
+
+        # 9. 启动SNMP轮询器（统一管理）
         logger.info("启动SNMP轮询器...")
         from src.snmp.manager import SNMPManager
 
@@ -212,7 +230,7 @@ def main():
         snmp_manager = SNMPManager(db_manager=db_manager)
         snmp_manager.start_pollers()
 
-        # 9. 启动服务器性能监控器
+        # 10. 启动服务器性能监控器
         logger.info("启动服务器性能监控器...")
         from src.monitor import get_server_monitor
 
@@ -228,7 +246,8 @@ def main():
             if (
                 not api_thread.is_alive()
                 and not tcp_thread.is_alive()
-                and not udp_thread.is_alive()
+                and not udp_multicast_thread.is_alive()
+                and not udp_broadcast_thread.is_alive()
             ):
                 logger.warning("服务线程已停止运行")
                 break

@@ -95,7 +95,7 @@ def test_state_file_creation_with_permissions():
         import traceback
 
         traceback.print_exc()
-        return False
+        assert False, "测试失败"
     finally:
         # 清理临时目录
         sys.executable = original_executable
@@ -105,8 +105,6 @@ def test_state_file_creation_with_permissions():
         if test_dir.exists():
             shutil.rmtree(test_dir)
             print(f"\n已清理临时目录: {test_dir}")
-
-    return True
 
 
 def test_permission_error_handling():
@@ -118,7 +116,7 @@ def test_permission_error_handling():
     # 仅在Linux系统测试
     if os.name == "nt":
         print("Windows系统跳过此测试")
-        return True
+        return
 
     # 创建只读临时目录
     test_dir = Path(tempfile.mkdtemp(prefix="net_manager_readonly_"))
@@ -145,17 +143,16 @@ def test_permission_error_handling():
             state_manager = StateManager()
             # 如果没有抛出异常，说明权限处理有问题
             print("✗ 应该抛出权限错误，但没有")
-            return False
+            assert False, "应该抛出权限错误，但没有"
         except StateManagerError as e:
             print(f"✓ 正确捕获权限错误: {e}")
-            return True
 
     except Exception as e:
         print(f"\n✗ 测试出错: {e}")
         import traceback
 
         traceback.print_exc()
-        return False
+        assert False, "测试出错"
     finally:
         # 清理
         sys.executable = original_executable

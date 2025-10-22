@@ -15,6 +15,7 @@ import threading
 import logging
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List, Callable
+from collections import deque
 
 # 导入自定义异常类
 from src.exceptions.exceptions import NetworkDiscoveryError
@@ -35,12 +36,17 @@ class TCPClient:
         self.stop_event = threading.Event()
         self.heartbeat_thread: Optional[threading.Thread] = None
         self.receive_thread: Optional[threading.Thread] = None
+        self.send_thread: Optional[threading.Thread] = None
         self.command_handlers: Dict[str, Callable] = {}
         self.server_ip: Optional[str] = None
         self.server_port: Optional[int] = None
         self.last_successful_interface: Optional[Dict[str, Any]] = (
             None  # 用于记录上次成功连接的网络接口
         )
+
+        # 发送缓冲区
+        self.send_buffer = deque()
+        self.send_lock = threading.Lock()
 
         # 延迟导入config，使用正确的相对导入路径
         from ..config_module.config import config
@@ -73,112 +79,12 @@ class TCPClient:
         self.command_handlers[command] = handler
         self.logger.debug(f"注册命令处理器: {command}")
 
-    def discover_server(self) -> Optional[Tuple[str, int]]:
-        """
-        通过UDP广播发现服务端
-
-        Returns:
-            Optional[Tuple[str, int]]: 服务端地址和端口，如果发现失败则返回None
-
-        Raises:
-            NetworkDiscoveryError: 服务发现失败
-        """
-        return self._discover_server()
-
-    def _discover_server(self) -> Optional[Tuple[str, int]]:
-        """
-        通过UDP广播发现服务端
-
-        Returns:
-            Optional[Tuple[str, int]]: 服务端地址和端口，如果发现失败则返回None
-        """
-        self.logger.info("开始服务发现")
-
-        # 获取活跃的网络接口
-        active_interfaces = self._get_active_interfaces()
-
-        if not active_interfaces:
-            self.logger.error("未找到活跃的网络接口")
-            return None
-
-        self.logger.info(f"发现 {len(active_interfaces)} 个活跃网络接口")
-        for interface in active_interfaces:
-            self.logger.debug(f"  接口: {interface['name']} ({interface['ip']})")
-
-        # 轮询每个活跃接口的每个IP地址进行服务发现
-        for interface in active_interfaces:
-            interface_name = interface["name"]
-            interface_ip = interface["ip"]
-
-            self.logger.info(
-                f"尝试通过接口 {interface_name} ({interface_ip}) 进行服务发现"
-            )
-
-            sock = None  # 初始化sock变量
-            try:
-                # 创建临时socket绑定到特定接口进行服务发现
-                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.bind((interface_ip, 0))
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                sock.settimeout(3.0)  # 5秒超时
-
-                # 发送发现消息
-                discovery_message = {
-                    "type": "discovery",
-                    "timestamp": datetime.now().isoformat(),
-                }
-                while not self.stop_event.is_set():
-                    self.logger.info(
-                        f"发送服务发现广播到 {self.broadcast_address}:{self.broadcast_port}"
-                    )
-                    sock.sendto(
-                        json.dumps(discovery_message).encode("utf-8"),
-                        (self.broadcast_address, self.broadcast_port),
-                    )
-
-                    # 等待响应
-                    data, addr = sock.recvfrom(1024)
-                    response = json.loads(data.decode("utf-8"))
-
-                    if response.get("type") == "discovery_response":
-                        server_ip = addr[0]
-                        # 确保server_port是整数类型
-                        server_port = response.get("tcp_port")
-
-                        if server_ip and server_port:
-                            # 记录成功接口
-                            self.last_successful_interface = {
-                                "name": interface_name,
-                                "ip": interface_ip,
-                            }
-                            if isinstance(server_port, str):
-                                server_port = int(server_port)
-                            self.logger.info(
-                                f"通过接口 {interface_name} ({interface_ip}) 成功发现服务端: {server_ip}:{server_port}"
-                            )
-                            sock.close()
-                            return (server_ip, server_port)
-            except socket.timeout:
-                self.logger.warning(
-                    f"通过接口 {interface_name} ({interface_ip}) 进行服务发现超时"
-                )
-            except Exception as e:
-                self.logger.error(
-                    f"通过接口 {interface_name} ({interface_ip}) 进行服务发现时出错: {e}"
-                )
-            finally:
-                if sock is not None:
-                    sock.close()
-
-        self.logger.warning("通过所有活跃接口均未能发现服务端")
-        return None
-
     def connect(self, server_address: Optional[tuple] = None) -> bool:
         """
         连接到服务端
 
         Args:
-            server_address (Optional[tuple]): 服务端地址 (ip, port)，如果未提供则自动发现
+            server_address (Optional[tuple]): 服务端地址 (ip, port)，如果未提供则需要外部提供
 
         Returns:
             bool: 连接是否成功
@@ -188,16 +94,12 @@ class TCPClient:
                 self.logger.warning("客户端已经连接到服务端")
                 return True
 
-            # 如果提供了服务端地址，则直接使用；否则发现服务端
+            # 如果提供了服务端地址，则直接使用；否则需要外部提供
             if server_address:
                 server_ip, server_port = server_address
             else:
-                # 发现服务端
-                discovered_address = self._discover_server()
-                if discovered_address is None:
-                    self.logger.error("服务发现失败，无法连接到服务端")
-                    return False
-                server_ip, server_port = discovered_address
+                self.logger.error("未提供服务端地址，无法连接")
+                return False
 
             # 创建TCP socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -224,14 +126,15 @@ class TCPClient:
                 )
                 self.receive_thread.start()
 
+                # 启动发送线程
+                self.send_thread = threading.Thread(target=self._send_data, daemon=True)
+                self.send_thread.start()
+
                 return True
             else:
                 self.logger.error("握手失败")
                 self._close_socket()
                 return False
-        except NetworkDiscoveryError:
-            self.logger.error("服务发现失败，无法连接到服务端")
-            return False
         except Exception as e:
             self.logger.error(f"连接到服务端失败: {e}")
             self._close_socket()
@@ -256,10 +159,11 @@ class TCPClient:
                 "timestamp": datetime.now().isoformat(),
             }
 
-            self.socket.send(json.dumps(handshake_message).encode("utf-8"))
-
-            # 等待服务端响应
-            self.socket.settimeout(10.0)
+            message_bytes = json.dumps(handshake_message, ensure_ascii=False).encode(
+                "utf-8"
+            )
+            length_prefix = struct.pack("!I", len(message_bytes))  # 网络字节序
+            self.socket.sendall(length_prefix + message_bytes)
 
             self.logger.debug("握手成功")
             return True
@@ -275,7 +179,7 @@ class TCPClient:
                 return
 
             self.socket.settimeout(None)  # 接收数据时不设置超时
-            buffer = ""
+            buffer = b""
 
             while not self.stop_event.is_set() and self.connected:
                 try:
@@ -286,20 +190,33 @@ class TCPClient:
                         break
 
                     # 处理接收到的数据
-                    buffer += data.decode("utf-8")
-                    messages = buffer.split("\n")
-                    buffer = messages[-1]  # 最后一个可能是不完整的消息
+                    buffer += data
 
                     # 处理完整的消息
-                    for message_str in messages[:-1]:
-                        if message_str:
+                    while len(buffer) >= 4:
+                        # 读取消息长度
+                        message_length = struct.unpack("!I", buffer[:4])[0]
+
+                        # 检查是否有完整的消息
+                        if len(buffer) >= 4 + message_length:
+                            # 提取消息内容
+                            message_bytes = buffer[4 : 4 + message_length]
+                            buffer = buffer[4 + message_length :]
+
                             try:
+                                message_str = message_bytes.decode("utf-8")
                                 message = json.loads(message_str)
                                 self._handle_message(message)
                             except json.JSONDecodeError:
+                                message_str = message_bytes.decode(
+                                    "utf-8", errors="replace"
+                                )
                                 self.logger.warning(
                                     f"收到无效的JSON消息: {message_str}"
                                 )
+                        else:
+                            # 没有完整的消息，等待更多数据
+                            break
                 except socket.timeout:
                     # 这里不应该发生超时，因为我们设置了None，但为了安全起见还是处理一下
                     continue
@@ -311,6 +228,39 @@ class TCPClient:
         except Exception as e:
             if not self.stop_event.is_set():
                 self.logger.error(f"接收数据线程出错: {e}")
+                self._handle_disconnect()
+
+    def _send_data(self) -> None:
+        """发送数据到服务端"""
+        try:
+            while not self.stop_event.is_set() and self.connected:
+                # 检查是否有数据需要发送
+                message = None
+                with self.send_lock:
+                    if self.send_buffer:
+                        message = self.send_buffer.popleft()
+
+                if message:
+                    try:
+                        if self.socket is None:
+                            self.logger.error("Socket未初始化")
+                            break
+
+                        # 发送消息
+                        message_bytes = message.encode("utf-8")
+                        length_prefix = struct.pack("!I", len(message_bytes))
+                        self.socket.sendall(length_prefix + message_bytes)
+                    except Exception as e:
+                        self.logger.error(f"发送数据时出错: {e}")
+                        if not self.stop_event.is_set():
+                            self._handle_disconnect()
+                        break
+                else:
+                    # 没有数据需要发送，短暂休眠
+                    time.sleep(0.01)
+        except Exception as e:
+            if not self.stop_event.is_set():
+                self.logger.error(f"发送数据线程出错: {e}")
                 self._handle_disconnect()
 
     def _handle_message(self, message: Dict[str, Any]) -> None:
@@ -375,6 +325,7 @@ class TCPClient:
                 "timestamp": system_info.timestamp,  # 时间戳
             }
             message = json.dumps(info_dict, ensure_ascii=False)
+
             # 验证数据不为空
             if not message:
                 self.logger.error("要发送的数据为空")
@@ -385,15 +336,11 @@ class TCPClient:
             if len(message_bytes) == 0:
                 self.logger.error("要发送的字节数据为空")
                 return False
-            # 先发送数据长度（4字节），再发送数据内容
-            import struct
 
-            if self.socket is None:
-                self.logger.error("Socket未初始化")
-                return False
+            # 添加到发送缓冲区
+            with self.send_lock:
+                self.send_buffer.append(message)
 
-            length_prefix = struct.pack("!I", len(message_bytes))  # 网络字节序
-            self.socket.sendall(length_prefix + message_bytes)
             return True
         except Exception as e:
             self.logger.error(f"发送系统信息失败: {e}")
@@ -401,6 +348,33 @@ class TCPClient:
                 self._handle_disconnect()
             return False
 
+    def discover_server(self) -> Optional[Tuple[str, int]]:
+        """
+        发现服务端
+        
+        Returns:
+            Optional[Tuple[str, int]]: 服务端地址和端口，如果发现失败则返回None
+        """
+        from .udp_client import get_udp_client
+        
+        self.logger.info("使用UDP客户端发现服务端")
+        udp_client = get_udp_client()
+        
+        # 尝试多播发现
+        server_info = udp_client.discover_server_multicast()
+        if server_info:
+            self.logger.info(f"通过多播发现服务端: {server_info}")
+            return server_info
+            
+        # 尝试广播发现
+        server_info = udp_client.discover_server_broadcast()
+        if server_info:
+            self.logger.info(f"通过广播发现服务端: {server_info}")
+            return server_info
+            
+        self.logger.warning("未能发现服务端")
+        return None
+        
     def disconnect(self) -> None:
         """断开与服务端的连接"""
         self.logger.info("正在断开与服务端的连接")
@@ -413,6 +387,9 @@ class TCPClient:
         if self.receive_thread and self.receive_thread.is_alive():
             self.receive_thread.join(timeout=5)
 
+        if self.send_thread and self.send_thread.is_alive():
+            self.send_thread.join(timeout=5)
+
         # 发送断开连接消息
         try:
             if self.socket and self.connected:
@@ -421,9 +398,11 @@ class TCPClient:
                     "client_id": self.client_id,
                     "timestamp": datetime.now().isoformat(),
                 }
-                self.socket.send(
-                    (json.dumps(disconnect_message) + "\n").encode("utf-8")
-                )
+                message_bytes = json.dumps(
+                    disconnect_message, ensure_ascii=False
+                ).encode("utf-8")
+                length_prefix = struct.pack("!I", len(message_bytes))
+                self.socket.sendall(length_prefix + message_bytes)
         except Exception as e:
             self.logger.error(f"发送断开连接消息失败: {e}")
 
@@ -518,137 +497,14 @@ class TCPClient:
                         # 指数退避，最大延迟60秒
                         reconnect_delay = min(reconnect_delay * 2, 60)
                 else:
-                    # 如果没有已知的服务端地址，则进行完整的服务发现和连接过程
-                    # 通过所有活跃接口进行服务发现
-                    active_interfaces = self._get_active_interfaces()
-                    discovery_successful = False
-
-                    for interface in active_interfaces:
-                        interface_name = interface["name"]
-                        interface_ip = interface["ip"]
-
-                        self.logger.info(
-                            f"尝试通过接口 {interface_name} ({interface_ip}) 进行服务发现"
-                        )
-
-                        sock = None  # 初始化sock变量
-                        try:
-                            # 创建临时socket绑定到特定接口进行服务发现
-                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                            sock.settimeout(3)
-                            sock.bind((interface_ip, 0))
-                            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-                            # 发送发现消息
-                            discovery_message = {
-                                "type": "discovery",
-                                "client_id": self.client_id,
-                                "timestamp": time.time(),
-                            }
-                            message_str = json.dumps(discovery_message)
-                            sock.sendto(
-                                message_str.encode("utf-8"),
-                                (self.broadcast_address, self.broadcast_port),
-                            )
-
-                            # 等待响应
-                            data, addr = sock.recvfrom(1024)
-                            response = json.loads(data.decode("utf-8"))
-
-                            if response.get("type") == "discovery_response":
-                                server_ip = response.get("server_ip")
-                                server_port = response.get("server_port")
-
-                                if server_ip and server_port:
-                                    # 记录成功接口
-                                    self.last_successful_interface = {
-                                        "name": interface_name,
-                                        "ip": interface_ip,
-                                    }
-
-                                    # 更新服务端地址
-                                    self.server_ip = server_ip
-                                    self.server_port = server_port
-
-                                    sock.close()
-
-                                    # 尝试连接
-                                    if self.connect((server_ip, server_port)):
-                                        self.logger.info("重新连接成功")
-                                        self.reconnecting = False
-                                        discovery_successful = True
-                                        break
-                                    else:
-                                        self.logger.warning(
-                                            f"通过接口 {interface_name} 发现服务端但连接失败"
-                                        )
-                        except Exception as e:
-                            self.logger.error(
-                                f"通过接口 {interface_name} 进行服务发现时出错: {e}"
-                            )
-                        finally:
-                            if sock is not None:
-                                sock.close()
-
-                    # 如果通过所有接口都未能发现服务端
-                    if not discovery_successful:
-                        self.logger.warning(
-                            f"通过所有活跃接口均未能发现服务端，{reconnect_delay}秒后重试"
-                        )
-                        # 指数退避，最大延迟60秒
-                        reconnect_delay = min(reconnect_delay * 2, 60)
-                    else:
-                        return
+                    self.logger.warning(
+                        f"没有已知的服务端地址，{reconnect_delay}秒后重试"
+                    )
+                    # 指数退避，最大延迟60秒
+                    reconnect_delay = min(reconnect_delay * 2, 60)
             except Exception as e:
                 self.logger.error(f"重连过程中出错: {e}")
                 reconnect_delay = min(reconnect_delay * 2, 60)
-
-    def _get_active_interfaces(self) -> List[Dict[str, Any]]:
-        """
-        获取活跃的网络接口列表
-
-        Returns:
-            List[Dict[str, Any]]: 包含接口名称和IP地址的字典列表
-        """
-        active_interfaces = []
-
-        try:
-            # 获取网络接口状态
-            net_if_stats = psutil.net_if_stats()
-            # 获取网络接口地址信息
-            net_if_addrs = psutil.net_if_addrs()
-
-            # 遍历所有网络接口
-            for interface_name, interface_stats in net_if_stats.items():
-                # 检查接口是否活跃
-                if interface_stats.isup:
-                    # 处理psutil版本兼容性问题，使用is_loopback替代isloopback
-                    is_loopback = getattr(
-                        interface_stats,
-                        "isloopback",
-                        getattr(interface_stats, "is_loopback", False),
-                    )
-
-                    # 排除回环接口
-                    if not is_loopback:
-                        # 获取该接口的所有IPv4地址
-                        if interface_name in net_if_addrs:
-                            for addr in net_if_addrs[interface_name]:
-                                # 只处理IPv4地址
-                                if addr.family == socket.AF_INET:
-                                    # 排除回环地址
-                                    if addr.address != "127.0.0.1":
-                                        active_interfaces.append(
-                                            {
-                                                "name": interface_name,
-                                                "ip": addr.address,
-                                                "netmask": addr.netmask,
-                                            }
-                                        )
-        except Exception as e:
-            self.logger.error(f"获取网络接口信息失败: {e}")
-
-        return active_interfaces
 
     def _close_socket(self) -> None:
         """关闭socket连接"""

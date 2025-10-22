@@ -24,6 +24,7 @@ from src.exceptions.exceptions import (
     ConfigurationError,
 )
 from src.network.tcp_client import get_tcp_client, initialize_tcp_client
+from src.network.udp_client import get_udp_client
 from src.system.system_collector import SystemCollector
 from src.system.autostart import (
     enable_autostart,
@@ -46,6 +47,7 @@ class AppController:
         """
         self.logger = get_logger()
         self.tcp_client: Optional[Any] = None
+        self.udp_client: Optional[Any] = None
         self.system_collector = SystemCollector()
         self.running = False
         self.main_thread: Optional[threading.Thread] = None
@@ -123,6 +125,39 @@ class AppController:
         except Exception as e:
             self.logger.error(f"处理开机自启动设置失败: {e}")
 
+    def _discover_server(self) -> Optional[Tuple[str, int]]:
+        """
+        使用UDP客户端发现服务端
+
+        Returns:
+            Optional[Tuple[str, int]]: 服务端地址和端口，如果发现失败则返回None
+        """
+        try:
+            # 获取UDP客户端实例
+            if self.udp_client is None:
+                self.udp_client = get_udp_client()
+
+            # 1. 使用多播方式发现服务端
+            self.logger.info("尝试通过多播方式发现服务端...")
+            server_address = self.udp_client.discover_server_multicast()
+
+            # 2. 如果多播方式失败，回退到广播方式
+            if server_address is None:
+                self.logger.warning("多播服务发现失败，回退到广播方式...")
+                server_address = self.udp_client.discover_server_broadcast()
+
+            # 3. 检查是否成功发现服务端
+            if server_address is None:
+                self.logger.error("服务发现失败，无法连接到服务端")
+                return None
+
+            self.logger.info(f"成功发现服务端: {server_address[0]}:{server_address[1]}")
+            return server_address
+
+        except Exception as e:
+            self.logger.error(f"服务发现过程中出现错误: {e}")
+            return None
+
     def _connect_to_server_with_retry(self, retry_delay: float = 5.0) -> bool:
         """
         尝试连接到服务端，带无限重试机制
@@ -151,7 +186,7 @@ class AppController:
                     return False
 
                 # 发现服务端
-                server_address = self.tcp_client.discover_server()
+                server_address = self._discover_server()
                 if not server_address:
                     self.logger.warning(f"未发现服务端,等待{retry_delay}秒后重试...")
                     time.sleep(retry_delay)

@@ -49,35 +49,45 @@ class TCPServer:
 
         client_id = None
         try:
-            # 首先接收握手消息
-            handshake_data = client_socket.recv(1024)  # 握手消息应该很小
-            if handshake_data:
-                try:
-                    handshake_info = json.loads(handshake_data.decode("utf-8"))
-                    if handshake_info.get("type") == "handshake":
-                        client_id = handshake_info.get("client_id", "unknown")
-                        logger.info(
-                            f"客户端 {address} 握手成功，client_id: {client_id}"
-                        )
-                        # 存储client_id与客户端地址的映射关系
-                        with self.clients_lock:
-                            self.client_id_map[client_id] = address
-                        # 发送设备在线状态
-                        state_manager.broadcast_message(
-                            {
-                                "type": "deviceStatus",
-                                "data": {"client_id": client_id, "status": "online"},
-                            }
-                        )
-                    else:
-                        logger.warning(f"客户端 {address} 发送的不是握手消息")
-                except json.JSONDecodeError:
-                    logger.warning(f"客户端 {address} 发送的握手消息无法解析")
+            # 首先接收握手消息（带长度前缀）
+            import struct
+
+            # 接收数据长度（4字节）
+            raw_length = self._recv_all(client_socket, 4)
+            if raw_length:
+                # 解析数据长度
+                message_length = struct.unpack("!I", raw_length)[0]
+
+                # 接收指定长度的数据
+                handshake_data = self._recv_all(client_socket, message_length)
+                if handshake_data:
+                    try:
+                        handshake_info = json.loads(handshake_data.decode("utf-8"))
+                        if handshake_info.get("type") == "handshake":
+                            client_id = handshake_info.get("client_id", "unknown")
+                            logger.info(
+                                f"客户端 {address} 握手成功，client_id: {client_id}"
+                            )
+                            # 存储client_id与客户端地址的映射关系
+                            with self.clients_lock:
+                                self.client_id_map[client_id] = address
+                            # 发送设备在线状态
+                            state_manager.broadcast_message(
+                                {
+                                    "type": "deviceStatus",
+                                    "data": {
+                                        "client_id": client_id,
+                                        "status": "online",
+                                    },
+                                }
+                            )
+                        else:
+                            logger.warning(f"客户端 {address} 发送的不是握手消息")
+                    except json.JSONDecodeError:
+                        logger.warning(f"客户端 {address} 发送的握手消息无法解析")
 
             while self.running:
                 # 接收数据长度（4字节）
-                import struct
-
                 raw_length = self._recv_all(client_socket, 4)
                 if not raw_length:
                     break
