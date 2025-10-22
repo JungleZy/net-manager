@@ -46,7 +46,6 @@ def check_mingw64():
         return False
 
     path_env = os.environ.get("PATH", "")
-    print(path_env)
     # 检查PATH中是否包含mingw64
     if "mingw64" in path_env.lower():
         print("✓ 检测到mingw64在环境变量PATH中")
