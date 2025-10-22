@@ -232,7 +232,7 @@
         </div>
 
         <!-- 统计信息 -->
-        <div class="info-section">
+        <div class="info-section select-none">
           <div class="section-title">统计信息</div>
           <div class="stats-grid">
             <div class="stat-card clickable" @click="showServicesDetail">
@@ -278,7 +278,7 @@
           <span v-if="servicesSearchKeyword">没有找到匹配的服务</span>
           <span v-else>暂无服务数据</span>
         </div>
-        <div v-else class="list-content" style="height: 312px">
+        <div v-else class="list-content" style="height: 412px">
           <VList
             class="scroller h-full"
             :data="filteredServices"
@@ -301,7 +301,9 @@
                 }}</span>
               </div>
               <div class="item-meta">
-                <span class="item-pid">PID: {{ item.pid }}  {{ item.process_name }}</span>
+                <span class="item-pid"
+                  >PID: {{ item.pid }} {{ item.process_name }}</span
+                >
               </div>
             </div>
           </VList>
@@ -340,7 +342,7 @@
           <span v-if="processesSearchKeyword">没有找到匹配的进程</span>
           <span v-else>暂无进程数据</span>
         </div>
-        <div v-else class="list-content" style="height: 312px">
+        <div v-else class="list-content" style="height: 412px">
           <VList
             class="scroller h-full"
             :data="filteredProcesses"
