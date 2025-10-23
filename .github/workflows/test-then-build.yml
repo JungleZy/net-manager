@@ -201,6 +201,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib
+          # 安装旧版glibc开发包
+          sudo apt-get install -y libc6-dev-i386
 
       - name: Build client for Linux (${{ matrix.architecture }})
         id: build
@@ -210,6 +212,12 @@ jobs:
           # 根据架构设置编译选项
           if [ "${{ matrix.architecture }}" = "x86" ]; then
             export OUTPUT_NAME="net-manager-client-linux-x86"
+            # 为x86架构设置特定的编译器标志，确保与旧版glibc兼容
+            export CFLAGS="-m32 -static-libgcc -static-libstdc++"
+            export CXXFLAGS="-m32 -static-libgcc -static-libstdc++"
+            export LDFLAGS="-m32 -static-libgcc -static-libstdc++ -Wl,--as-needed"
+          elif [ "${{ matrix.architecture }}" = "x64" ]; then
+            export OUTPUT_NAME="net-manager-client-linux-x64"
           elif [ "${{ matrix.architecture }}" = "arm" ]; then
             export OUTPUT_NAME="net-manager-client-linux-arm"
           else
@@ -220,19 +228,87 @@ jobs:
           echo "outputName=$OUTPUT_NAME" >> $GITHUB_OUTPUT
 
           # 使用Nuitka打包
-          python -m nuitka \
-            --standalone \
-            --onefile \
-            --output-filename="$OUTPUT_NAME" \
-            --product-version="1.0.0" \
-            --file-version="1.0.0" \
-            --enable-plugin=multiprocessing \
-            --follow-imports \
-            --include-package=src \
-            --python-flag=-O \
-            --lto=yes \
-            --remove-output \
-            main.py
+          if [ "${{ matrix.architecture }}" = "x86" ]; then
+            # 为x86架构使用特殊的构建参数，确保与旧版glibc兼容
+            python -m nuitka \
+              --standalone \
+              --onefile \
+              --output-filename="$OUTPUT_NAME" \
+              --product-version="1.0.0" \
+              --file-version="1.0.0" \
+              --enable-plugin=multiprocessing \
+              --follow-imports \
+              --include-package=src \
+              --python-flag=-O \
+              --lto=no \
+              --remove-output \
+              --disable-ccache \
+              --no-pyi-file \
+              --static-libpython=no \
+              --python-flag=no_site \
+              --clang \
+              main.py
+          else
+            python -m nuitka \
+              --standalone \
+              --onefile \
+              --output-filename="$OUTPUT_NAME" \
+              --product-version="1.0.0" \
+              --file-version="1.0.0" \
+              --enable-plugin=multiprocessing \
+              --follow-imports \
+              --include-package=src \
+              --python-flag=-O \
+              --lto=yes \
+              --remove-output \
+              main.py
+          fi
+
+      - name: Build Linux x86 with glibc 2.23 compatibility using Alpine
+        if: matrix.architecture == 'x86'
+        run: |
+          # 使用Alpine Linux容器构建静态链接的二进制文件，避免glibc版本依赖问题
+          docker run --rm -v $(pwd):/app -w /app \
+            alpine:latest \
+            sh -c "
+              apk add --no-cache \
+                python3 \
+                py3-pip \
+                gcc \
+                g++ \
+                musl-dev \
+                linux-headers \
+                libffi-dev \
+                openssl-dev \
+                && \
+              python3 -m pip install --upgrade pip && \
+              pip3 install 'nuitka>=2.7.0,<3.0.0' && \
+              pip3 install -r requirements.txt && \
+              cd client && \
+              python3 -m nuitka \
+                --standalone \
+                --onefile \
+                --output-filename='net-manager-client-linux-x86' \
+                --product-version='1.0.0' \
+                --file-version='1.0.0' \
+                --enable-plugin=multiprocessing \
+                --follow-imports \
+                --include-package=src \
+                --python-flag=-O \
+                --lto=no \
+                --remove-output \
+                --disable-ccache \
+                --no-pyi-file \
+                --static-libpython=no \
+                --python-flag=no_site \
+                main.py
+            "
+
+          # 重命名文件以标识这是Alpine构建的版本
+          mv client/net-manager-client-linux-x86 client/net-manager-client-linux-x86-alpine
+
+          # 使用Alpine构建的版本替换原始版本
+          mv client/net-manager-client-linux-x86-alpine client/net-manager-client-linux-x86
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -284,5 +360,6 @@ jobs:
             dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
             dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
+            dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-arm/net-manager-client-linux-arm
             dist/net-manager-client-linux-arm64/net-manager-client-linux-arm64
