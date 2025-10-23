@@ -127,15 +127,21 @@ def test_permission_error_handling():
     original_argv0 = sys.argv[0]
 
     try:
-        # 设置目录为只读
+        # 创建一个可执行文件在只读目录中（在设置只读权限前创建）
+        test_executable = test_dir / "test_executable"
+        with open(test_executable, "w") as f:
+            f.write("#!/bin/bash\necho test")
+        os.chmod(test_executable, 0o755)  # 设置为可执行
+
+        # 设置目录为只读（在创建文件后）
         os.chmod(test_dir, 0o444)
         print(f"目录权限设为只读: {oct(os.stat(test_dir).st_mode)[-3:]}")
 
         # 模拟打包环境
         original_executable = sys.executable
-        sys.executable = str(test_dir / "test_executable")
+        sys.executable = str(test_executable)
         # 在Linux下，StateManager使用sys.argv[0]而不是sys.executable
-        sys.argv[0] = str(test_dir / "test_executable")
+        sys.argv[0] = str(test_executable)
         globals()["__compiled__"] = True
 
         # 尝试创建状态管理器（应该捕获权限错误）
