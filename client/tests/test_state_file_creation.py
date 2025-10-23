@@ -124,6 +124,7 @@ def test_permission_error_handling():
 
     # 保存原始值
     original_executable = sys.executable
+    original_argv0 = sys.argv[0]
 
     try:
         # 设置目录为只读
@@ -133,6 +134,8 @@ def test_permission_error_handling():
         # 模拟打包环境
         original_executable = sys.executable
         sys.executable = str(test_dir / "test_executable")
+        # 在Linux下，StateManager使用sys.argv[0]而不是sys.executable
+        sys.argv[0] = str(test_dir / "test_executable")
         globals()["__compiled__"] = True
 
         # 尝试创建状态管理器（应该捕获权限错误）
@@ -156,6 +159,7 @@ def test_permission_error_handling():
     finally:
         # 清理
         sys.executable = original_executable
+        sys.argv[0] = original_argv0
         if "__compiled__" in globals():
             del globals()["__compiled__"]
 
