@@ -137,6 +137,12 @@ def test_permission_error_handling():
         os.chmod(test_dir, 0o444)
         print(f"目录权限设为只读: {oct(os.stat(test_dir).st_mode)[-3:]}")
 
+        # 验证目录确实是只读的
+        import stat
+        dir_mode = stat.S_IMODE(os.stat(test_dir).st_mode)
+        print(f"目录权限位: {oct(dir_mode)}")
+        print(f"目录是否可写: {os.access(test_dir, os.W_OK)}")
+
         # 模拟打包环境
         original_executable = sys.executable
         sys.executable = str(test_executable)
@@ -152,6 +158,10 @@ def test_permission_error_handling():
             state_manager = StateManager()
             # 如果没有抛出异常，说明权限处理有问题
             print("✗ 应该抛出权限错误，但没有")
+            print(f"状态文件路径: {state_manager.state_file}")
+            print(f"状态文件目录: {state_manager.state_file.parent}")
+            print(f"状态文件目录权限: {oct(os.stat(state_manager.state_file.parent).st_mode)[-3:]}")
+            print(f"状态文件目录是否可写: {os.access(state_manager.state_file.parent, os.W_OK)}")
             assert False, "应该抛出权限错误，但没有"
         except StateManagerError as e:
             print(f"✓ 正确捕获权限错误: {e}")

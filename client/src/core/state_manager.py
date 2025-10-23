@@ -81,7 +81,11 @@ class StateManager:
                 logger.info(f"检测到开发环境，应用路径: {application_path}")
 
             # 确保目录存在
-            application_path.mkdir(parents=True, exist_ok=True)
+            try:
+                application_path.mkdir(parents=True, exist_ok=True)
+            except PermissionError as e:
+                logger.error(f"创建应用程序目录失败 - 权限不足: {e}")
+                raise StateManagerError(f"无法创建应用程序目录 - 权限不足: {e}")
 
             # 在Linux下设置目录权限
             if os.name != "nt":
@@ -90,6 +94,11 @@ class StateManager:
                     logger.debug(f"已设置应用目录权限: {application_path}")
                 except Exception as chmod_err:
                     logger.warning(f"设置应用目录权限失败: {chmod_err}")
+
+            # 检查目录是否可写
+            if not os.access(application_path, os.W_OK):
+                logger.error(f"应用程序目录不可写: {application_path}")
+                raise StateManagerError(f"应用程序目录不可写: {application_path}")
 
             logger.info(
                 f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})"
