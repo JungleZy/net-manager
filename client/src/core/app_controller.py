@@ -125,6 +125,36 @@ class AppController:
         except Exception as e:
             self.logger.error(f"处理开机自启动设置失败: {e}")
 
+    def _get_server_address_from_config(self) -> Optional[Tuple[str, int]]:
+        """
+        从状态文件中获取服务端地址
+
+        Returns:
+            Optional[Tuple[str, int]]: 服务端地址和端口，如果不存在则返回None
+        """
+        try:
+            # 导入状态管理器
+            from src.core.state_manager import get_state_manager
+            
+            # 获取状态管理器实例
+            state_manager = get_state_manager()
+            
+            # 从状态文件中获取tcp_ip
+            tcp_ip = state_manager.get_state("tcp_ip")
+            tcp_port = state_manager.get_state("tcp_port", 12346)  # 默认端口为12346
+            
+            # 如果tcp_ip存在且不为空，则返回地址和端口
+            if tcp_ip and tcp_ip.strip():
+                self.logger.info(f"从状态文件中获取到tcp_ip: {tcp_ip}, tcp_port: {tcp_port}")
+                return (tcp_ip.strip(), int(tcp_port))
+            
+            # 如果tcp_ip不存在，返回None
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"从状态文件获取服务端地址失败: {e}")
+            return None
+
     def _discover_server(self) -> Optional[Tuple[str, int]]:
         """
         使用UDP客户端发现服务端
@@ -185,8 +215,16 @@ class AppController:
                     self.logger.error("TCP客户端未初始化")
                     return False
 
-                # 发现服务端
-                server_address = self._discover_server()
+                # 检查状态文件中是否存在tcp_ip配置
+                server_address = self._get_server_address_from_config()
+                
+                if server_address:
+                    self.logger.info(f"从配置文件获取到服务端地址: {server_address[0]}:{server_address[1]}")
+                else:
+                    # 如果配置文件中没有tcp_ip，则进行UDP发现
+                    self.logger.info("配置文件中没有tcp_ip，开始UDP服务发现...")
+                    server_address = self._discover_server()
+                
                 if not server_address:
                     self.logger.warning(f"未发现服务端,等待{retry_delay}秒后重试...")
                     time.sleep(retry_delay)
