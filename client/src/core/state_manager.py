@@ -140,8 +140,8 @@ class StateManager:
             except PermissionError as e:
                 logger.error(f"加载状态文件失败 - 权限不足: {e}")
                 logger.error(f"目标路径: {self.state_file}")
-                # 使用默认状态
-                self.state = {}
+                # 在初始化时，权限错误应该抛出异常
+                raise StateManagerError(f"加载状态文件失败 - 权限不足: {e}")
             except Exception as e:
                 logger.error(f"加载状态文件失败: {e}")
                 logger.error(f"目标路径: {self.state_file}")
