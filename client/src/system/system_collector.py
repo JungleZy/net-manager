@@ -86,19 +86,51 @@ class SystemCollector:
             SystemInfoCollectionError: 获取IP地址失败
         """
         try:
-            # 尝试通过连接外部地址来获取本地IP
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                # 连接到一个外部地址（不会真正发送数据）
-                s.connect(("8.8.8.8", 80))
-                ip_address = s.getsockname()[0]
+            # 方法1: 尝试通过连接外部地址来获取本地IP（原方法）
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    # 连接到一个外部地址（不会真正发送数据）
+                    s.connect(("8.8.8.8", 80))
+                    ip_address = s.getsockname()[0]
 
-            # 验证IP地址有效性
-            if self._is_valid_ip(ip_address):
-                self.logger.debug(f"获取到IP地址: {ip_address}")
-                return ip_address
-            else:
-                self.logger.warning("获取到无效的IP地址")
-                return "unknown"
+                # 验证IP地址有效性
+                if self._is_valid_ip(ip_address):
+                    self.logger.debug(f"方法1获取到IP地址: {ip_address}")
+                    return ip_address
+            except Exception as e:
+                self.logger.debug(f"方法1获取IP地址失败: {e}")
+
+            # 方法2: 使用psutil获取网络接口信息（适用于Linux系统）
+            try:
+                ip_address = self._get_ip_via_psutil()
+                if ip_address and ip_address != "unknown":
+                    self.logger.debug(f"方法2获取到IP地址: {ip_address}")
+                    return ip_address
+            except Exception as e:
+                self.logger.debug(f"方法2获取IP地址失败: {e}")
+
+            # 方法3: 尝试连接到本地网关
+            try:
+                ip_address = self._get_ip_via_gateway()
+                if ip_address and ip_address != "unknown":
+                    self.logger.debug(f"方法3获取到IP地址: {ip_address}")
+                    return ip_address
+            except Exception as e:
+                self.logger.debug(f"方法3获取IP地址失败: {e}")
+
+            # 方法4: 使用hostname解析（最后尝试）
+            try:
+                hostname = socket.gethostname()
+                ip_address = socket.gethostbyname(hostname)
+                if self._is_valid_ip(ip_address):
+                    self.logger.debug(f"方法4获取到IP地址: {ip_address}")
+                    return ip_address
+            except Exception as e:
+                self.logger.debug(f"方法4获取IP地址失败: {e}")
+
+            # 所有方法都失败
+            self.logger.warning("所有获取IP地址的方法都失败")
+            return "unknown"
         except Exception as e:
             self.logger.error(f"获取IP地址失败: {e}")
             return "unknown"
@@ -202,7 +234,7 @@ class SystemCollector:
                     [
                         "powershell",
                         "-Command",
-                        "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -ExpandProperty NextHop",
+                        "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop",
                     ],
                     capture_output=True,
                     text=True,
@@ -1285,3 +1317,112 @@ class SystemCollector:
                 os_architecture="",
                 machine_type="",
             )
+
+
+    def _get_ip_via_psutil(self) -> str:
+        """
+        使用psutil获取网络接口信息来获取IP地址
+        
+        Returns:
+            str: IP地址，如果获取失败返回"unknown"
+        """
+        try:
+            # 获取网络接口地址
+            net_if_addrs = psutil.net_if_addrs()
+            
+            # 优先选择的接口类型（按优先级排序）
+            preferred_interfaces = ["eth", "en", "wl", "wlan", "ra", "ppp"]
+            
+            # 收集所有有效的IP地址和接口
+            valid_ips = []
+            
+            for interface, addrs in net_if_addrs.items():
+                # 跳过回环接口
+                if interface.lower().startswith("lo"):
+                    continue
+                
+                # 跳过虚拟接口
+                if self._is_virtual_or_loopback_interface(interface):
+                    continue
+                
+                for addr in addrs:
+                    # 只考虑IPv4地址
+                    if addr.family == socket.AF_INET and addr.address:
+                        ip = addr.address
+                        # 验证IP地址有效性
+                        if self._is_valid_ip(ip):
+                            # 计算接口优先级
+                            priority = 0
+                            for i, pref in enumerate(preferred_interfaces):
+                                if interface.lower().startswith(pref):
+                                    priority = len(preferred_interfaces) - i
+                                    break
+                            
+                            valid_ips.append((priority, ip, interface))
+            
+            # 按优先级排序并返回最高优先级的IP地址
+            if valid_ips:
+                valid_ips.sort(key=lambda x: x[0], reverse=True)
+                ip_address = valid_ips[0][1]
+                interface_name = valid_ips[0][2]
+                self.logger.debug(f"通过psutil从接口 {interface_name} 获取到IP地址: {ip_address}")
+                return ip_address
+            
+            return "unknown"
+        except Exception as e:
+            self.logger.debug(f"通过psutil获取IP地址失败: {e}")
+            return "unknown"
+    
+    def _get_ip_via_gateway(self) -> str:
+        """
+        尝试连接到本地网关来获取IP地址
+        
+        Returns:
+            str: IP地址，如果获取失败返回"unknown"
+        """
+        try:
+            # 获取默认网关
+            system_platform = platform.system()
+            gateway = "unknown"
+            
+            if system_platform == "Windows":
+                # Windows系统获取网关
+                result = subprocess.run(
+                    ["powershell", "-Command", "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    gateway = result.stdout.strip().split("\n")[0]
+            elif system_platform in ("Linux", "Darwin"):
+                # Linux/macOS系统获取网关
+                result = subprocess.run(
+                    ["ip", "route", "show", "default"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.split("\n"):
+                        if "default" in line:
+                            parts = line.split()
+                            for i, part in enumerate(parts):
+                                if part == "via" and i + 1 < len(parts):
+                                    gateway = parts[i + 1]
+                                    break
+            
+            # 如果获取到网关，尝试连接到网关
+            if gateway and self._is_valid_ip(gateway):
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                        # 连接到网关（不会真正发送数据）
+                        s.connect((gateway, 80))
+                        ip_address = s.getsockname()[0]
+                        
+                        if self._is_valid_ip(ip_address):
+                            self.logger.debug(f"通过网关 {gateway} 获取到IP地址: {ip_address}")
+                            return ip_address
+                except Exception as e:
+                    self.logger.debug(f"通过网关连接获取IP地址失败: {e}")
+            
+            return "unknown"
+        except Exception as e:
+            self.logger.debug(f"获取网关或通过网关获取IP地址失败: {e}")
+            return "unknown"

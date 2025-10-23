@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""
+测试IP地址获取功能的脚本
+用于验证修改后的system_collector.py在Linux系统上的兼容性
+"""
+
+import sys
+import os
+import platform
+import socket
+
+# 添加项目路径到sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(current_dir, 'src')
+sys.path.insert(0, src_dir)
+
+try:
+    from system.system_collector import SystemCollector
+    from utils.logger import get_logger
+except ImportError as e:
+    print(f"导入错误: {e}")
+    print("尝试直接导入模块...")
+    
+    # 尝试直接导入文件
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("system_collector", os.path.join(src_dir, "system", "system_collector.py"))
+    system_collector_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(system_collector_module)
+    
+    SystemCollector = system_collector_module.SystemCollector
+    
+    spec = importlib.util.spec_from_file_location("logger", os.path.join(src_dir, "utils", "logger.py"))
+    logger_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(logger_module)
+    
+    get_logger = logger_module.get_logger
+
+def test_ip_address_methods():
+    """测试各种IP地址获取方法"""
+    logger = get_logger()
+    system_collector = SystemCollector()
+    
+    print(f"操作系统: {platform.system()} {platform.release()}")
+    print(f"Python版本: {platform.python_version()}")
+    print("=" * 50)
+    
+    # 测试各个方法
+    methods = [
+        ("方法1: 连接外部地址", lambda: system_collector._test_method_1()),
+        ("方法2: 使用psutil", lambda: system_collector._get_ip_via_psutil()),
+        ("方法3: 通过网关", lambda: system_collector._get_ip_via_gateway()),
+        ("方法4: 使用hostname", lambda: system_collector._test_method_4()),
+        ("综合方法", lambda: system_collector.get_ip_address())
+    ]
+    
+    for method_name, method_func in methods:
+        try:
+            result = method_func()
+            print(f"{method_name}: {result}")
+        except Exception as e:
+            print(f"{method_name}: 失败 - {e}")
+    
+    print("=" * 50)
+    print("网络接口信息:")
+    try:
+        import psutil
+        net_if_addrs = psutil.net_if_addrs()
+        for interface, addrs in net_if_addrs.items():
+            print(f"\n接口: {interface}")
+            for addr in addrs:
+                if addr.family == socket.AF_INET:
+                    print(f"  IPv4: {addr.address} / {addr.netmask}")
+                elif addr.family == socket.AF_INET6:
+                    print(f"  IPv6: {addr.address}")
+                elif hasattr(psutil, 'AF_LINK') and addr.family == psutil.AF_LINK:
+                    print(f"  MAC: {addr.address}")
+    except Exception as e:
+        print(f"获取网络接口信息失败: {e}")
+    
+    print("=" * 50)
+    print("路由信息:")
+    try:
+        if platform.system() in ("Linux", "Darwin"):
+            import subprocess
+            result = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                for line in result.stdout.split("\n")[:10]:  # 只显示前10行
+                    if line.strip():
+                        print(f"  {line}")
+        elif platform.system() == "Windows":
+            import subprocess
+            result = subprocess.run(["route", "print"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                lines = result.stdout.split("\n")
+                # 找到IPv4路由表部分
+                in_ipv4_section = False
+                for line in lines:
+                    if "IPv4 路由表" in line or "IPv4 Route Table" in line:
+                        in_ipv4_section = True
+                    if in_ipv4_section and line.strip():
+                        print(f"  {line}")
+                        if "====" in line:  # 路由表结束标记
+                            break
+    except Exception as e:
+        print(f"获取路由信息失败: {e}")
+
+# 添加测试方法到SystemCollector类
+def _test_method_1(self):
+    """测试方法1: 连接外部地址"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            ip_address = s.getsockname()[0]
+        if self._is_valid_ip(ip_address):
+            return ip_address
+        return "invalid"
+    except Exception as e:
+        return f"error: {e}"
+
+def _test_method_4(self):
+    """测试方法4: 使用hostname"""
+    try:
+        hostname = socket.gethostname()
+        ip_address = socket.gethostbyname(hostname)
+        if self._is_valid_ip(ip_address):
+            return ip_address
+        return "invalid"
+    except Exception as e:
+        return f"error: {e}"
+
+# 动态添加方法到SystemCollector类
+SystemCollector._test_method_1 = _test_method_1
+SystemCollector._test_method_4 = _test_method_4
+
+if __name__ == "__main__":
+    test_ip_address_methods()
