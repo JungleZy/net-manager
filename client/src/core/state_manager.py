@@ -38,7 +38,15 @@ class StateManager:
             return
 
         self._initialized = True
-        self.state_file = self._get_application_path() / "client_state.json"
+        app_path = self._get_application_path()
+        self.state_file = app_path / "client_state.json"
+        
+        # 添加调试输出
+        from ..utils.logger import get_logger
+        logger = get_logger()
+        logger.info(f"应用路径: {app_path}")
+        logger.info(f"状态文件路径: {self.state_file}")
+        
         self.lock = threading.RLock()  # 使用可重入锁保护状态访问
         self._load_state()
 
@@ -103,6 +111,12 @@ class StateManager:
             logger.info(
                 f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})"
             )
+            
+            # 添加调试输出
+            logger.info(f"sys.argv[0]: {sys.argv[0]}")
+            logger.info(f"sys.executable: {sys.executable}")
+            logger.info(f"__compiled__: {__compiled__ in globals()}")
+            
             return application_path
         except PermissionError as e:
             logger.error(f"获取应用程序路径失败 - 权限不足: {e}")
