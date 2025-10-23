@@ -150,6 +150,14 @@ def test_permission_error_handling():
         sys.argv[0] = str(test_executable)
         globals()["__compiled__"] = True
 
+        # 验证realpath解析后的路径
+        resolved_path = os.path.realpath(sys.argv[0])
+        print(f"sys.argv[0]: {sys.argv[0]}")
+        print(f"realpath(sys.argv[0]): {resolved_path}")
+        print(f"realpath目录: {os.path.dirname(resolved_path)}")
+        print(f"realpath目录权限: {oct(os.stat(os.path.dirname(resolved_path)).st_mode)[-3:]}")
+        print(f"realpath目录是否可写: {os.access(os.path.dirname(resolved_path), os.W_OK)}")
+
         # 尝试创建状态管理器（应该捕获权限错误）
         from src.core.state_manager import StateManager, StateManagerError
 
