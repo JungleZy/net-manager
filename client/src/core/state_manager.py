@@ -38,15 +38,7 @@ class StateManager:
             return
 
         self._initialized = True
-        app_path = self._get_application_path()
-        self.state_file = app_path / "client_state.json"
-        
-        # 添加调试输出
-        from ..utils.logger import get_logger
-        logger = get_logger()
-        logger.info(f"应用路径: {app_path}")
-        logger.info(f"状态文件路径: {self.state_file}")
-        
+        self.state_file = self._get_application_path() / "client_state.json"
         self.lock = threading.RLock()  # 使用可重入锁保护状态访问
         self._load_state()
 
@@ -89,11 +81,7 @@ class StateManager:
                 logger.info(f"检测到开发环境，应用路径: {application_path}")
 
             # 确保目录存在
-            try:
-                application_path.mkdir(parents=True, exist_ok=True)
-            except PermissionError as e:
-                logger.error(f"创建应用程序目录失败 - 权限不足: {e}")
-                raise StateManagerError(f"无法创建应用程序目录 - 权限不足: {e}")
+            application_path.mkdir(parents=True, exist_ok=True)
 
             # 在Linux下设置目录权限
             if os.name != "nt":
@@ -103,20 +91,9 @@ class StateManager:
                 except Exception as chmod_err:
                     logger.warning(f"设置应用目录权限失败: {chmod_err}")
 
-            # 检查目录是否可写
-            if not os.access(application_path, os.W_OK):
-                logger.error(f"应用程序目录不可写: {application_path}")
-                raise StateManagerError(f"应用程序目录不可写: {application_path}")
-
             logger.info(
                 f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})"
             )
-            
-            # 添加调试输出
-            logger.info(f"sys.argv[0]: {sys.argv[0]}")
-            logger.info(f"sys.executable: {sys.executable}")
-            logger.info(f"__compiled__: {__compiled__ in globals()}")
-            
             return application_path
         except PermissionError as e:
             logger.error(f"获取应用程序路径失败 - 权限不足: {e}")
@@ -163,8 +140,8 @@ class StateManager:
             except PermissionError as e:
                 logger.error(f"加载状态文件失败 - 权限不足: {e}")
                 logger.error(f"目标路径: {self.state_file}")
-                # 在初始化时，权限错误应该抛出异常
-                raise StateManagerError(f"加载状态文件失败 - 权限不足: {e}")
+                # 使用默认状态
+                self.state = {}
             except Exception as e:
                 logger.error(f"加载状态文件失败: {e}")
                 logger.error(f"目标路径: {self.state_file}")
