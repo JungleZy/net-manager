@@ -16,7 +16,13 @@
       <!-- 头部 -->
       <div class="popover-header">
         <div class="header-top">
-          <h4 class="popover-title">
+          <h4
+            class="popover-title truncate"
+            :title="
+              (device.device_name || '未命名设备') +
+              (device.alias ? ' - ' + device.alias : '')
+            "
+          >
             {{ device.device_name || '未命名设备' }}
             <span style="font-size: 14px">{{
               device.alias ? ' - ' + device.alias : ''
@@ -25,10 +31,10 @@
           <span
             :class="[
               'status-badge',
-              device.status === 'success' ? 'online' : 'offline'
+              device.status === 'online' ? 'online' : 'offline'
             ]"
           >
-            {{ device.status === 'success' ? '在线' : '离线' }}
+            {{ device.status === 'online' ? '在线' : '离线' }}
           </span>
         </div>
       </div>

@@ -312,6 +312,33 @@ export const deriveDeviceName = (description) => {
     return 'Arista交换机';
   }
 
+  // 迪普科技（DPtech）设备识别
+  if (description.includes('DPTECH') || description.includes('DPtech') || description.includes('迪普科技')) {
+    // 迪普科技交换机型号识别 (LSW系列等)
+    const dptechPatterns = [
+      /lsw\d+-?[a-z0-9\-]+/i,        // LSW系列，如LSW5662-28GT8XGS-G
+      /conplat\s*software/i,         // Conplat软件平台
+    ];
+
+    for (const pattern of dptechPatterns) {
+      const modelMatch = description.match(pattern);
+      if (modelMatch) {
+        // 如果匹配到的是Conplat，尝试从描述中提取具体型号
+        if (modelMatch[0].toLowerCase().includes('conplat')) {
+          const conplatModelMatch = description.match(/([A-Z0-9\-]+\-?[A-Z0-9\-]*)/i);
+          if (conplatModelMatch && conplatModelMatch[0] !== 'DPTECH') {
+            return `迪普科技${conplatModelMatch[0]}交换机`;
+          }
+        } else {
+          return `迪普科技${modelMatch[0]}交换机`;
+        }
+      }
+    }
+
+    // 如果没有匹配到具体型号，则返回通用名称
+    return '迪普科技交换机';
+  }
+
   // HP设备识别（包括打印机、交换机等）
   if (description.includes('HP') || description.includes('惠普') || description.includes('Hewlett')) {
     // 首先检查是否是打印机
@@ -373,6 +400,7 @@ export const deriveDeviceName = (description) => {
       { pattern: /(CISCO|思科)/i, name: '思科' },
       { pattern: /H3C/i, name: 'H3C' },
       { pattern: /(RUIJIE|锐捷)/i, name: '锐捷' },
+      { pattern: /(DPTECH|DPtech|迪普科技)/i, name: '迪普科技' },
       { pattern: /(TP\-LINK|TP_LINK|TPLINK)/i, name: 'TP-LINK' },
       { pattern: /(Dell|DELL|PowerConnect)/i, name: '戴尔' },
       { pattern: /(Netgear|NETGEAR)/i, name: 'Netgear' },

@@ -213,6 +213,7 @@ import '@logicflow/core/lib/style/index.css'
 import '@logicflow/extension/lib/style/index.css'
 import DeviceApi from '@/common/api/device'
 import SwitchApi from '@/common/api/switch'
+import TopologyApi from '@/common/api/topology'
 import { message } from 'ant-design-vue'
 import Firewall from '@/assets/firewall.png'
 import Laptop from '@/assets/laptop.png'
@@ -284,243 +285,7 @@ const ANCHOR = Object.freeze({
   LEFT: 3
 })
 
-// 使用 shallowRef 减少响应式开销,拓扑数据不需要深度响应
-let data = {
-  // nodes: [
-  //   {
-  //     id: '3',
-  //     type: 'firewall',
-  //     x: 200,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 200, y: 300, value: '防火墙防火墙防火墙' }
-  //   },
-  //   {
-  //     id: '31',
-  //     type: 'firewall',
-  //     x: 652,
-  //     y: 658,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 652, y: 658, value: '防火墙防火墙防火墙' }
-  //   },
-  //   {
-  //     id: '4',
-  //     type: 'laptop',
-  //     x: 350,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 350, y: 300, value: '笔记本防火墙台式机路由器' }
-  //   },
-  //   {
-  //     id: '41',
-  //     type: 'laptop',
-  //     x: 451,
-  //     y: 173,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 451, y: 173, value: '笔记本防火墙台式机路由器' }
-  //   },
-  //   {
-  //     id: '5',
-  //     type: 'pc',
-  //     x: 500,
-  //     y: 300,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 500, y: 300, value: '台式机' }
-  //   },
-  //   {
-  //     id: '51',
-  //     type: 'pc',
-  //     x: 767,
-  //     y: 201,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 767, y: 201, value: '台式机' }
-  //   },
-  //   {
-  //     id: '6',
-  //     type: 'router',
-  //     x: 656,
-  //     y: 536,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 656, y: 536, value: '路由器' }
-  //   },
-  //   {
-  //     id: '61',
-  //     type: 'router',
-  //     x: 282,
-  //     y: 604,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 282, y: 604, value: '路由器' }
-  //   },
-  //   {
-  //     id: '7',
-  //     type: 'server',
-  //     x: 654,
-  //     y: 824,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 654, y: 824, value: '服务器' }
-  //   },
-  //   {
-  //     id: '71',
-  //     type: 'server',
-  //     x: 432,
-  //     y: 643,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 432, y: 643, value: '服务器' }
-  //   },
-  //   {
-  //     id: '8',
-  //     type: 'switch',
-  //     x: 673,
-  //     y: 380,
-  //     properties: { width: 60, height: 60, status: 'offline' },
-  //     text: { x: 673, y: 380, value: '交换机' }
-  //   },
-  //   {
-  //     id: '81',
-  //     type: 'switch',
-  //     x: 473,
-  //     y: 417,
-  //     properties: { width: 60, height: 60, status: 'online' },
-  //     text: { x: 473, y: 417, value: '交换机' }
-  //   }
-  // ],
-  // edges: [
-  //   {
-  //     id: '5a93be03-4a83-4e0d-9f51-66dc35b91c69',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '41',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '41_1',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 481, y: 173 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 481, y: 173 },
-  //       { x: 673, y: 173 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '3927ff57-8721-4b14-93dc-614dc359f864',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '51',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '51_2',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 767, y: 231 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 767, y: 231 },
-  //       { x: 767, y: 320 },
-  //       { x: 673, y: 320 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '214ca0b3-1a1f-43f7-a00b-f1e01183b82a',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '5',
-  //     targetNodeId: '8',
-  //     sourceAnchorId: '5_1',
-  //     targetAnchorId: '8_0',
-  //     startPoint: { x: 530, y: 300 },
-  //     endPoint: { x: 673, y: 350 },
-  //     pointsList: [
-  //       { x: 530, y: 300 },
-  //       { x: 673, y: 300 },
-  //       { x: 673, y: 350 }
-  //     ]
-  //   },
-  //   {
-  //     id: '007d8b7b-f77b-4891-8e55-f2515bdb133a',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '4',
-  //     targetNodeId: '81',
-  //     sourceAnchorId: '4_2',
-  //     targetAnchorId: '81_0',
-  //     startPoint: { x: 350, y: 330 },
-  //     endPoint: { x: 473, y: 387 },
-  //     pointsList: [
-  //       { x: 350, y: 330 },
-  //       { x: 350, y: 357 },
-  //       { x: 473, y: 357 },
-  //       { x: 473, y: 387 }
-  //     ]
-  //   },
-  //   {
-  //     id: 'e440b0ea-f69a-4c3a-bdbf-778049faf7bc',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '81',
-  //     targetNodeId: '6',
-  //     sourceAnchorId: '81_2',
-  //     targetAnchorId: '6_0',
-  //     startPoint: { x: 473, y: 447 },
-  //     endPoint: { x: 656, y: 506 },
-  //     pointsList: [
-  //       { x: 473, y: 447 },
-  //       { x: 473, y: 476 },
-  //       { x: 656, y: 476 },
-  //       { x: 656, y: 506 }
-  //     ]
-  //   },
-  //   {
-  //     id: '7cfd444b-04ba-4383-b282-7da9726800cf',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '8',
-  //     targetNodeId: '6',
-  //     sourceAnchorId: '8_2',
-  //     targetAnchorId: '6_0',
-  //     startPoint: { x: 673, y: 410 },
-  //     endPoint: { x: 656, y: 506 },
-  //     pointsList: [
-  //       { x: 673, y: 410 },
-  //       { x: 673, y: 458 },
-  //       { x: 656, y: 458 },
-  //       { x: 656, y: 506 }
-  //     ]
-  //   },
-  //   {
-  //     id: '3d5c2846-9e14-4110-9952-d623541cc55f',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '6',
-  //     targetNodeId: '31',
-  //     sourceAnchorId: '6_2',
-  //     targetAnchorId: '31_0',
-  //     startPoint: { x: 656, y: 566 },
-  //     endPoint: { x: 652, y: 628 },
-  //     pointsList: [
-  //       { x: 656, y: 566 },
-  //       { x: 656, y: 597 },
-  //       { x: 652, y: 597 },
-  //       { x: 652, y: 628 }
-  //     ]
-  //   },
-  //   {
-  //     id: '15c820d6-2265-47ec-85e8-69ffd631f068',
-  //     type: 'polyline',
-  //     properties: {},
-  //     sourceNodeId: '31',
-  //     targetNodeId: '7',
-  //     sourceAnchorId: '31_2',
-  //     targetAnchorId: '7_0',
-  //     startPoint: { x: 652, y: 688 },
-  //     endPoint: { x: 654, y: 794 },
-  //     pointsList: [
-  //       { x: 652, y: 688 },
-  //       { x: 652, y: 741 },
-  //       { x: 654, y: 741 },
-  //       { x: 654, y: 794 }
-  //     ]
-  //   }
-  // ]
-}
+let data = {}
 
 onMounted(() => {
   nextTick(() => {
@@ -775,10 +540,10 @@ const initTopology = async () => {
   })
 
   // 获取设备和交换机数据并设置拖拽面板项
-  Promise.all([loadLatestTopology()])
+  Promise.all([fetchDevices(), fetchSwitches()])
     .then(() => {
-      fetchDevices()
-      fetchSwitches()
+      // 设备和交换机数据加载完成后，再加载拓扑图数据
+      loadLatestTopology()
     })
     .catch((error) => {
       console.error('初始化数据加载失败:', error)
@@ -804,6 +569,65 @@ const loadLatestTopology = async () => {
     if (response?.data?.content) {
       const topologyData = response.data.content
       currentTopologyId.value = response.data.id
+
+      // 更新节点文本以反映最新的别名
+      if (topologyData.nodes && devices.value && switches.value) {
+        // 创建设备映射，便于快速查找
+        const deviceMap = {}
+        for (let i = 0, len = devices.value.length; i < len; i++) {
+          const device = devices.value[i]
+          deviceMap[device.client_id] = device
+        }
+
+        // 创建交换机映射，便于快速查找
+        const switchMap = {}
+        for (let i = 0, len = switches.value.length; i < len; i++) {
+          const switchItem = switches.value[i]
+          switchMap[switchItem.id] = switchItem
+        }
+
+        // 更新节点文本
+        for (let i = 0, len = topologyData.nodes.length; i < len; i++) {
+          const node = topologyData.nodes[i]
+          const dataId = node?.properties?.data?.id
+
+          if (dataId) {
+            // 检查是否是设备节点
+            const device = deviceMap[dataId]
+            if (device) {
+              // 优先使用alias，如果没有则使用hostname或ip_address
+              const displayName =
+                device.alias ||
+                device.hostname ||
+                device.ip_address ||
+                '未知设备'
+              if (node.text) {
+                node.text.value = displayName
+              } else {
+                node.text = { value: displayName }
+              }
+              continue
+            }
+
+            // 检查是否是交换机节点
+            const switchItem = switchMap[dataId]
+            if (switchItem) {
+              // 优先使用alias，如果没有则使用device_name或从描述推导设备名称
+              const deviceName =
+                switchItem.alias ||
+                switchItem.device_name ||
+                deriveDeviceName(switchItem.description) ||
+                '未知交换机'
+              if (node.text) {
+                node.text.value = deviceName
+              } else {
+                node.text = { value: deviceName }
+              }
+            }
+          }
+        }
+      }
+
       data = topologyData
       lf.render(data)
     } else {
@@ -811,6 +635,9 @@ const loadLatestTopology = async () => {
       lf.render(data)
     }
     handleCenterView(lf)
+
+    // 更新左侧菜单，确保已添加到拓扑图的设备不会重复显示
+    updateLeftMenus()
   } catch (error) {
     // 如果是404错误(没有拓扑图),使用默认数据
     if (error?.response?.status === 404) {
@@ -820,6 +647,10 @@ const loadLatestTopology = async () => {
       message.error('加载拓扑图失败')
       lf.render(data)
     }
+    handleCenterView(lf)
+
+    // 更新左侧菜单，确保已添加到拓扑图的设备不会重复显示
+    updateLeftMenus()
   }
 }
 
@@ -866,9 +697,11 @@ const fetchDevices = async () => {
     const response = await DeviceApi.getDevicesList()
     devices.value = response?.data || []
     updateLeftMenus()
+    return Promise.resolve()
   } catch (error) {
     console.error('获取设备列表失败:', error)
     message.error('获取设备列表失败')
+    return Promise.reject(error)
   }
 }
 
@@ -878,9 +711,11 @@ const fetchSwitches = async () => {
     const response = await SwitchApi.getSwitchesList()
     switches.value = response?.data || []
     updateLeftMenus()
+    return Promise.resolve()
   } catch (error) {
     console.error('获取交换机列表失败:', error)
     message.error('获取交换机列表失败')
+    return Promise.reject(error)
   }
 }
 
@@ -1134,7 +969,9 @@ const updateLeftMenus = () => {
 
     const deviceType = device.type || '未知设备'
     const typeConfig = DEVICE_TYPE_MAP[deviceType] || { icon: Pc, type: 'pc' }
-    const displayName = device.hostname || device.ip_address || '未知设备'
+    // 优先使用alias，如果没有则使用hostname或ip_address
+    const displayName =
+      device.alias || device.hostname || device.ip_address || '未知设备'
 
     newMenus.push({
       type: typeConfig.type,
@@ -1161,8 +998,9 @@ const updateLeftMenus = () => {
       continue
     }
 
-    // 使用 deriveDeviceName 函数从描述推导设备名称
+    // 优先使用alias，如果没有则使用device_name或从描述推导设备名称
     const deviceName =
+      switchItem.alias ||
       switchItem.device_name ||
       deriveDeviceName(switchItem.description) ||
       '未知交换机'

@@ -140,7 +140,7 @@ class ResidentProcessManager(BaseDatabaseManager):
                 )
 
                 conn.commit()
-                logger.info("常驻进程信息表初始化成功，已启用外键约束和优化设置")
+                # logger.info("常驻进程信息表初始化成功，已启用外键约束和优化设置")
         except Exception as e:
             logger.error(f"常驻进程信息表初始化失败: {e}")
             raise DatabaseError(f"常驻进程信息表初始化失败: {e}") from e

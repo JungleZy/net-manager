@@ -160,7 +160,7 @@ class SwitchManager(BaseDatabaseManager):
                 )
 
                 conn.commit()
-                logger.info("交换机信息表初始化成功，已启用外键约束和优化设置")
+                # logger.info("交换机信息表初始化成功，已启用外键约束和优化设置")
         except Exception as e:
             logger.error(f"交换机信息表初始化失败: {e}")
             raise DatabaseError(f"交换机信息表初始化失败: {e}") from e

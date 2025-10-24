@@ -569,7 +569,7 @@ class SNMPManager:
         interface_poll_interval: int = 30,
         interface_min_workers: int = 5,
         interface_max_workers: int = 30,
-        interface_timeout: int = 60,
+        interface_timeout: int = 600,
         enable_cache: bool = True,
         cache_ttl: int = 300,
         dynamic_adjustment: bool = True,

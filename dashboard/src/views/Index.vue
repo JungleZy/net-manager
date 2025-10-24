@@ -6,7 +6,7 @@
       <!-- Logo部分 -->
       <div class="h-full layout-left-center">
         <div class="text-2xl font-bold h-full layout-left-center text-white">
-          局域网网络监控中心
+          网络监控中心
         </div>
 
         <!-- 菜单部分 -->

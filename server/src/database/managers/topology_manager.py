@@ -140,7 +140,7 @@ class TopologyManager(BaseDatabaseManager):
                 )
 
                 conn.commit()
-                logger.info("拓扑图信息表初始化成功，已启用外键约束和优化设置")
+                # logger.info("拓扑图信息表初始化成功，已启用外键约束和优化设置")
         except Exception as e:
             logger.error(f"拓扑图信息表初始化失败: {e}")
             raise DatabaseError(f"拓扑图信息表初始化失败: {e}") from e

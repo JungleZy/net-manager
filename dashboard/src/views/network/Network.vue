@@ -1909,7 +1909,7 @@ onMounted(() => {
     // 加载主题设置
     loadThemeSettings()
 
-    // 初始化LogicFlow（内部会加载数据）
+    // 初始化LogicFlow
     initLogicFlow()
 
     // 初始化 ResizeObserver
