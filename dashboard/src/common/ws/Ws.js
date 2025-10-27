@@ -171,9 +171,14 @@ export class Ws {
           last_update_time: null
         };
       }
-
       // 更新设备信息
-      snmpData[switchId].device_info = deviceData;
+      if (deviceData.type === 'success') {
+        snmpData[switchId].interface_info = deviceData.device_info;
+        snmpData[switchId].status = 'online';
+      } else {
+        snmpData[switchId].interface_info = deviceData;
+        snmpData[switchId].status = 'offline';
+      }
       snmpData[switchId].device_update_time = new Date().toISOString();
       snmpData[switchId].last_update_time = new Date().toISOString();
       snmpData[switchId].ip = deviceData.ip; // 更新IP（可能变化）
@@ -210,12 +215,19 @@ export class Ws {
           interface_info: null,
           device_update_time: null,
           interface_update_time: null,
-          last_update_time: null
+          last_update_time: null,
+          status: 'offline'
         };
       }
 
       // 更新接口信息
-      snmpData[switchId].interface_info = interfaceData;
+      if (interfaceData.type === 'success') {
+        snmpData[switchId].interface_info = interfaceData.interface_info;
+        snmpData[switchId].status = 'online';
+      } else {
+        snmpData[switchId].interface_info = interfaceData;
+        snmpData[switchId].status = 'offline';
+      }
       snmpData[switchId].interface_update_time = new Date().toISOString();
       snmpData[switchId].last_update_time = new Date().toISOString();
       snmpData[switchId].ip = interfaceData.ip; // 更新IP（可能变化）

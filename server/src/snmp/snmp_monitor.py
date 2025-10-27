@@ -445,63 +445,131 @@ class SNMPMonitor:
 
     async def get_device_info(self, ip: str, version: str, **kwargs) -> Dict[str, Any]:
         """
-        获取设备基本信息
+        获取设备基本信息（参考 get_interface_info 的会话复用与健壮性）
 
-        Args:
-            ip: 设备IP地址
-            version: SNMP版本
-            **kwargs: 认证参数
-
-        Returns:
-            包含设备信息的字典
+        保持输入输出不变：
+        - 成功连接时包含：description；其他字段按各自OID获取成功与否填充
+        - 首次连接性检查失败则返回空字典
         """
-        device_info = {}
+        device_info: Dict[str, Any] = {}
+        _start_ts = time.perf_counter()
 
-        # 获取系统描述（作为连通性测试）
-        value, success = await self.get_data(
-            ip, version, self.OIDS["sysDescr"], **kwargs
+        # 复用会话，统一关闭 dispatcher
+        snmp_engine, transport_target, creds, _mode = await self._create_session(
+            ip, version, **kwargs
         )
-        if not success:
-            # 第一次请求失败，设备不可达，直接返回空字典，避免后续无效请求
+
+        try:
+            # 连接性检查：仅拉取 sysDescr，失败则与原逻辑一致返回 {}
+            try:
+                error_indication, error_status, error_index, var_binds = await get_cmd(
+                    snmp_engine,
+                    creds,
+                    transport_target,
+                    ContextData(),
+                    ObjectType(ObjectIdentity(self.OIDS["sysDescr"])),
+                )
+            except Exception as e:
+                logger.error(f"设备 {ip} 连接性检查异常: {e}")
+                return device_info
+
+            if error_indication or error_status:
+                # 与旧实现一致：首次请求失败直接返回空字典
+                return device_info
+
+            descr_val = var_binds[0][1] if var_binds else None
+            device_info["description"] = str(descr_val) if descr_val else ""
+
+            # 批量获取其余标量OID（若批量失败，回退到逐项GET）
+            other_oids = [
+                self.OIDS["sysName"],
+                self.OIDS["sysLocation"],
+                self.OIDS["sysUpTime"],
+                self.OIDS["sysObjectID"],
+                self.OIDS["ifNumber"],
+            ]
+            objects = [ObjectType(ObjectIdentity(o)) for o in other_oids]
+
+            def _assign(key: str, val_obj: Any):
+                # 保持与旧实现一致的类型与默认值
+                if key == "if_count":
+                    if val_obj is not None:
+                        device_info["if_count"] = int(val_obj) if val_obj else 0
+                else:
+                    if val_obj is not None:
+                        device_info[key] = str(val_obj) if val_obj else ""
+
+            # 先尝试批量GET
+            batch_ok = False
+            try:
+                error_indication, error_status, error_index, var_binds = await get_cmd(
+                    snmp_engine,
+                    creds,
+                    transport_target,
+                    ContextData(),
+                    *objects,
+                )
+                if not error_indication and not error_status and var_binds:
+                    # 按顺序映射到字段
+                    values = [vb[1] for vb in var_binds]
+                    # 兼容返回数量差异（尽量安全）
+                    val_sysName = values[0] if len(values) > 0 else None
+                    val_sysLocation = values[1] if len(values) > 1 else None
+                    val_sysUpTime = values[2] if len(values) > 2 else None
+                    val_sysObjectID = values[3] if len(values) > 3 else None
+                    val_ifNumber = values[4] if len(values) > 4 else None
+
+                    _assign("name", val_sysName)
+                    _assign("location", val_sysLocation)
+                    _assign("uptime", val_sysUpTime)
+                    _assign("object_id", val_sysObjectID)
+                    _assign("if_count", val_ifNumber)
+                    batch_ok = True
+            except Exception as e:
+                logger.debug(f"批量获取设备信息失败，准备回退逐项GET: {e}")
+
+            # 批量失败时逐项GET，保持与原实现相同的逐项成功/失败影响范围
+            if not batch_ok:
+                per_map = [
+                    ("name", self.OIDS["sysName"]),
+                    ("location", self.OIDS["sysLocation"]),
+                    ("uptime", self.OIDS["sysUpTime"]),
+                    ("object_id", self.OIDS["sysObjectID"]),
+                    ("if_count", self.OIDS["ifNumber"]),
+                ]
+                for key, oid in per_map:
+                    try:
+                        error_indication, error_status, error_index, var_binds = (
+                            await get_cmd(
+                                snmp_engine,
+                                creds,
+                                transport_target,
+                                ContextData(),
+                                ObjectType(ObjectIdentity(oid)),
+                            )
+                        )
+                        if not error_indication and not error_status and var_binds:
+                            val_obj = var_binds[0][1]
+                            _assign(key, val_obj)
+                    except Exception:
+                        # 单项失败与原实现一致：跳过该字段，不影响其他字段
+                        pass
+
             return device_info
-
-        device_info["description"] = str(value) if value else ""
-
-        # 获取系统名称
-        value, success = await self.get_data(
-            ip, version, self.OIDS["sysName"], **kwargs
-        )
-        if success:
-            device_info["name"] = str(value) if value else ""
-
-        # 获取系统位置
-        value, success = await self.get_data(
-            ip, version, self.OIDS["sysLocation"], **kwargs
-        )
-        if success:
-            device_info["location"] = str(value) if value else ""
-
-        # 获取系统运行时间
-        value, success = await self.get_data(
-            ip, version, self.OIDS["sysUpTime"], **kwargs
-        )
-        if success:
-            device_info["uptime"] = str(value) if value else ""
-
-        value, success = await self.get_data(
-            ip, version, self.OIDS["sysObjectID"], **kwargs
-        )
-        if success:
-            device_info["object_id"] = str(value) if value else ""
-
-        # 获取端口数量
-        value, success = await self.get_data(
-            ip, version, self.OIDS["ifNumber"], **kwargs
-        )
-        if success:
-            device_info["if_count"] = int(value) if value else 0
-
-        return device_info
+        finally:
+            # 记录耗时并关闭 dispatcher
+            try:
+                elapsed_ms = int((time.perf_counter() - _start_ts) * 1000)
+                status_text = "成功" if len(device_info) > 0 else "失败"
+                logger.info(
+                    f"{ip} 设备信息采集耗时 {elapsed_ms} ms，状态：{status_text}"
+                )
+            except Exception:
+                pass
+            try:
+                snmp_engine.transportDispatcher.closeDispatcher()
+            except Exception:
+                pass
 
     async def _create_session(
         self, ip: str, version: str, **kwargs
@@ -627,7 +695,10 @@ class SNMPMonitor:
                             )
                         )
                         for base_oid in base_oids:
-                            if oid_str.startswith(base_oid + ".") or oid_str == base_oid:
+                            if (
+                                oid_str.startswith(base_oid + ".")
+                                or oid_str == base_oid
+                            ):
                                 try:
                                     idx = int(oid_str.split(".")[-1])
                                 except Exception:
@@ -642,7 +713,9 @@ class SNMPMonitor:
                 max_rounds = max(1, int(kwargs.get("_if_count_hint", 64))) * 2
                 rounds = 0
                 # 先处理首次 cmd_iter（避免未等待协程的警告）
-                last_oid_by_base: Dict[str, Optional[str]] = {b: None for b in base_oids}
+                last_oid_by_base: Dict[str, Optional[str]] = {
+                    b: None for b in base_oids
+                }
                 error_indication, error_status, error_index, var_binds = await cmd_iter
                 if error_indication:
                     logger.debug(f"遍历错误: {error_indication}")
@@ -697,7 +770,9 @@ class SNMPMonitor:
                             ContextData(),
                             *objects,
                         )
-                    error_indication, error_status, error_index, var_binds = await cmd_iter_once
+                    error_indication, error_status, error_index, var_binds = (
+                        await cmd_iter_once
+                    )
                     if error_indication or error_status:
                         logger.debug(f"遍历错误: {error_indication or error_status}")
                         break
@@ -803,10 +878,14 @@ class SNMPMonitor:
                 ) in cmd_iter:
                     if error_indication or error_status:
                         status_str = (
-                            error_status.prettyPrint()
-                            if hasattr(error_status, "prettyPrint")
-                            else str(error_status)
-                        ) if error_status else str(error_indication)
+                            (
+                                error_status.prettyPrint()
+                                if hasattr(error_status, "prettyPrint")
+                                else str(error_status)
+                            )
+                            if error_status
+                            else str(error_indication)
+                        )
                         logger.debug(f"预探测错误: {status_str}")
                         return False, 0, 0
                     # 只评估首个批次响应
@@ -826,10 +905,14 @@ class SNMPMonitor:
                 error_indication, error_status, error_index, var_binds = await cmd_iter
                 if error_indication or error_status:
                     status_str = (
-                        error_status.prettyPrint()
-                        if hasattr(error_status, "prettyPrint")
-                        else str(error_status)
-                    ) if error_status else str(error_indication)
+                        (
+                            error_status.prettyPrint()
+                            if hasattr(error_status, "prettyPrint")
+                            else str(error_status)
+                        )
+                        if error_status
+                        else str(error_indication)
+                    )
                     logger.debug(f"预探测错误: {status_str}")
                     return False, 0, 0
                 for vb in var_binds:
@@ -1108,10 +1191,10 @@ class SNMPMonitor:
                 # 添加流量数据
                 in_octets_val = in_octets_map.get(idx)
                 out_octets_val = out_octets_map.get(idx)
-                
+
                 in_octets = int(in_octets_val) if in_octets_val is not None else 0
                 out_octets = int(out_octets_val) if out_octets_val is not None else 0
-                
+
                 interface["in_octets"] = in_octets
                 interface["out_octets"] = out_octets
 
@@ -1168,11 +1251,13 @@ class SNMPMonitor:
             return interfaces
         finally:
             # 统一关闭 dispatcher
-            
+
             try:
                 elapsed_ms = int((time.perf_counter() - _start_ts) * 1000)
                 status_text = "成功" if len(interfaces) > 0 else "失败"
-                logger.info(f"{ip} 接口信息采集耗时 {elapsed_ms} ms，状态：{status_text}")
+                logger.info(
+                    f"{ip} 接口信息采集耗时 {elapsed_ms} ms，状态：{status_text}"
+                )
             except Exception:
                 pass
 
@@ -1421,7 +1506,9 @@ class SNMPMonitor:
                                 entries += 1
                         break
                 else:
-                    error_indication, error_status, error_index, var_binds = await cmd_iter
+                    error_indication, error_status, error_index, var_binds = (
+                        await cmd_iter
+                    )
                     if error_indication or error_status:
                         error = True
                     else:

@@ -75,16 +75,18 @@
         </div>
 
         <!-- 运行状态 -->
-        <div class="info-section" v-if="device.status === 'success'">
+        <div class="info-section" v-if="device.status === 'online'">
           <div class="section-title">运行状态</div>
           <div class="info-grid">
             <div class="info-item">
               <span class="label">运行时间</span>
-              <span class="value">{{ formatUptime(device.uptime) }}</span>
+              <span class="value">{{
+                formatUptime(device.device_info.uptime)
+              }}</span>
             </div>
             <div class="info-item">
               <span class="label">接口数量</span>
-              <span class="value">{{ device.if_count || 0 }}</span>
+              <span class="value">{{ device.device_info.if_count || 0 }}</span>
             </div>
           </div>
         </div>

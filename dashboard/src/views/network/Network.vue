@@ -1590,8 +1590,6 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
 
 // 处理设备状态更新（优化：使用 Map 加速查找）
 const handleDeviceStatusUpdate = (data) => {
-  console.log('设备状态更新:', data)
-
   if (!data) return
 
   const deviceId = data.client_id || data.device_id || data.id
@@ -1620,8 +1618,6 @@ const handleDeviceStatusUpdate = (data) => {
 
 // 处理SNMP设备更新（包含接口流量数据）
 const handleSnmpDeviceUpdate = (data) => {
-  console.log('SNMP设备更新:', data)
-
   if (!data) return
 
   const deviceId = data.switch_id || data.device_id
@@ -1631,6 +1627,7 @@ const handleSnmpDeviceUpdate = (data) => {
     // 更新设备在线状态
     updateNodeStatus(deviceId, data?.type === 'success' ? 'online' : 'offline')
     const switchDevice = switchIdMap.value.get(deviceId)
+
     if (switchDevice) {
       Object.assign(switchDevice, data, {
         status: data?.type === 'success' ? 'online' : 'offline',
@@ -1654,7 +1651,7 @@ const handleSnmpDeviceUpdate = (data) => {
   if (data.interface_info) {
     const interfaces = Array.isArray(data.interface_info)
       ? data.interface_info
-      : (data.interface_info?.interfaces || [])
+      : data.interface_info?.interfaces || []
 
     for (const iface of interfaces) {
       // 判断接口是否有数据传输（入站或出站速率 > 0）
@@ -1671,10 +1668,23 @@ const handleSnmpDeviceUpdate = (data) => {
   }
 }
 
+const handleSnmpInterfaceUpdate = (data) => {
+  if (!data) return
+
+  const deviceId = data.switch_id || data.device_id
+
+  // 更新接口流量数据（优化：使用 Map 查找）
+  if (deviceId) {
+    const switchDevice = switchIdMap.value.get(deviceId)
+    if (switchDevice) {
+      switchDevice.interface_info = data.interface_info
+      switchDevice.interface_update_time = formatLocalDateTime()
+    }
+  }
+}
+
 // 处理客户端设备信息更新（包含网络流量数据）
 const handleDeviceInfoUpdate = (data) => {
-  console.log('客户端设备信息更新:', data)
-
   if (!data) return
 
   const deviceId = data.client_id || data.device_id || data.id
@@ -1780,6 +1790,9 @@ const initPubSubSubscriptions = () => {
 
     // 订阅客户端设备信息更新（用于网络流量动画）
     PubSub.subscribe(wsCode.DEVICE_INFO, handleDeviceInfoUpdate)
+
+    // 订阅SNMP设备信息更新（用于网络流量动画）
+    PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleSnmpInterfaceUpdate)
 
     console.log('Network.vue: PubSub订阅已初始化')
   } catch (error) {
