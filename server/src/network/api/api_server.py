@@ -39,6 +39,7 @@ from src.network.api.handlers.snmp_scan_handler import (
     SNMPScanHandler,
     SNMPScanHandlerSimple,
 )
+from src.network.api.handlers.interface_handlers import InterfaceTrafficHandler
 from src.network.api.handlers.topology_handlers import (
     TopologyCreateHandler,
     TopologyUpdateHandler,
@@ -182,6 +183,11 @@ class APIServer:
             (
                 r"/api/switches/([^/]+)",
                 SwitchHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/interfaces/traffic",
+                InterfaceTrafficHandler,
                 dict(db_manager=self.db_manager),
             ),
             # 拓扑图相关路由（注意：具体路径必须放在通配符路由之前）

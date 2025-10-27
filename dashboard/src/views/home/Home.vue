@@ -41,15 +41,20 @@
             >
               <a-card hoverable>
                 <div class="device-card">
-                  <h3 class="layout-side">
-                    {{ device.hostname || '未知设备' }}
+                  <div class="layout-side">
+                    <h3
+                      class="truncate"
+                      style="width: calc(100% - 42px); margin: 0"
+                    >
+                      {{ device.hostname || '未知设备' }}
+                    </h3>
                     <a-tag
                       :color="device.online ? 'green' : 'red'"
                       style="margin-right: 0"
                     >
                       {{ device.online ? '在线' : '离线' }}
                     </a-tag>
-                  </h3>
+                  </div>
                   <p>
                     <strong>IP地址:</strong> <IPDisplay :ips="device.ips" />
                   </p>
@@ -64,8 +69,13 @@
             >
               <a-card hoverable>
                 <div class="switch-card">
-                  <h3 class="layout-side">
-                    {{ switchItem.device_name || '未知设备' }}
+                  <div class="layout-side">
+                    <h3
+                      class="truncate"
+                      style="width: calc(100% - 42px); margin: 0"
+                    >
+                      {{ switchItem.device_name || '未知设备' }}
+                    </h3>
                     <a-tag
                       v-if="switchItem.status === 'success'"
                       color="success"
@@ -91,7 +101,7 @@
                     <a-tag v-else color="default" style="margin-right: 0">
                       未知
                     </a-tag>
-                  </h3>
+                  </div>
                   <p><strong>IP地址:</strong> {{ switchItem.ip }}</p>
                 </div>
               </a-card>

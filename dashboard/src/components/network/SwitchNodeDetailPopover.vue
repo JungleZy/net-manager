@@ -17,6 +17,7 @@
       <div class="popover-header">
         <div class="header-top">
           <h4
+            style="width: calc(100% - 50px)"
             class="popover-title truncate"
             :title="
               (device.device_name || '未命名设备') +
@@ -29,6 +30,7 @@
             }}</span>
           </h4>
           <span
+            style="width: 50px"
             :class="[
               'status-badge',
               device.status === 'online' ? 'online' : 'offline'

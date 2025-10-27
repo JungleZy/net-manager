@@ -39,16 +39,14 @@ export function simulateSnmpDeviceUpdate(wsInstance, switchId, interfaces) {
         sysUpTime: 86400000,
         sysDescr: 'Cisco Switch'
       },
-      interface_info: {
-        interfaces: interfaces.map((iface, index) => ({
-          index: index + 1,
-          name: iface.name || `GigabitEthernet0/${index + 1}`,
-          in_octets_rate: iface.inRate || 0,
-          out_octets_rate: iface.outRate || 0,
-          connected_device_id: iface.connectedDeviceId || null,
-          status: 'up'
-        }))
-      },
+      interface_info: interfaces.map((iface, index) => ({
+        index: index + 1,
+        name: iface.name || `GigabitEthernet0/${index + 1}`,
+        in_octets_rate: iface.inRate || 0,
+        out_octets_rate: iface.outRate || 0,
+        connected_device_id: iface.connectedDeviceId || null,
+        status: 'up'
+      })),
       timestamp: new Date().toISOString()
     }
   }

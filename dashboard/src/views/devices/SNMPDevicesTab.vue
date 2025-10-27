@@ -460,7 +460,7 @@ const interfaceColumns = [
     dataIndex: 'type_text',
     align: 'center',
     key: 'type_text',
-    width: 100
+    width: 90
   },
   {
     title: '物理地址',
@@ -473,28 +473,54 @@ const interfaceColumns = [
     }
   },
   {
-    title: '速度',
-    dataIndex: 'speed_text',
-    align: 'center',
-    key: 'speed_text',
-    width: 80,
-    sorter: (a, b) => (a.speed || 0) - (b.speed || 0)
+    title: '速率',
+    children: [
+      {
+        title: '最大',
+        dataIndex: 'speed_text',
+        align: 'center',
+        key: 'speed_text',
+        width: 80,
+        sorter: (a, b) => (a.speed || 0) - (b.speed || 0)
+      },
+      {
+        title: '下载',
+        dataIndex: 'download_readable',
+        align: 'center',
+        key: 'download_readable',
+        width: 80,
+        sorter: (a, b) => (a.download_bps || 0) - (b.download_bps || 0)
+      },
+      {
+        title: '上传',
+        dataIndex: 'upload_readable',
+        align: 'center',
+        key: 'upload_readable',
+        width: 80,
+        sorter: (a, b) => (a.upload_bps || 0) - (b.upload_bps || 0)
+      }
+    ]
   },
   {
-    title: '管理状态',
-    dataIndex: 'admin_status_text',
-    align: 'center',
-    key: 'admin_status_text',
-    width: 88,
-    sorter: (a, b) => (a.admin_status || 0) - (b.admin_status || 0)
-  },
-  {
-    title: '运行状态',
-    dataIndex: 'oper_status_text',
-    align: 'center',
-    key: 'oper_status_text',
-    width: 88,
-    sorter: (a, b) => (a.oper_status || 0) - (b.oper_status || 0)
+    title: '状态',
+    children: [
+      {
+        title: '管理',
+        dataIndex: 'admin_status_text',
+        align: 'center',
+        key: 'admin_status_text',
+        width: 70,
+        sorter: (a, b) => (a.admin_status || 0) - (b.admin_status || 0)
+      },
+      {
+        title: '运行',
+        dataIndex: 'oper_status_text',
+        align: 'center',
+        key: 'oper_status_text',
+        width: 70,
+        sorter: (a, b) => (a.oper_status || 0) - (b.oper_status || 0)
+      }
+    ]
   }
 ]
 
@@ -590,7 +616,7 @@ const switchColumns = [
     dataIndex: 'updated_at',
     align: 'center',
     key: 'updated_at',
-    width: 136
+    width: 140
   },
   {
     title: '操作',

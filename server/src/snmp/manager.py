@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import time
 import nmap
 
 from typing import Dict, List, Any, Optional
@@ -33,7 +34,9 @@ class SNMPManager:
         Args:
             db_manager: 数据库管理器实例（可选）
         """
-        self.monitor = SNMPMonitor()
+        # 缓存上次接口octets用于速率计算：{ip: {index: {in_octets,out_octets,timestamp}}}
+        self._last_traffic: Dict[str, Dict[int, Dict[str, float]]] = {}
+        self.monitor = SNMPMonitor(traffic_cache=self._last_traffic)
         self.classifier = OIDClassifier()
         self._device_poller = None
         self._interface_poller = None
@@ -303,6 +306,54 @@ class SNMPManager:
                     stat["out_readable"] = f"{out_octets / 1024:.2f} KB"
                 else:  # B
                     stat["out_readable"] = f"{out_octets} B"
+
+                # 计算上传/下载速率 (bps)
+                now = time.time()
+                ip_cache = self._last_traffic.get(ip)
+                prev = ip_cache.get(stat["index"]) if ip_cache else None
+
+                def _delta(curr: int, prev_val: int) -> int:
+                    # 处理32位计数器回绕
+                    if curr >= prev_val:
+                        return curr - prev_val
+                    return (curr + (1 << 32)) - prev_val
+
+                upload_bps = 0.0
+                download_bps = 0.0
+                if prev and "timestamp" in prev and now > prev["timestamp"]:
+                    dt = now - prev["timestamp"]
+                    if dt > 0:
+                        out_delta = _delta(stat["out_octets"], int(prev.get("out_octets", 0)))
+                        in_delta = _delta(stat["in_octets"], int(prev.get("in_octets", 0)))
+                        upload_bps = (out_delta * 8) / dt
+                        download_bps = (in_delta * 8) / dt
+
+                stat["upload_bps"] = int(round(upload_bps))
+                stat["download_bps"] = int(round(download_bps))
+
+                # 可读速率
+                def _bps_readable(bps: float) -> str:
+                    # 所有速率采用四舍五入后的整数显示
+                    if bps >= 1_000_000_000:
+                        return f"{int(round(bps/1_000_000_000))} Gbps"
+                    if bps >= 1_000_000:
+                        return f"{int(round(bps/1_000_000))} Mbps"
+                    if bps >= 1_000:
+                        return f"{int(round(bps/1_000))} Kbps"
+                    return f"{int(round(bps))} bps"
+
+                stat["upload_readable"] = _bps_readable(upload_bps)
+                stat["download_readable"] = _bps_readable(download_bps)
+
+                # 更新缓存
+                if ip_cache is None:
+                    self._last_traffic[ip] = {}
+                    ip_cache = self._last_traffic[ip]
+                ip_cache[stat["index"]] = {
+                    "in_octets": float(stat["in_octets"]),
+                    "out_octets": float(stat["out_octets"]),
+                    "timestamp": now,
+                }
 
                 statistics.append(stat)
 

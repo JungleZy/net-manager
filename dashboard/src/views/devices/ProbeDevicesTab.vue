@@ -705,7 +705,6 @@ const columns = [
       }
     ]
   },
-
   {
     title: '状态',
     dataIndex: 'online',
@@ -718,7 +717,7 @@ const columns = [
     dataIndex: 'timestamp',
     align: 'center',
     key: 'timestamp',
-    width: 136,
+    width: 140,
     customRender: ({ text, record }) => {
       return createTextAnimationRenderer(text, 'timestamp', record.id)
     }

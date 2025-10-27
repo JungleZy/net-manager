@@ -7,6 +7,8 @@ from pysnmp.hlapi.asyncio import (
     ObjectType,
     ObjectIdentity,
     get_cmd,
+    next_cmd,
+    bulk_cmd,
     UsmUserData,
     usmNoAuthProtocol,
     usmNoPrivProtocol,
@@ -19,6 +21,7 @@ from pysnmp.smi import builder, compiler, view
 from typing import Dict, Any, Tuple, List, Optional
 import logging
 import binascii
+import time
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -65,13 +68,27 @@ class SNMPMonitor:
         "ifOutErrors": "1.3.6.1.2.1.2.2.1.20",
         "ifOutQLen": "1.3.6.1.2.1.2.2.1.21",
         "ifSpecific": "1.3.6.1.2.1.2.2.1.22",
+        "ifHCInOctets": "1.3.6.1.2.1.31.1.1.1.6",
+        "ifHCOutOctets": "1.3.6.1.2.1.31.1.1.1.10",
+        "ifInDiscards": "1.3.6.1.2.1.2.2.1.13",
+        "ifInErrors": "1.3.6.1.2.1.2.2.1.14",
+        "ifInUnknownProtos": "1.3.6.1.2.1.2.2.1.15",
+        "ifOutOctets": "1.3.6.1.2.1.2.2.1.16",
+        "ifOutUcastPkts": "1.3.6.1.2.1.2.2.1.17",
+        "ifOutNUcastPkts": "1.3.6.1.2.1.2.2.1.18",
+        "ifOutDiscards": "1.3.6.1.2.1.2.2.1.19",
+        "ifOutErrors": "1.3.6.1.2.1.2.2.1.20",
+        "ifOutQLen": "1.3.6.1.2.1.2.2.1.21",
+        "ifSpecific": "1.3.6.1.2.1.2.2.1.22",
     }
 
-    def __init__(self):
+    def __init__(self, traffic_cache=None):
         """初始化SNMP监控器"""
         # 创建MIB视图控制器
         self.mib_builder = builder.MibBuilder()
         self.mib_view_controller = view.MibViewController(self.mib_builder)
+        # 流量缓存引用，用于速率计算
+        self._traffic_cache = traffic_cache or {}
 
         # 编译MIB
         compiler.addMibCompiler(
@@ -486,21 +503,364 @@ class SNMPMonitor:
 
         return device_info
 
+    async def _create_session(
+        self, ip: str, version: str, **kwargs
+    ) -> Tuple[SnmpEngine, Any, Any, str]:
+        """创建并返回可复用的 SNMP 会话 (engine, target, creds, mode)。
+        mode: 'bulk' 用于 v2c/v3；'next' 用于 v1 或回退。
+        """
+        port = kwargs.get("port", 161)
+        snmp_engine = SnmpEngine()
+        transport_target = await UdpTransportTarget.create(
+            (ip, port), timeout=2.0, retries=0
+        )
+        version_l = version.lower()
+        if version_l == "v1":
+            community = kwargs.get("community", "public")
+            creds = CommunityData(community, mpModel=0)
+            mode = "next"
+        elif version_l in ("v2c", "2c"):
+            community = kwargs.get("community", "public")
+            creds = CommunityData(community)
+            mode = "bulk"
+        elif version_l == "v3":
+            user = kwargs.get("user")
+            auth_protocol = kwargs.get("auth_protocol", "md5").lower()
+            auth_proto = (
+                usmHMACSHAAuthProtocol
+                if auth_protocol == "sha"
+                else usmHMACMD5AuthProtocol
+            )
+            auth_key = kwargs.get("auth_key")
+            priv_key = kwargs.get("priv_key")
+            if priv_key and auth_key:
+                creds = UsmUserData(
+                    user,
+                    authKey=auth_key,
+                    authProtocol=auth_proto,
+                    privKey=priv_key,
+                    privProtocol=usmDESPrivProtocol,
+                )
+            elif auth_key:
+                creds = UsmUserData(
+                    user,
+                    authKey=auth_key,
+                    authProtocol=auth_proto,
+                    privProtocol=usmNoPrivProtocol,
+                )
+            else:
+                creds = UsmUserData(
+                    user, authProtocol=usmNoAuthProtocol, privProtocol=usmNoPrivProtocol
+                )
+            mode = "bulk"
+        else:
+            raise ValueError(f"不支持的SNMP版本: {version}")
+        return snmp_engine, transport_target, creds, mode
+
+    async def _walk_columns_session(
+        self,
+        snmp_engine: SnmpEngine,
+        transport_target: Any,
+        creds: Any,
+        mode: str,
+        base_oids: List[str],
+        **kwargs,
+    ) -> Dict[str, Dict[int, Any]]:
+        """一次遍历多列（同批 ObjectType），返回 {base_oid: {index: value}} 映射。
+        - v1 使用 GETNEXT（next_cmd）
+        - v2c/v3 使用 GETBULK（bulk_cmd）
+        通过传入已创建的会话避免重复初始化。
+        """
+        results_by_oid: Dict[str, Dict[int, Any]] = {b: {} for b in base_oids}
+        max_repetitions = int(kwargs.get("max_repetitions", 25))
+        # 自适应：若 ifNumber 较小，则降低 max_repetitions，避免浪费
+        if_count_hint = kwargs.get("_if_count_hint")
+        if isinstance(if_count_hint, int) and if_count_hint > 0:
+            max_repetitions = max(1, min(max_repetitions, if_count_hint))
+
+        objects = [ObjectType(ObjectIdentity(b)) for b in base_oids]
+        if mode == "bulk":
+            cmd_iter = bulk_cmd(
+                snmp_engine,
+                creds,
+                transport_target,
+                ContextData(),
+                0,
+                max_repetitions,
+                *objects,
+            )
+        else:
+            cmd_iter = next_cmd(
+                snmp_engine,
+                creds,
+                transport_target,
+                ContextData(),
+                *objects,
+            )
+
+        try:
+            # 同时兼容返回异步迭代器或协程的两种实现
+            if hasattr(cmd_iter, "__aiter__"):
+                async for (
+                    error_indication,
+                    error_status,
+                    error_index,
+                    var_binds,
+                ) in cmd_iter:
+                    if error_indication:
+                        logger.debug(f"遍历错误: {error_indication}")
+                        break
+                    if error_status:
+                        logger.debug(f"遍历状态错误: {error_status}")
+                        break
+                    # 扁平列表，逐项按前缀归类
+                    for var_bind in var_binds:
+                        oid_obj = var_bind[0]
+                        val_obj = var_bind[1]
+                        oid_str = (
+                            ".".join(str(x) for x in oid_obj.asTuple())
+                            if hasattr(oid_obj, "asTuple")
+                            else (
+                                oid_obj.prettyPrint()
+                                if hasattr(oid_obj, "prettyPrint")
+                                else str(oid_obj)
+                            )
+                        )
+                        for base_oid in base_oids:
+                            if oid_str.startswith(base_oid + ".") or oid_str == base_oid:
+                                try:
+                                    idx = int(oid_str.split(".")[-1])
+                                except Exception:
+                                    # 某些实现可能直接返回列根（无索引），跳过
+                                    break
+                                results_by_oid[base_oid][idx] = val_obj
+                                break
+                    # 如果不匹配任何列前缀，说明已越界（部分或全部列），继续让迭代自然结束
+            else:
+                # 某些版本返回协程：先消费首个响应，再按列推进继续拉取
+                current_oids = list(base_oids)
+                max_rounds = max(1, int(kwargs.get("_if_count_hint", 64))) * 2
+                rounds = 0
+                # 先处理首次 cmd_iter（避免未等待协程的警告）
+                last_oid_by_base: Dict[str, Optional[str]] = {b: None for b in base_oids}
+                error_indication, error_status, error_index, var_binds = await cmd_iter
+                if error_indication:
+                    logger.debug(f"遍历错误: {error_indication}")
+                elif error_status:
+                    logger.debug(f"遍历状态错误: {error_status}")
+                else:
+                    progress = False
+                    for var_bind in var_binds:
+                        oid_obj = var_bind[0]
+                        val_obj = var_bind[1]
+                        oid_str = (
+                            ".".join(str(x) for x in oid_obj.asTuple())
+                            if hasattr(oid_obj, "asTuple")
+                            else (
+                                oid_obj.prettyPrint()
+                                if hasattr(oid_obj, "prettyPrint")
+                                else str(oid_obj)
+                            )
+                        )
+                        for base_oid in base_oids:
+                            if oid_str.startswith(base_oid + "."):
+                                try:
+                                    idx = int(oid_str.split(".")[-1])
+                                except Exception:
+                                    continue
+                                results_by_oid[base_oid][idx] = val_obj
+                                last_oid_by_base[base_oid] = oid_str
+                                progress = True
+                                break
+                    if progress:
+                        for i, b in enumerate(base_oids):
+                            if last_oid_by_base[b]:
+                                current_oids[i] = last_oid_by_base[b]
+                # 继续追加循环，直到无进展或越界
+                while rounds < max_rounds:
+                    objects = [ObjectType(ObjectIdentity(o)) for o in current_oids]
+                    if mode == "bulk":
+                        cmd_iter_once = bulk_cmd(
+                            snmp_engine,
+                            creds,
+                            transport_target,
+                            ContextData(),
+                            0,
+                            max_repetitions,
+                            *objects,
+                        )
+                    else:
+                        cmd_iter_once = next_cmd(
+                            snmp_engine,
+                            creds,
+                            transport_target,
+                            ContextData(),
+                            *objects,
+                        )
+                    error_indication, error_status, error_index, var_binds = await cmd_iter_once
+                    if error_indication or error_status:
+                        logger.debug(f"遍历错误: {error_indication or error_status}")
+                        break
+                    progress = False
+                    last_oid_by_base = {b: None for b in base_oids}
+                    for var_bind in var_binds:
+                        oid_obj = var_bind[0]
+                        val_obj = var_bind[1]
+                        oid_str = (
+                            ".".join(str(x) for x in oid_obj.asTuple())
+                            if hasattr(oid_obj, "asTuple")
+                            else (
+                                oid_obj.prettyPrint()
+                                if hasattr(oid_obj, "prettyPrint")
+                                else str(oid_obj)
+                            )
+                        )
+                        for base_oid in base_oids:
+                            if oid_str.startswith(base_oid + "."):
+                                try:
+                                    idx = int(oid_str.split(".")[-1])
+                                except Exception:
+                                    continue
+                                results_by_oid[base_oid][idx] = val_obj
+                                last_oid_by_base[base_oid] = oid_str
+                                progress = True
+                                break
+                    if not progress:
+                        break
+                    for i, b in enumerate(base_oids):
+                        if last_oid_by_base[b]:
+                            current_oids[i] = last_oid_by_base[b]
+                    rounds += 1
+            return results_by_oid
+        except Exception as e:
+            logger.error(f"多列遍历异常: {e}")
+            return results_by_oid
+
+    async def _walk_columns_session_batched(
+        self,
+        snmp_engine: SnmpEngine,
+        transport_target: Any,
+        creds: Any,
+        mode: str,
+        base_oids: List[str],
+        batch_size: int,
+        **kwargs,
+    ) -> Dict[str, Dict[int, Any]]:
+        """分批遍历多列，避免设备对大报文不友好时的失败或限速。
+        - 将 base_oids 按批次切分，每批调用一次 _walk_columns_session
+        - 合并所有批次的结果后返回
+        """
+        if batch_size <= 0:
+            batch_size = len(base_oids)
+        merged: Dict[str, Dict[int, Any]] = {b: {} for b in base_oids}
+        for i in range(0, len(base_oids), batch_size):
+            batch = base_oids[i : i + batch_size]
+            part = await self._walk_columns_session(
+                snmp_engine,
+                transport_target,
+                creds,
+                mode,
+                batch,
+                **kwargs,
+            )
+            for b in batch:
+                merged[b].update(part.get(b, {}))
+        return merged
+
+    async def _preflight_bulk_session(
+        self,
+        snmp_engine: SnmpEngine,
+        transport_target: Any,
+        creds: Any,
+        base_oids: List[str],
+        if_count: int,
+    ) -> Tuple[bool, int, int]:
+        """小批量GETBULK预探测：尝试较小的 max_repetitions，检测错误与响应行数。
+        返回 (bulk_ok, recommended_rep, recommended_batch)。若 bulk 不可用，bulk_ok=False。
+        recommended_rep 为建议的较小重复数（例如 5），用于敏感设备；recommended_batch 为建议的分批列数；无建议则为 0。
+        根据 error_status（如 tooBig, noSuchName）调整策略。
+        """
+        try:
+            small_rep = max(1, min(5, if_count))
+            objects = [ObjectType(ObjectIdentity(b)) for b in base_oids]
+            cmd_iter = bulk_cmd(
+                snmp_engine,
+                creds,
+                transport_target,
+                ContextData(),
+                0,
+                small_rep,
+                *objects,
+            )
+            entries = 0
+            # 兼容异步迭代器与协程
+            if hasattr(cmd_iter, "__aiter__"):
+                async for (
+                    error_indication,
+                    error_status,
+                    error_index,
+                    var_binds,
+                ) in cmd_iter:
+                    if error_indication or error_status:
+                        status_str = (
+                            error_status.prettyPrint()
+                            if hasattr(error_status, "prettyPrint")
+                            else str(error_status)
+                        ) if error_status else str(error_indication)
+                        logger.debug(f"预探测错误: {status_str}")
+                        return False, 0, 0
+                    # 只评估首个批次响应
+                    for vb in var_binds:
+                        oid_str = (
+                            vb[0].prettyPrint()
+                            if hasattr(vb[0], "prettyPrint")
+                            else str(vb[0])
+                        )
+                        # 统计匹配列的条目
+                        for base in base_oids:
+                            if oid_str.startswith(base + "."):
+                                entries += 1
+                                break
+                    break
+            else:
+                error_indication, error_status, error_index, var_binds = await cmd_iter
+                if error_indication or error_status:
+                    status_str = (
+                        error_status.prettyPrint()
+                        if hasattr(error_status, "prettyPrint")
+                        else str(error_status)
+                    ) if error_status else str(error_indication)
+                    logger.debug(f"预探测错误: {status_str}")
+                    return False, 0, 0
+                for vb in var_binds:
+                    oid_str = (
+                        vb[0].prettyPrint()
+                        if hasattr(vb[0], "prettyPrint")
+                        else str(vb[0])
+                    )
+                    for base in base_oids:
+                        if oid_str.startswith(base + "."):
+                            entries += 1
+                            break
+            # 建议较小的重复数和批量
+            if entries <= max(1, len(base_oids)):
+                return True, small_rep, max(2, min(6, len(base_oids)))
+            return True, 0, 0
+        except Exception:
+            logger.debug("预探测bulk失败", exc_info=True)
+            return False, 0, 0
+
     async def get_interface_info(
         self, ip: str, version: str, **kwargs
     ) -> List[Dict[str, Any]]:
         """
-        获取接口信息
-
-        Args:
-            ip: 设备IP地址
-            version: SNMP版本
-            **kwargs: 认证参数
-
-        Returns:
-            包含接口信息的列表
+        获取接口信息（合并遍历 + 会话复用 + 自适应 max_repetitions）
+        - 复用同一 SnmpEngine/TransportTarget/凭据
+        - 将 6 列合并到一次 bulk/next 遍历，减少往返
+        - 根据 ifNumber 调整 max_repetitions；必要时回退到 GETNEXT
         """
-        interfaces = []
+        interfaces: List[Dict[str, Any]] = []
+        _start_ts = time.perf_counter()
 
         # 获取接口数量
         value, success = await self.get_data(
@@ -511,195 +871,326 @@ class SNMPMonitor:
         if_count = int(value) if value else 0
         if if_count <= 0:
             return interfaces
+        indices = list(range(1, if_count + 1))
+        logger.info(f"{ip} 获取到 {if_count} 个接口索引: {indices}")
 
-        # 获取每个接口的信息
-        for i in range(1, if_count + 1):
-            interface: Dict[str, Any] = {"index": i}
+        # 常量映射
+        type_map = {
+            1: "其他",
+            6: "以太网",
+            23: "PPP",
+            24: "环回接口",
+            37: "ATM",
+            53: "VLAN",
+            131: "隧道接口",
+            135: "二层VLAN",
+            136: "三层VLAN",
+            161: "IEEE 802.11无线",
+            117: "千兆以太网",
+            244: "聚合接口",
+        }
+        admin_status_map = {1: "已启用", 2: "已禁用", 3: "测试中"}
+        oper_status_map = {
+            1: "运行中",
+            2: "未运行",
+            3: "测试中",
+            4: "未知",
+            5: "休眠",
+            6: "不存在",
+            7: "下层接口未运行",
+        }
 
-            # 获取接口描述
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifDescr']}.{i}", **kwargs
+        base_oids = [
+            self.OIDS["ifDescr"],
+            self.OIDS["ifType"],
+            self.OIDS["ifSpeed"],
+            self.OIDS["ifPhysAddress"],
+            self.OIDS["ifAdminStatus"],
+            self.OIDS["ifOperStatus"],
+            self.OIDS["ifInOctets"],
+            self.OIDS["ifOutOctets"],
+        ]
+
+        # 会话复用
+        snmp_engine, transport_target, creds, mode = await self._create_session(
+            ip, version, **kwargs
+        )
+
+        # 自适应探测与缓存：优先使用用户传入；否则按profile缓存；再进行探测
+        user_rep = kwargs.get("max_repetitions")
+        if not hasattr(self, "_best_max_repetitions_cache"):
+            self._best_max_repetitions_cache: Dict[str, int] = {}
+        profile_key = self._profile_key(ip, version, **kwargs)
+        if user_rep is not None:
+            best_rep = int(user_rep)
+        elif profile_key in self._best_max_repetitions_cache:
+            best_rep = int(self._best_max_repetitions_cache[profile_key])
+        else:
+            best_rep = await self._probe_best_max_repetitions_session(
+                snmp_engine,
+                transport_target,
+                creds,
+                mode,
+                self.OIDS["ifDescr"],
+                if_count,
             )
-            if success:
-                interface["description"] = str(value) if value else ""
+            self._best_max_repetitions_cache[profile_key] = best_rep
 
-            # 获取接口类型
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifType']}.{i}", **kwargs
+        # 更精细预探测：首次小批量尝试，若失败则切换到GETNEXT；若返回很少建议保持小批量并分批
+        batch_size = 0
+        effective_rep = best_rep
+        if mode == "bulk":
+            bulk_ok, small_rep, recommended_batch = await self._preflight_bulk_session(
+                snmp_engine, transport_target, creds, base_oids, if_count
             )
-            if success:
-                type_code = int(value) if value else 0
-                interface["type"] = type_code
-                # 转换为中文类型描述（基于IANAifType）
-                type_map = {
-                    1: "其他",
-                    6: "以太网",
-                    23: "PPP",
-                    24: "环回接口",
-                    37: "ATM",
-                    53: "VLAN",
-                    131: "隧道接口",
-                    135: "二层VLAN",
-                    136: "三层VLAN",
-                    161: "IEEE 802.11无线",
-                    117: "千兆以太网",
-                    244: "聚合接口",
-                }
-                interface["type_text"] = type_map.get(type_code, f"类型{type_code}")
+            if not bulk_ok:
+                mode = "next"
+                effective_rep = 1
+            elif small_rep > 0:
+                effective_rep = min(best_rep, small_rep)
+                batch_size = recommended_batch  # 使用预探测建议的分批列数
 
-            # 获取接口速度（单位：bps）
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifSpeed']}.{i}", **kwargs
-            )
-            if success:
-                speed_bps = int(value) if value else 0
-                interface["speed"] = speed_bps
-                # 格式化为易读的速度描述
-                if speed_bps == 0:
-                    interface["speed_text"] = "-"
-                elif speed_bps >= 1000000000:  # >= 1 Gbps
-                    speed_gbps = speed_bps / 1000000000
-                    interface["speed_text"] = f"{speed_gbps:.1f} Gbps"
-                elif speed_bps >= 1000000:  # >= 1 Mbps
-                    speed_mbps = speed_bps / 1000000
-                    interface["speed_text"] = f"{speed_mbps:.0f} Mbps"
-                elif speed_bps >= 1000:  # >= 1 Kbps
-                    speed_kbps = speed_bps / 1000
-                    interface["speed_text"] = f"{speed_kbps:.0f} Kbps"
-                else:
-                    interface["speed_text"] = f"{speed_bps} bps"
-
-            # 获取接口物理地址(对于802.x接口为MAC地址,对于串口等为空)
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifPhysAddress']}.{i}", **kwargs
-            )
-            if success and value:
-                try:
-                    # 将OctetString转换为bytes
-                    if hasattr(value, "prettyPrint"):
-                        # pysnmp的OctetString对象
-                        mac_bytes = bytes(value)
-                    elif isinstance(value, bytes):
-                        mac_bytes = value
-                    elif isinstance(value, str):
-                        # 如果已经是字符串,尝试转换为bytes
-                        mac_bytes = value.encode("latin-1")
-                    else:
-                        mac_bytes = bytes(str(value), "latin-1")
-
-                    # 零长度的八位字节串表示没有物理地址(如串口、loopback等)
-                    if len(mac_bytes) == 0:
-                        interface["address"] = ""
-                    # 6字节表示以太网MAC地址(802.x)
-                    elif len(mac_bytes) == 6:
-                        interface["address"] = ":".join(f"{b:02x}" for b in mac_bytes)
-                    # 其他长度的物理地址
-                    else:
-                        interface["address"] = ":".join(f"{b:02x}" for b in mac_bytes)
-                except Exception as e:
-                    logger.debug(
-                        f"转换物理地址失败: {e}, value type: {type(value)}, value: {repr(value)}"
+        try:
+            # 第一次尝试：bulk（若 v2c/v3）或 next（v1），使用自适应最佳/精细参数
+            try:
+                if batch_size and mode == "bulk":
+                    results_by_oid = await self._walk_columns_session_batched(
+                        snmp_engine,
+                        transport_target,
+                        creds,
+                        mode,
+                        base_oids,
+                        batch_size,
+                        _if_count_hint=if_count,
+                        max_repetitions=effective_rep,
                     )
-                    interface["address"] = ""
-            else:
-                # 空值表示没有物理地址
-                interface["address"] = ""
+                else:
+                    results_by_oid = await self._walk_columns_session(
+                        snmp_engine,
+                        transport_target,
+                        creds,
+                        mode,
+                        base_oids,
+                        _if_count_hint=if_count,
+                        max_repetitions=effective_rep,
+                    )
+            except Exception:
+                # 初次尝试异常，置空以触发后续回退检查
+                logger.warning("列遍历初次尝试异常，将进行回退检查", exc_info=True)
+                results_by_oid = {}
 
-            # 获取管理状态 (1=up, 2=down, 3=testing)
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifAdminStatus']}.{i}", **kwargs
-            )
-            if success:
-                admin_status_code = int(value) if value else 0
-                interface["admin_status"] = admin_status_code
-                # 转换为中文状态描述
-                admin_status_map = {1: "已启用", 2: "已禁用", 3: "测试中"}
-                interface["admin_status_text"] = admin_status_map.get(
-                    admin_status_code, "未知"
-                )
+            # 若列数据明显不足且当前为 bulk，则回退到 next 再试一次（兼容部分设备）
+            if mode == "bulk":
+                total_items = sum(len(results_by_oid.get(b, {})) for b in base_oids)
+                if total_items < len(base_oids) * max(1, min(if_count, 2)):
+                    results_by_oid = await self._walk_columns_session_batched(
+                        snmp_engine,
+                        transport_target,
+                        creds,
+                        mode,
+                        base_oids,
+                        4,
+                        _if_count_hint=if_count,
+                        max_repetitions=min(effective_rep, best_rep),
+                    )
+                    total_items = sum(len(results_by_oid.get(b, {})) for b in base_oids)
+                if total_items < len(base_oids) * max(1, min(if_count, 2)):
+                    results_by_oid = await self._walk_columns_session_batched(
+                        snmp_engine,
+                        transport_target,
+                        creds,
+                        "next",
+                        base_oids,
+                        4,
+                        _if_count_hint=if_count,
+                        max_repetitions=1,
+                    )
 
-            # 获取操作状态 (1=up, 2=down, 3=testing, 4=unknown, 5=dormant, 6=notPresent, 7=lowerLayerDown)
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifOperStatus']}.{i}", **kwargs
-            )
-            if success:
-                oper_status_code = int(value) if value else 0
-                interface["oper_status"] = oper_status_code
-                # 转换为中文状态描述
-                oper_status_map = {
-                    1: "运行中",
-                    2: "未运行",
-                    3: "测试中",
-                    4: "未知",
-                    5: "休眠",
-                    6: "不存在",
-                    7: "下层接口未运行",
+            # 组装
+            descr_map = {
+                i: results_by_oid.get(self.OIDS["ifDescr"], {}).get(i) for i in indices
+            }
+            type_map_res = {
+                i: results_by_oid.get(self.OIDS["ifType"], {}).get(i) for i in indices
+            }
+            speed_map = {
+                i: results_by_oid.get(self.OIDS["ifSpeed"], {}).get(i) for i in indices
+            }
+            phys_map = {
+                i: results_by_oid.get(self.OIDS["ifPhysAddress"], {}).get(i)
+                for i in indices
+            }
+            admin_map = {
+                i: results_by_oid.get(self.OIDS["ifAdminStatus"], {}).get(i)
+                for i in indices
+            }
+            oper_map = {
+                i: results_by_oid.get(self.OIDS["ifOperStatus"], {}).get(i)
+                for i in indices
+            }
+            in_octets_map = {
+                i: results_by_oid.get(self.OIDS["ifInOctets"], {}).get(i)
+                for i in indices
+            }
+            out_octets_map = {
+                i: results_by_oid.get(self.OIDS["ifOutOctets"], {}).get(i)
+                for i in indices
+            }
+
+            for idx in indices:
+                interface: Dict[str, Any] = {"index": idx}
+
+                d_val = descr_map.get(idx)
+                if d_val is not None:
+                    interface["description"] = str(d_val) if d_val else ""
+
+                t_val = type_map_res.get(idx)
+                if t_val is not None:
+                    type_code = int(t_val) if t_val else 0
+                    interface["type"] = type_code
+                    interface["type_text"] = type_map.get(type_code, f"类型{type_code}")
+
+                s_val = speed_map.get(idx)
+                if s_val is not None:
+                    speed_bps = int(s_val) if s_val else 0
+                    interface["speed"] = speed_bps
+                    if speed_bps == 0:
+                        interface["speed_text"] = "-"
+                    elif speed_bps >= 1_000_000_000:
+                        interface["speed_text"] = (
+                            f"{speed_bps / 1_000_000_000:.1f} Gbps"
+                        )
+                    elif speed_bps >= 1_000_000:
+                        interface["speed_text"] = f"{speed_bps / 1_000_000:.0f} Mbps"
+                    elif speed_bps >= 1_000:
+                        interface["speed_text"] = f"{speed_bps / 1_000:.0f} Kbps"
+                    else:
+                        interface["speed_text"] = f"{speed_bps} bps"
+
+                p_val = phys_map.get(idx)
+                if p_val is not None:
+                    try:
+                        if hasattr(p_val, "prettyPrint"):
+                            mac_bytes = bytes(p_val)
+                        elif isinstance(p_val, bytes):
+                            mac_bytes = p_val
+                        elif isinstance(p_val, str):
+                            mac_bytes = p_val.encode("latin-1")
+                        else:
+                            mac_bytes = bytes(str(p_val), "latin-1")
+                        interface["address"] = (
+                            ""
+                            if len(mac_bytes) == 0
+                            else ":".join(f"{b:02x}" for b in mac_bytes)
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            f"转换物理地址失败: {e}, value type: {type(p_val)}, value: {repr(p_val)}"
+                        )
+                        interface["address"] = ""
+
+                a_val = admin_map.get(idx)
+                if a_val is not None:
+                    admin_status_code = int(a_val) if a_val else 0
+                    interface["admin_status"] = admin_status_code
+                    interface["admin_status_text"] = admin_status_map.get(
+                        admin_status_code, "未知"
+                    )
+
+                o_val = oper_map.get(idx)
+                if o_val is not None:
+                    oper_status_code = int(o_val) if o_val else 0
+                    interface["oper_status"] = oper_status_code
+                    interface["oper_status_text"] = oper_status_map.get(
+                        oper_status_code, "未知"
+                    )
+
+                # 添加流量数据
+                in_octets_val = in_octets_map.get(idx)
+                out_octets_val = out_octets_map.get(idx)
+                
+                in_octets = int(in_octets_val) if in_octets_val is not None else 0
+                out_octets = int(out_octets_val) if out_octets_val is not None else 0
+                
+                interface["in_octets"] = in_octets
+                interface["out_octets"] = out_octets
+
+                # 计算上传/下载速率 (bps)
+                now = time.time()
+                ip_cache = self._traffic_cache.get(ip)
+                prev = ip_cache.get(idx) if ip_cache else None
+
+                def _delta(curr: int, prev_val: int) -> int:
+                    # 处理32位计数器回绕
+                    if curr >= prev_val:
+                        return curr - prev_val
+                    return (curr + (1 << 32)) - prev_val
+
+                upload_bps = 0.0
+                download_bps = 0.0
+                if prev and "timestamp" in prev and now > prev["timestamp"]:
+                    dt = now - prev["timestamp"]
+                    if dt > 0:
+                        out_delta = _delta(out_octets, int(prev.get("out_octets", 0)))
+                        in_delta = _delta(in_octets, int(prev.get("in_octets", 0)))
+                        upload_bps = (out_delta * 8) / dt
+                        download_bps = (in_delta * 8) / dt
+
+                interface["upload_bps"] = int(round(upload_bps))
+                interface["download_bps"] = int(round(download_bps))
+
+                # 可读速率
+                def _bps_readable(bps: float) -> str:
+                    # 所有速率采用四舍五入后的整数显示
+                    if bps >= 1_000_000_000:
+                        return f"{int(round(bps/1_000_000_000))} Gbps"
+                    if bps >= 1_000_000:
+                        return f"{int(round(bps/1_000_000))} Mbps"
+                    if bps >= 1_000:
+                        return f"{int(round(bps/1_000))} Kbps"
+                    return f"{int(round(bps))} bps"
+
+                interface["upload_readable"] = _bps_readable(upload_bps)
+                interface["download_readable"] = _bps_readable(download_bps)
+
+                # 更新缓存
+                if ip_cache is None:
+                    self._traffic_cache[ip] = {}
+                    ip_cache = self._traffic_cache[ip]
+                ip_cache[idx] = {
+                    "in_octets": float(in_octets),
+                    "out_octets": float(out_octets),
+                    "timestamp": now,
                 }
-                interface["oper_status_text"] = oper_status_map.get(
-                    oper_status_code, "未知"
-                )
 
-            # 获取接收字节数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifInOctets']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["in_octets"] = int(value) if value else 0
+                interfaces.append(interface)
 
-            # 获取发送字节数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifOutOctets']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["out_octets"] = int(value) if value else 0
+            return interfaces
+        finally:
+            # 统一关闭 dispatcher
+            
+            try:
+                elapsed_ms = int((time.perf_counter() - _start_ts) * 1000)
+                status_text = "成功" if len(interfaces) > 0 else "失败"
+                logger.info(f"{ip} 接口信息采集耗时 {elapsed_ms} ms，状态：{status_text}")
+            except Exception:
+                pass
 
-            # 获取接收丢包数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifInDiscards']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["in_discards"] = int(value) if value else 0
-
-            # 获取发送丢包数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifOutDiscards']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["out_discards"] = int(value) if value else 0
-
-            # 获取接收错误数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifInErrors']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["in_errors"] = int(value) if value else 0
-
-            # 获取发送错误数
-            # value, success = await self.get_data(
-            #     ip, version, f"{self.OIDS['ifOutErrors']}.{i}", **kwargs
-            # )
-            # if success:
-            #     interface["out_errors"] = int(value) if value else 0
-
-            interfaces.append(interface)
-
-        return interfaces
+            try:
+                snmp_engine.transportDispatcher.closeDispatcher()
+            except Exception:
+                pass
 
     async def get_interface_traffic(
         self, ip: str, version: str, **kwargs
     ) -> List[Dict[str, Any]]:
         """
-        获取接口流量统计信息
-
-        Args:
-            ip: 设备IP地址
-            version: SNMP版本
-            **kwargs: 认证参数
-
-        Returns:
-            包含接口流量信息的列表
+        获取接口流量统计信息（合并遍历 + 会话复用 + 自适应 + 分批）
+        - 复用同一会话对象
+        - 合并多列遍历减少往返
+        - 小批量预探测与分批以兼容设备限制
         """
-        traffic_stats = []
+        traffic_stats: List[Dict[str, Any]] = []
 
         # 获取接口数量
         value, success = await self.get_data(
@@ -708,64 +1199,255 @@ class SNMPMonitor:
         if not success:
             logger.error("无法获取接口数量")
             return traffic_stats
-
         if_count = int(value) if value else 0
         if if_count <= 0:
             return traffic_stats
+        indices = list(range(1, if_count + 1))
 
-        # 获取每个接口的流量统计
-        for i in range(1, if_count + 1):
-            stats: Dict[str, Any] = {"index": i}
+        base_oids = [
+            self.OIDS["ifDescr"],
+            self.OIDS["ifInOctets"],
+            self.OIDS["ifOutOctets"],
+            self.OIDS["ifInDiscards"],
+            self.OIDS["ifOutDiscards"],
+            self.OIDS["ifInErrors"],
+            self.OIDS["ifOutErrors"],
+        ]
 
-            # 获取接口描述
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifDescr']}.{i}", **kwargs
+        # 会话复用
+        snmp_engine, transport_target, creds, mode = await self._create_session(
+            ip, version, **kwargs
+        )
+
+        # 自适应探测与缓存：沿用接口信息的策略
+        user_rep = kwargs.get("max_repetitions")
+        if not hasattr(self, "_best_max_repetitions_cache"):
+            self._best_max_repetitions_cache: Dict[str, int] = {}
+        profile_key = self._profile_key(ip, version, **kwargs)
+        if user_rep is not None:
+            best_rep = int(user_rep)
+        elif profile_key in self._best_max_repetitions_cache:
+            best_rep = int(self._best_max_repetitions_cache[profile_key])
+        else:
+            best_rep = await self._probe_best_max_repetitions_session(
+                snmp_engine,
+                transport_target,
+                creds,
+                mode,
+                self.OIDS["ifDescr"],
+                if_count,
             )
-            if success:
-                stats["description"] = str(value) if value else ""
+            self._best_max_repetitions_cache[profile_key] = best_rep
 
-            # 获取接收字节数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifInOctets']}.{i}", **kwargs
+        # 更精细预探测
+        batch_size = 0
+        effective_rep = best_rep
+        if mode == "bulk":
+            bulk_ok, small_rep, recommended_batch = await self._preflight_bulk_session(
+                snmp_engine, transport_target, creds, base_oids, if_count
             )
-            if success:
-                stats["in_octets"] = int(value) if value else 0
+            if not bulk_ok:
+                mode = "next"
+                effective_rep = 1
+            elif small_rep > 0:
+                effective_rep = min(best_rep, small_rep)
+                batch_size = recommended_batch  # 使用预探测建议的分批列数
 
-            # 获取发送字节数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifOutOctets']}.{i}", **kwargs
-            )
-            if success:
-                stats["out_octets"] = int(value) if value else 0
+        try:
+            # 第一次尝试：bulk（若 v2c/v3）或 next（v1），使用自适应最佳/精细参数
+            if batch_size and mode == "bulk":
+                results_by_oid = await self._walk_columns_session_batched(
+                    snmp_engine,
+                    transport_target,
+                    creds,
+                    mode,
+                    base_oids,
+                    batch_size,
+                    _if_count_hint=if_count,
+                    max_repetitions=effective_rep,
+                )
+            else:
+                results_by_oid = await self._walk_columns_session(
+                    snmp_engine,
+                    transport_target,
+                    creds,
+                    mode,
+                    base_oids,
+                    _if_count_hint=if_count,
+                    max_repetitions=effective_rep,
+                )
+        except Exception:
+            # 初次尝试异常，置空以触发后续回退检查
+            logger.warning("列遍历初次尝试异常，将进行回退检查", exc_info=True)
+            results_by_oid = {}
 
-            # 获取接收丢包数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifInDiscards']}.{i}", **kwargs
-            )
-            if success:
-                stats["in_discards"] = int(value) if value else 0
+        # 若列数据明显不足且当前为 bulk，则回退到 next 再试一次（兼容部分设备）
+        if mode == "bulk":
+            total_items = sum(len(results_by_oid.get(b, {})) for b in base_oids)
+            if total_items < len(base_oids) * max(1, min(if_count, 2)):
+                results_by_oid = await self._walk_columns_session_batched(
+                    snmp_engine,
+                    transport_target,
+                    creds,
+                    mode,
+                    base_oids,
+                    4,
+                    _if_count_hint=if_count,
+                    max_repetitions=min(effective_rep, best_rep),
+                )
+                total_items = sum(len(results_by_oid.get(b, {})) for b in base_oids)
+            if total_items < len(base_oids) * max(1, min(if_count, 2)):
+                results_by_oid = await self._walk_columns_session_batched(
+                    snmp_engine,
+                    transport_target,
+                    creds,
+                    "next",
+                    base_oids,
+                    4,
+                    _if_count_hint=if_count,
+                    max_repetitions=1,
+                )
 
-            # 获取发送丢包数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifOutDiscards']}.{i}", **kwargs
-            )
-            if success:
-                stats["out_discards"] = int(value) if value else 0
+        # 组装返回
+        descr_map = {
+            i: results_by_oid.get(self.OIDS["ifDescr"], {}).get(i) for i in indices
+        }
+        in_oct = {
+            i: results_by_oid.get(self.OIDS["ifInOctets"], {}).get(i) for i in indices
+        }
+        out_oct = {
+            i: results_by_oid.get(self.OIDS["ifOutOctets"], {}).get(i) for i in indices
+        }
+        in_disc = {
+            i: results_by_oid.get(self.OIDS["ifInDiscards"], {}).get(i) for i in indices
+        }
+        out_disc = {
+            i: results_by_oid.get(self.OIDS["ifOutDiscards"], {}).get(i)
+            for i in indices
+        }
+        in_err = {
+            i: results_by_oid.get(self.OIDS["ifInErrors"], {}).get(i) for i in indices
+        }
+        out_err = {
+            i: results_by_oid.get(self.OIDS["ifOutErrors"], {}).get(i) for i in indices
+        }
 
-            # 获取接收错误数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifInErrors']}.{i}", **kwargs
-            )
-            if success:
-                stats["in_errors"] = int(value) if value else 0
-
-            # 获取发送错误数
-            value, success = await self.get_data(
-                ip, version, f"{self.OIDS['ifOutErrors']}.{i}", **kwargs
-            )
-            if success:
-                stats["out_errors"] = int(value) if value else 0
-
+        for idx in indices:
+            stats: Dict[str, Any] = {"index": idx}
+            d = descr_map.get(idx)
+            if d is not None:
+                stats["description"] = str(d) if d else ""
+            v = in_oct.get(idx)
+            if v is not None:
+                stats["in_octets"] = int(v) if v else 0
+            v = out_oct.get(idx)
+            if v is not None:
+                stats["out_octets"] = int(v) if v else 0
+            v = in_disc.get(idx)
+            if v is not None:
+                stats["in_discards"] = int(v) if v else 0
+            v = out_disc.get(idx)
+            if v is not None:
+                stats["out_discards"] = int(v) if v else 0
+            v = in_err.get(idx)
+            if v is not None:
+                stats["in_errors"] = int(v) if v else 0
+            v = out_err.get(idx)
+            if v is not None:
+                stats["out_errors"] = int(v) if v else 0
             traffic_stats.append(stats)
 
         return traffic_stats
+
+    async def _probe_best_max_repetitions_session(
+        self,
+        snmp_engine: SnmpEngine,
+        transport_target: Any,
+        creds: Any,
+        mode: str,
+        base_oid: str,
+        if_count: int,
+    ) -> int:
+        """自适应探测设备最佳 max_repetitions。
+        - 仅在 mode == 'bulk' 时生效；否则返回 1。
+        - 通过一次 GETBULK（单列）首个响应批次的速度与条目数评估最佳值。
+        - 选择吞吐量（条目/秒）最高的候选，失败则回退到 10 或 25。
+        """
+        if mode != "bulk":
+            return 1
+        candidates = []
+        # 基于接口数量构造候选，避免超过 ifCount
+        for v in (5, 10, 15, 25, 50):
+            if v <= 0:
+                continue
+            candidates.append(min(v, max(1, if_count)))
+        # 去重并排序（升序）
+        candidates = sorted(set(candidates))
+
+        best = None
+        best_throughput = 0.0
+        for rep in candidates:
+            try:
+                start = time.perf_counter()
+                cmd_iter = bulk_cmd(
+                    snmp_engine,
+                    creds,
+                    transport_target,
+                    ContextData(),
+                    0,
+                    rep,
+                    ObjectType(ObjectIdentity(base_oid)),
+                )
+                entries = 0
+                error = False
+                if hasattr(cmd_iter, "__aiter__"):
+                    async for (
+                        error_indication,
+                        error_status,
+                        error_index,
+                        var_binds,
+                    ) in cmd_iter:
+                        if error_indication or error_status:
+                            error = True
+                            break
+                        # 仅评估首个批次
+                        for vb in var_binds:
+                            oid_str = (
+                                vb[0].prettyPrint()
+                                if hasattr(vb[0], "prettyPrint")
+                                else str(vb[0])
+                            )
+                            if oid_str.startswith(base_oid + "."):
+                                entries += 1
+                        break
+                else:
+                    error_indication, error_status, error_index, var_binds = await cmd_iter
+                    if error_indication or error_status:
+                        error = True
+                    else:
+                        for vb in var_binds:
+                            oid_str = (
+                                vb[0].prettyPrint()
+                                if hasattr(vb[0], "prettyPrint")
+                                else str(vb[0])
+                            )
+                            if oid_str.startswith(base_oid + "."):
+                                entries += 1
+                duration = max(1e-6, time.perf_counter() - start)
+                if error:
+                    continue
+                throughput = entries / duration
+                if throughput > best_throughput and entries > 0:
+                    best_throughput = throughput
+                    best = rep
+            except Exception:
+                continue
+        if best is None:
+            # 回退：优先 10，其次 25（并限定不超过 if_count）
+            return min(max(1, if_count), 10 if if_count >= 10 else min(25, if_count))
+        return best
+
+    def _profile_key(self, ip: str, version: str, **kwargs) -> str:
+        """生成设备/配置的profile key，用于缓存最佳max_repetitions。"""
+        ident = kwargs.get("community") or kwargs.get("user") or ""
+        return f"{version}:{ip}:{ident}"

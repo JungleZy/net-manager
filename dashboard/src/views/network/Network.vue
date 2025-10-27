@@ -1116,7 +1116,9 @@ const updateEdgesDataStatus = () => {
 
     // 检查接口流量数据
     if (switchDevice.interface_info) {
-      const interfaces = switchDevice.interface_info.interfaces || []
+      const interfaces = Array.isArray(switchDevice.interface_info)
+        ? switchDevice.interface_info
+        : []
 
       for (const iface of interfaces) {
         const hasData =
@@ -1650,7 +1652,9 @@ const handleSnmpDeviceUpdate = (data) => {
 
   // 检查接口流量数据，更新边的动画状态
   if (data.interface_info) {
-    const interfaces = data.interface_info.interfaces || []
+    const interfaces = Array.isArray(data.interface_info)
+      ? data.interface_info
+      : (data.interface_info?.interfaces || [])
 
     for (const iface of interfaces) {
       // 判断接口是否有数据传输（入站或出站速率 > 0）
