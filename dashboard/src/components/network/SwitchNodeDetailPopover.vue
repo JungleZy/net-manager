@@ -123,37 +123,51 @@
                   }}</span>
                 </div>
                 <div class="interface-details">
-                  <div class="detail-row">
-                    <span class="detail-label">MAC地址:</span>
-                    <span class="detail-value">{{ iface.address || '-' }}</span>
+                  <div class="detail-grid">
+                    <div class="detail-cell">
+                      <span class="detail-label">MAC地址:</span>
+                      <span class="detail-value">{{ iface.address || '-' }}</span>
+                    </div>
+                    <div class="detail-cell">
+                      <span class="detail-label">速率:</span>
+                      <span class="detail-value">{{ iface.speed_text || '-' }}</span>
+                    </div>
+                    <div class="detail-cell">
+                      <span class="detail-label">管理状态:</span>
+                      <span
+                        :class="[
+                          'status-tag',
+                          getAdminStatusClass(iface.admin_status_text)
+                        ]"
+                      >
+                        {{ iface.admin_status_text || '-' }}
+                      </span>
+                    </div>
+                    <div class="detail-cell">
+                      <span class="detail-label">工作状态:</span>
+                      <span
+                        :class="[
+                          'status-tag',
+                          getOperStatusClass(iface.oper_status_text)
+                        ]"
+                      >
+                        {{ iface.oper_status_text || '-' }}
+                      </span>
+                    </div>
                   </div>
-                  <div class="detail-row">
-                    <span class="detail-label">速率:</span>
-                    <span class="detail-value">{{
-                      iface.speed_text || '-'
-                    }}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">管理状态:</span>
-                    <span
-                      :class="[
-                        'status-tag',
-                        getAdminStatusClass(iface.admin_status_text)
-                      ]"
-                    >
-                      {{ iface.admin_status_text || '-' }}
-                    </span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">工作状态:</span>
-                    <span
-                      :class="[
-                        'status-tag',
-                        getOperStatusClass(iface.oper_status_text)
-                      ]"
-                    >
-                      {{ iface.oper_status_text || '-' }}
-                    </span>
+                  <div class="speed-row">
+                    <div class="speed-item upload">
+                      <span class="speed-icon">⬆</span>
+                      <span class="speed-value">{{
+                        iface.upload_readable || formatSpeed(iface.upload_bps)
+                      }}</span>
+                    </div>
+                    <div class="speed-item download">
+                      <span class="speed-icon">⬇</span>
+                      <span class="speed-value">{{
+                        iface.download_readable || formatSpeed(iface.download_bps)
+                      }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -323,7 +337,7 @@ onUnmounted(() => {
   gap: 8px;
 
   .interface-item {
-    padding: 10px;
+    padding: 8px;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     border-radius: 6px;
 
@@ -331,8 +345,8 @@ onUnmounted(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 
       .interface-name {
@@ -356,49 +370,85 @@ onUnmounted(() => {
       flex-direction: column;
       gap: 6px;
 
-      .detail-row {
+      .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 12px;
+      }
+
+      .detail-cell {
         display: flex;
         align-items: center;
         justify-content: space-between;
         font-size: 12px;
+      }
 
-        .detail-label {
-          color: #8c8c8c;
-          font-weight: 500;
+      .detail-label {
+        color: #8c8c8c;
+        font-weight: 500;
+      }
+
+      .detail-value {
+        color: #262626;
+        font-weight: 500;
+        font-family: monospace;
+      }
+
+      .status-tag {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+
+        &.enabled,
+        &.running {
+          background-color: #f6ffed;
+          color: #52c41a;
+          border: 1px solid #b7eb8f;
         }
 
-        .detail-value {
-          color: #262626;
-          font-weight: 500;
-          font-family: monospace;
+        &.disabled,
+        &.down {
+          background-color: #fff2f0;
+          color: #ff4d4f;
+          border: 1px solid #ffccc7;
         }
 
-        .status-tag {
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 500;
-
-          &.enabled,
-          &.running {
-            background-color: #f6ffed;
-            color: #52c41a;
-            border: 1px solid #b7eb8f;
-          }
-
-          &.disabled,
-          &.down {
-            background-color: #fff2f0;
-            color: #ff4d4f;
-            border: 1px solid #ffccc7;
-          }
-
-          &.testing {
-            background-color: #fff7e6;
-            color: #fa8c16;
-            border: 1px solid #ffd591;
-          }
+        &.testing {
+          background-color: #fff7e6;
+          color: #fa8c16;
+          border: 1px solid #ffd591;
         }
+      }
+
+      .speed-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 2px;
+      }
+
+      .speed-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #f0f5ff;
+        font-size: 12px;
+      }
+
+      .speed-item.upload .speed-icon {
+        color: #1890ff;
+      }
+      .speed-item.download .speed-icon {
+        color: #52c41a;
+      }
+
+      .speed-value {
+        font-family: monospace;
+        color: #262626;
+        font-weight: 500;
       }
     }
   }
@@ -432,3 +482,14 @@ onUnmounted(() => {
   font-weight: 500;
 }
 </style>
+// 速率格式化（bps -> 读数字符串）
+const formatSpeed = (bps) => {
+  if (bps === null || bps === undefined) return '-'
+  const val = Number(bps)
+  if (Number.isNaN(val)) return String(bps)
+  if (val === 0) return '-'
+  if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)} Gbps`
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(0)} Mbps`
+  if (val >= 1_000) return `${(val / 1_000).toFixed(0)} Kbps`
+  return `${val} bps`
+}

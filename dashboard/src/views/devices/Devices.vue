@@ -1,6 +1,7 @@
 <template>
   <div class="p-[12px] size-full">
     <div class="size-full bg-white rounded-lg shadow p-[12px] pt-[0]">
+      <!-- 顶部指南入口已移至头部导航（Index.vue） -->
       <a-tabs class="size-full" v-model:activeKey="activeKey">
         <a-tab-pane class="size-full" key="1" tab="探针设备">
           <ProbeDevicesTab
@@ -62,6 +63,8 @@ watch(activeKey, (newVal) => {
 onBeforeRouteLeave((to, from) => {
   localStorage.setItem('devices-active-tab', '1')
 })
+
+// 使用指南已在 Index.vue 通过模态框提供
 </script>
 
 <style lang="less">
