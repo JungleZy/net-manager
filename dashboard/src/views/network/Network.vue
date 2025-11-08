@@ -250,6 +250,7 @@
 <script setup>
 import {
   ref,
+  reactive,
   onMounted,
   onUnmounted,
   nextTick,
@@ -294,7 +295,7 @@ const switches = ref([])
 let lf = null
 const loading = ref(false)
 const topologyData = shallowRef({ nodes: [], edges: [] })
-const deviceStatusMap = shallowRef(new Map()) // 存储设备状态 {device_id: 'online'|'offline'}
+const deviceStatusMap = reactive(new Map()) // 存储设备状态 {device_id: 'online'|'offline'}
 const edgeDataMap = shallowRef(new Map()) // 存储边的数据传输状态 {edgeId: hasData}
 const isComponentMounted = ref(false)
 
@@ -760,19 +761,25 @@ const handleFullscreenChange = () => {
   }
 }
 
-// 统计信息（优化：避免 Array.from 和 filter）
+// 统计信息（仅统计拓扑图中的节点）
 const stats = computed(() => {
-  let totalNodes = 0
-  topologyData.value.nodes.forEach((node) => {
-    if (node.type !== 'customGroup') {
-      totalNodes++
-    }
-  })
-  let onlineNodes = 0
+  // 过滤掉分组节点，仅统计实际设备/交换机节点
+  const graphNodes = topologyData.value.nodes.filter(
+    (node) => node.type !== 'customGroup'
+  )
 
-  // 优化：直接遍历 Map，避免创建中间数组
-  for (const status of deviceStatusMap.value.values()) {
-    if (status === 'online') onlineNodes++
+  const totalNodes = graphNodes.length
+
+  // 仅统计在拓扑图中的节点的在线状态
+  const allowedIds = new Set(
+    graphNodes.map((n) => n.properties?.data?.id || n.id)
+  )
+
+  let onlineNodes = 0
+  for (const [deviceId, status] of deviceStatusMap.entries()) {
+    if (allowedIds.has(deviceId) && status === 'online') {
+      onlineNodes++
+    }
   }
 
   return {
@@ -782,15 +789,24 @@ const stats = computed(() => {
   }
 })
 
-// 在线设备列表
+// 在线设备列表（仅展示拓扑图中的节点）
 const onlineDevicesList = computed(() => {
   const list = []
 
-  // 收集在线设备
+  const graphNodes = topologyData.value.nodes.filter(
+    (node) => node.type !== 'customGroup'
+  )
+  const allowedIds = new Set(
+    graphNodes.map((n) => n.properties?.data?.id || n.id)
+  )
+
+  // 收集在线设备（仅拓扑节点）
   for (const device of devices.value) {
-    if (device.online) {
+    const id = device.client_id || device.id
+    const status = deviceStatusMap.get(id)
+    if (allowedIds.has(id) && status === 'online') {
       list.push({
-        id: device.client_id || device.id,
+        id,
         hostname: device.hostname,
         name: device.alias || device.hostname,
         ip: device.ip || device.networks?.[0]?.ip_address,
@@ -799,11 +815,13 @@ const onlineDevicesList = computed(() => {
     }
   }
 
-  // 收集在线交换机
+  // 收集在线交换机（仅拓扑节点）
   for (const switchDevice of switches.value) {
-    if (switchDevice.online) {
+    const id = switchDevice.switch_id || switchDevice.id
+    const status = deviceStatusMap.get(id)
+    if (allowedIds.has(id) && status === 'online') {
       list.push({
-        id: switchDevice.switch_id || switchDevice.id,
+        id,
         hostname: switchDevice.name || switchDevice.ip,
         name: switchDevice.alias || switchDevice.name,
         ip: switchDevice.ip,
@@ -815,15 +833,24 @@ const onlineDevicesList = computed(() => {
   return list
 })
 
-// 离线设备列表
+// 离线设备列表（仅展示拓扑图中的节点）
 const offlineDevicesList = computed(() => {
   const list = []
 
-  // 收集离线设备
+  const graphNodes = topologyData.value.nodes.filter(
+    (node) => node.type !== 'customGroup'
+  )
+  const allowedIds = new Set(
+    graphNodes.map((n) => n.properties?.data?.id || n.id)
+  )
+
+  // 收集离线设备（仅拓扑节点）
   for (const device of devices.value) {
-    if (!device.online) {
+    const id = device.client_id || device.id
+    const status = deviceStatusMap.get(id)
+    if (allowedIds.has(id) && status === 'offline') {
       list.push({
-        id: device.client_id || device.id,
+        id,
         hostname: device.hostname,
         name: device.alias || device.hostname,
         ip: device.ip || device.networks?.[0]?.ip_address,
@@ -832,11 +859,13 @@ const offlineDevicesList = computed(() => {
     }
   }
 
-  // 收集离线交换机
+  // 收集离线交换机（仅拓扑节点）
   for (const switchDevice of switches.value) {
-    if (!switchDevice.online) {
+    const id = switchDevice.switch_id || switchDevice.id
+    const status = deviceStatusMap.get(id)
+    if (allowedIds.has(id) && status === 'offline') {
       list.push({
-        id: switchDevice.switch_id || switchDevice.id,
+        id,
         hostname: switchDevice.name || switchDevice.ip,
         name: switchDevice.alias || switchDevice.name,
         ip: switchDevice.ip,
@@ -1014,7 +1043,7 @@ const loadLatestTopology = async () => {
 
           if (device) {
             const status = device.online ? 'online' : 'offline'
-            deviceStatusMap.value.set(deviceId, status)
+            deviceStatusMap.set(deviceId, status)
             if (node.properties) {
               node.properties.status = status
             } else {
@@ -1022,7 +1051,7 @@ const loadLatestTopology = async () => {
             }
           } else if (switchDevice) {
             const status = switchDevice.online ? 'online' : 'offline'
-            deviceStatusMap.value.set(deviceId, status)
+            deviceStatusMap.set(deviceId, status)
             if (node.properties) {
               node.properties.status = status
             } else {
@@ -1030,7 +1059,7 @@ const loadLatestTopology = async () => {
             }
           } else {
             const initialStatus = node.properties?.status || 'offline'
-            deviceStatusMap.value.set(deviceId, initialStatus)
+            deviceStatusMap.set(deviceId, initialStatus)
           }
         }
       }
@@ -1466,7 +1495,7 @@ const updateNodeStatus = (deviceId, status) => {
 
   try {
     // 更新状态映射
-    deviceStatusMap.value.set(deviceId, status)
+    deviceStatusMap.set(deviceId, status)
 
     // 查找对应的节点
     const graphData = lf.getGraphData()
