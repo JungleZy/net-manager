@@ -8,7 +8,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[12px]">
         <div class="bg-blue-100 rounded-lg p-4 shadow">
           <div class="text-2xl font-bold text-blue-800">
-            {{ statistics.deviceCount + statistics.switchCount }}
+            {{ totalCount }}
           </div>
           <div class="text-gray-600">总设备数</div>
         </div>
@@ -91,15 +91,12 @@
                       在线
                     </a-tag>
                     <a-tag
-                      v-else-if="switchItem.status === 'error'"
+                      v-else
                       color="error"
                       style="margin-right: 0"
                       :title="switchItem.errorMsg || '设备离线'"
                     >
                       离线
-                    </a-tag>
-                    <a-tag v-else color="default" style="margin-right: 0">
-                      未知
                     </a-tag>
                   </div>
                   <p><strong>IP地址:</strong> {{ switchItem.ip }}</p>
@@ -231,8 +228,18 @@ export default {
       switchCount: 0
     })
 
-    const devices = ref([])
-    const switches = ref([])
+    // 使用 shallowRef 承载大数组，减少深层响应式追踪开销
+    const devices = shallowRef([])
+    const switches = shallowRef([])
+
+    // 基于列表的设备/交换机数量计算，减少手动赋值风险
+    const deviceCount = computed(() =>
+      Array.isArray(devices.value) ? devices.value.length : 0
+    )
+    const switchCount = computed(() =>
+      Array.isArray(switches.value) ? switches.value.length : 0
+    )
+    const totalCount = computed(() => deviceCount.value + switchCount.value)
 
     // 设备与交换机在线/离线计数（用于聚合统计）
     const deviceOnlineCount = ref(0)
@@ -280,17 +287,21 @@ export default {
     const fetchDeviceStatistics = async () => {
       try {
         const response = await DeviceApi.getDevicesList()
-        devices.value = response.data || []
         const deviceList = response.data || []
+        devices.value = deviceList
 
-        statistics.value.deviceCount = deviceList.length
-        // 仅在本地累加，最终在 fetchData 中合并到统计
-        deviceOnlineCount.value = deviceList.filter(
-          (device) => device.online
-        ).length
-        deviceOfflineCount.value = deviceList.filter(
-          (device) => !device.online
-        ).length
+        // deviceCount 由计算属性基于 devices 列表自动得到
+        // 单次遍历计算在线/离线，减少两次过滤开销
+        const counts = deviceList.reduce(
+          (acc, d) => {
+            if (d && d.online) acc.online += 1
+            else acc.offline += 1
+            return acc
+          },
+          { online: 0, offline: 0 }
+        )
+        deviceOnlineCount.value = counts.online
+        deviceOfflineCount.value = counts.offline
       } catch (error) {
         console.error('获取设备统计信息失败:', error)
       }
@@ -300,15 +311,19 @@ export default {
       try {
         const response = await SwitchApi.getSwitchesList()
         const switchList = response.data || []
-        switches.value = response.data || []
-        statistics.value.switchCount = switchList.length
-        // 仅在本地累加，最终在 fetchData 中合并到统计
-        switchOnlineCount.value = switchList.filter(
-          (device) => device.online
-        ).length
-        switchOfflineCount.value = switchList.filter(
-          (device) => !device.online
-        ).length
+        switches.value = switchList
+        // switchCount 由计算属性基于 switches 列表自动得到
+        // 单次遍历计算在线/离线
+        const counts = switchList.reduce(
+          (acc, d) => {
+            if (d && d.online) acc.online += 1
+            else acc.offline += 1
+            return acc
+          },
+          { online: 0, offline: 0 }
+        )
+        switchOnlineCount.value = counts.online
+        switchOfflineCount.value = counts.offline
       } catch (error) {
         console.error('获取交换机统计信息失败:', error)
       }
@@ -322,7 +337,8 @@ export default {
     }
     const getSnmpOfflineCount = () => {
       const statusData = snmpDevicesStatus.value || {}
-      return Object.values(statusData).filter((d) => d?.type === 'error').length
+      return Object.values(statusData).filter((d) => d?.type !== 'success')
+        .length
     }
 
     // 聚合计算：设备 + SNMP 交换机
@@ -331,6 +347,19 @@ export default {
         deviceOnlineCount.value + getSnmpOnlineCount()
       statistics.value.offlineCount =
         deviceOfflineCount.value + getSnmpOfflineCount()
+    }
+
+    // 轻量去抖：在高频 SNMP 推送时合并计算，避免重复渲染
+    let _recomputeTimer = null
+    const scheduleRecompute = () => {
+      if (_recomputeTimer) return
+      _recomputeTimer = setTimeout(() => {
+        try {
+          recomputeStatistics()
+        } finally {
+          _recomputeTimer = null
+        }
+      }, 100)
     }
 
     const fetchData = async () => {
@@ -346,8 +375,8 @@ export default {
         if (statusMap && typeof statusMap === 'object') {
           snmpDevicesStatus.value = statusMap
           const count = Object.keys(statusMap).length
-          // SNMP 状态更新后重算统计
-          recomputeStatistics()
+          // SNMP 状态更新后重算统计（去抖）
+          scheduleRecompute()
           if (count > 0) {
             console.log(`Home: 加载SNMP设备状态: ${count}个设备`)
           }
@@ -362,8 +391,9 @@ export default {
     watch(
       () => snmpDevicesStatus.value,
       () => {
-        recomputeStatistics()
-      }
+        scheduleRecompute()
+      },
+      { flush: 'post' }
     )
 
     // WebSocket消息处理器 - 处理单设备实时更新
@@ -396,6 +426,7 @@ export default {
 
         // 更新状态
         snmpDevicesStatus.value = currentStatus
+        scheduleRecompute()
 
         console.debug(
           `Home: 设备状态更新: switch_id=${switchId}, status=${deviceData.type}`
@@ -441,6 +472,7 @@ export default {
 
         // 更新状态
         snmpDevicesStatus.value = currentStatus
+        scheduleRecompute()
 
         console.debug(
           `Home: 接口状态更新: switch_id=${switchId}, 接口数=${
@@ -452,6 +484,9 @@ export default {
       }
     }
 
+    let deviceUpdateSubToken = null
+    let interfaceUpdateSubToken = null
+
     onMounted(() => {
       fetchData()
 
@@ -460,19 +495,34 @@ export default {
         console.error('Home: 初始化SNMP状态失败:', err)
       })
 
-      // 订阅SNMP设备实时更新
-      PubSub.subscribe(wsCode.SNMP_DEVICE_UPDATE, handleDeviceUpdate)
-      // 订阅SNMP接口实时更新
-      PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleInterfaceUpdate)
+      // 订阅SNMP设备/接口实时更新（保存订阅ID以便精确退订）
+      deviceUpdateSubToken = PubSub.subscribe(
+        wsCode.SNMP_DEVICE_UPDATE,
+        handleDeviceUpdate
+      )
+      interfaceUpdateSubToken = PubSub.subscribe(
+        wsCode.SNMP_INTERFACE_UPDATE,
+        handleInterfaceUpdate
+      )
       console.log('Home: SNMP实时状态订阅已启动')
     })
 
     // 组件卸载 - 清理资源
     onUnmounted(() => {
-      PubSub.unsubscribe(wsCode.SNMP_DEVICE_UPDATE)
-      PubSub.unsubscribe(wsCode.SNMP_INTERFACE_UPDATE)
+      if (deviceUpdateSubToken) {
+        PubSub.unsubscribe(deviceUpdateSubToken)
+        deviceUpdateSubToken = null
+      }
+      if (interfaceUpdateSubToken) {
+        PubSub.unsubscribe(interfaceUpdateSubToken)
+        interfaceUpdateSubToken = null
+      }
       // 清空状态，释放内存
       snmpDevicesStatus.value = {}
+      if (_recomputeTimer) {
+        clearTimeout(_recomputeTimer)
+        _recomputeTimer = null
+      }
       console.log('Home: SNMP实时状态订阅已取消')
     })
 
@@ -482,7 +532,10 @@ export default {
       switches,
       switchesWithStatus,
       formatOSInfo,
-      formatTimestamp
+      formatTimestamp,
+      deviceCount,
+      switchCount,
+      totalCount
     }
   }
 }
