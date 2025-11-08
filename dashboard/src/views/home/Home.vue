@@ -121,7 +121,8 @@ import {
   h,
   defineComponent,
   computed,
-  shallowRef
+  shallowRef,
+  watch
 } from 'vue'
 import { Tooltip } from 'ant-design-vue'
 import DeviceApi from '@/common/api/device'
@@ -233,6 +234,12 @@ export default {
     const devices = ref([])
     const switches = ref([])
 
+    // 设备与交换机在线/离线计数（用于聚合统计）
+    const deviceOnlineCount = ref(0)
+    const deviceOfflineCount = ref(0)
+    const switchOnlineCount = ref(0)
+    const switchOfflineCount = ref(0)
+
     // SNMP设备状态数据 - 使用 shallowRef 优化大对象性能（以switch_id为key）
     const snmpDevicesStatus = shallowRef({})
 
@@ -277,10 +284,11 @@ export default {
         const deviceList = response.data || []
 
         statistics.value.deviceCount = deviceList.length
-        statistics.value.onlineCount = deviceList.filter(
+        // 仅在本地累加，最终在 fetchData 中合并到统计
+        deviceOnlineCount.value = deviceList.filter(
           (device) => device.online
         ).length
-        statistics.value.offlineCount = deviceList.filter(
+        deviceOfflineCount.value = deviceList.filter(
           (device) => !device.online
         ).length
       } catch (error) {
@@ -294,10 +302,11 @@ export default {
         const switchList = response.data || []
         switches.value = response.data || []
         statistics.value.switchCount = switchList.length
-        statistics.value.onlineCount = switchList.filter(
+        // 仅在本地累加，最终在 fetchData 中合并到统计
+        switchOnlineCount.value = switchList.filter(
           (device) => device.online
         ).length
-        statistics.value.offlineCount = switchList.filter(
+        switchOfflineCount.value = switchList.filter(
           (device) => !device.online
         ).length
       } catch (error) {
@@ -305,8 +314,29 @@ export default {
       }
     }
 
+    // 计算 SNMP 设备在线/离线数量（基于 snmpDevicesStatus.type）
+    const getSnmpOnlineCount = () => {
+      const statusData = snmpDevicesStatus.value || {}
+      return Object.values(statusData).filter((d) => d?.type === 'success')
+        .length
+    }
+    const getSnmpOfflineCount = () => {
+      const statusData = snmpDevicesStatus.value || {}
+      return Object.values(statusData).filter((d) => d?.type === 'error').length
+    }
+
+    // 聚合计算：设备 + SNMP 交换机
+    const recomputeStatistics = () => {
+      statistics.value.onlineCount =
+        deviceOnlineCount.value + getSnmpOnlineCount()
+      statistics.value.offlineCount =
+        deviceOfflineCount.value + getSnmpOfflineCount()
+    }
+
     const fetchData = async () => {
       await Promise.all([fetchDeviceStatistics(), fetchSwitchStatistics()])
+      // 首页在线/离线统计 = devices + SNMP 交换机
+      recomputeStatistics()
     }
 
     // 加载SNMP设备状态 - 使用新的buildStatusMap方法
@@ -316,6 +346,8 @@ export default {
         if (statusMap && typeof statusMap === 'object') {
           snmpDevicesStatus.value = statusMap
           const count = Object.keys(statusMap).length
+          // SNMP 状态更新后重算统计
+          recomputeStatistics()
           if (count > 0) {
             console.log(`Home: 加载SNMP设备状态: ${count}个设备`)
           }
@@ -326,12 +358,19 @@ export default {
       }
     }
 
+    // 当 SNMP 状态映射变化时，自动重算统计（包括 WebSocket 推送）
+    watch(
+      () => snmpDevicesStatus.value,
+      () => {
+        recomputeStatistics()
+      }
+    )
+
     // WebSocket消息处理器 - 处理单设备实时更新
     const handleDeviceUpdate = async (deviceData) => {
       try {
         const switchId = deviceData.switch_id
         if (!switchId) {
-          console.warn('Home: 设备数据缺少switch_id:', deviceData)
           return
         }
 
