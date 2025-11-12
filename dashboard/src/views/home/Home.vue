@@ -328,7 +328,7 @@ export default {
         console.error('获取交换机统计信息失败:', error)
       }
     }
-
+15285503390
     // 计算 SNMP 设备在线/离线数量（基于 snmpDevicesStatus.type）
     const getSnmpOnlineCount = () => {
       const statusData = snmpDevicesStatus.value || {}

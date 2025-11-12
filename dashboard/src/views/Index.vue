@@ -1,7 +1,7 @@
 <template>
   <div class="size-full main">
     <div
-      class="h-[52px] bg-blue-600 px-[20px] w-full shadow-md layout-side title"
+      class="h-[42px] bg-blue-600 px-[20px] w-full shadow-md layout-side title"
     >
       <!-- Logo部分 -->
       <div class="h-full layout-left-center">
@@ -67,7 +67,7 @@
         </div>
       </div>
     </div>
-    <div class="h-[calc(100vh-52px)]">
+    <div class="h-[calc(100vh-42px)]">
       <!-- 路由出口 -->
       <router-view></router-view>
     </div>

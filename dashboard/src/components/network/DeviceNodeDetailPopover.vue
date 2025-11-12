@@ -350,13 +350,13 @@
           >
             <div
               class="list-item process-item"
-              style="margin: 6px 0"
+              style="margin: 3px 0"
               :key="index"
             >
               <div class="item-header">
                 <span class="item-name">{{ item.name }}</span>
                 <span :class="['status-tag', item.status?.toLowerCase()]">{{
-                  formatProcessStatus(item.status)
+                  formatProcessStatus(item.status, item)
                 }}</span>
               </div>
               <div class="item-meta">
@@ -423,6 +423,25 @@ import {
 import { DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import localforage from 'localforage'
 import { VList } from 'virtua/vue'
+import ResidentProcessApi from '@/common/api/residentProcess.js'
+
+const statusMap = {
+  running: '运行中',
+  sleeping: '睡眠',
+  'disk-sleep': '磁盘睡眠',
+  stopped: '已停止',
+  not_running: '未启动',
+  'tracing-stop': '追踪停止',
+  zombie: '僵尸进程',
+  dead: '已终止',
+  'wake-kill': '唤醒终止',
+  waking: '唤醒中',
+  idle: '空闲',
+  locked: '已锁定',
+  waiting: '等待中',
+  suspended: '已挂起',
+  parked: '已停泊'
+}
 
 // 展开/收起状态
 const performanceExpanded = ref(true)
@@ -621,27 +640,13 @@ const formatListeningPorts = (ports) => {
 }
 
 // 格式化进程状态为中文
-const formatProcessStatus = (status) => {
+const formatProcessStatus = (status, item) => {
   if (!status) return '未知'
 
-  const statusMap = {
-    running: '运行中',
-    sleeping: '睡眠',
-    'disk-sleep': '磁盘睡眠',
-    stopped: '已停止',
-    'tracing-stop': '追踪停止',
-    zombie: '僵尸进程',
-    dead: '已终止',
-    'wake-kill': '唤醒终止',
-    waking: '唤醒中',
-    idle: '空闲',
-    locked: '已锁定',
-    waiting: '等待中',
-    suspended: '已挂起',
-    parked: '已停泊'
-  }
-
   const lowerStatus = status.toLowerCase()
+  if (item.name === 'mysqld.exe') {
+    console.log(lowerStatus, item)
+  }
   return statusMap[lowerStatus] || status
 }
 
@@ -715,6 +720,79 @@ const processesList = computed(() => {
   return []
 })
 
+// 常驻进程与合并展示处理
+const residentProcesses = ref([])
+const residentLoading = ref(false)
+const residentError = ref(null)
+
+const fetchResidentProcesses = async () => {
+  residentLoading.value = true
+  residentError.value = null
+  try {
+    const id = deviceId.value
+    if (!id || id === 'unknown') {
+      residentProcesses.value = []
+    } else {
+      const resp = await ResidentProcessApi.getResidentProcessList(id)
+      const data = resp?.data?.data ?? resp?.data ?? []
+      residentProcesses.value = Array.isArray(data) ? data : []
+    }
+  } catch (e) {
+    console.warn('加载常驻进程失败:', e)
+    residentError.value = e?.message || String(e)
+    residentProcesses.value = []
+  } finally {
+    residentLoading.value = false
+  }
+}
+
+const displayProcesses = computed(() => {
+  const running = Array.isArray(processesList.value) ? processesList.value : []
+
+  const residentNames = new Set(
+    (residentProcesses.value || []).map((p) => (p.name || '').toLowerCase())
+  )
+
+  const runningAugmented = running.map((proc) => {
+    const lower = (proc.name || '').toLowerCase()
+    return { ...proc, isResident: residentNames.has(lower), isStarted: true }
+  })
+
+  const missingResident = []
+  residentNames.forEach((name) => {
+    const found = runningAugmented.some(
+      (p) => (p.name || '').toLowerCase() === name
+    )
+    if (!found) {
+      missingResident.push({
+        name,
+        pid: '',
+        username: '',
+        status: 'not_running',
+        cpu_percent: 0,
+        memory_percent: 0,
+        listening_ports: [],
+        isResident: true,
+        isStarted: false
+      })
+    }
+  })
+
+  const merged = [...missingResident, ...runningAugmented]
+
+  merged.sort((a, b) => {
+    const ar = a.isResident ? 1 : 0
+    const br = b.isResident ? 1 : 0
+    if (ar !== br) return br - ar
+    const as = a.isStarted ? 1 : 0
+    const bs = b.isStarted ? 1 : 0
+    if (as !== bs) return bs - as
+    return (a.name || '').localeCompare(b.name || '')
+  })
+
+  return merged
+})
+
 // 过滤后的服务列表
 const filteredServices = computed(() => {
   if (!servicesSearchKeyword.value) return servicesList.value
@@ -737,12 +815,12 @@ const filteredServices = computed(() => {
   })
 })
 
-// 过滤后的进程列表
+// 过滤后的进程列表（基于合并展示列表）
 const filteredProcesses = computed(() => {
-  if (!processesSearchKeyword.value) return processesList.value
+  if (!processesSearchKeyword.value) return displayProcesses.value
 
   const keyword = processesSearchKeyword.value.toLowerCase()
-  return processesList.value.filter((process) => {
+  return displayProcesses.value.filter((process) => {
     const name = (process.name || '').toLowerCase()
     const pid = String(process.pid || '')
     const status = (process.status || '').toLowerCase()
@@ -891,6 +969,7 @@ const showProcessesDetail = (event) => {
 
   processesSearchKeyword.value = ''
   processesDetailVisible.value = true
+  fetchResidentProcesses()
 }
 
 // 优化：使用事件委托和防抖处理点击事件

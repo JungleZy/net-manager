@@ -36,6 +36,7 @@
                 class="device-item"
                 v-for="device in onlineDevicesList"
                 :key="device.id"
+                @click="handleDeviceListItemClick(device)"
               >
                 <div class="device-name">
                   {{ device.hostname || device.name || '未命名设备' }}
@@ -71,6 +72,7 @@
                 class="device-item"
                 v-for="device in offlineDevicesList"
                 :key="device.id"
+                @click="handleDeviceListItemClick(device)"
               >
                 <div class="device-name">
                   {{ device.hostname || device.name || '未命名设备' }}
@@ -523,9 +525,7 @@ const handleSearchResultClick = (result) => {
         // 触发节点点击处理
         handleNodeClick(node, mockEvent)
       }
-    }, 300)
-
-    message.success(`已定位到: ${result.name}`)
+    }, 100)
   } else {
     message.warning('该设备未在拓扑图中显示')
   }
@@ -550,6 +550,59 @@ const handleClickOutside = (event) => {
     if (!clickedInsidePanel && !clickedInsideInput) {
       closeSearchResults()
     }
+  }
+}
+
+// 点击设备列表项（在线/离线面板）定位到拓扑节点
+const handleDeviceListItemClick = (device) => {
+  if (!lf || !device) return
+
+  try {
+    // 关闭对应的 Popover
+    onlinePopoverVisible.value = false
+    offlinePopoverVisible.value = false
+
+    // 查找节点（优先 properties.data.id，其次节点 id）
+    const graphData = lf.getGraphData()
+    const node = graphData.nodes.find(
+      (n) => n.properties?.data?.id === device.id || n.id === device.id
+    )
+
+    if (node) {
+      // 聚焦到该节点
+      lf.focusOn({
+        id: node.id,
+        coordinate: { x: node.x, y: node.y }
+      })
+
+      // 延迟触发节点详情弹窗，模拟点击位置
+      setTimeout(() => {
+        const container = containerRef.value
+        if (container) {
+          const containerRect = container.getBoundingClientRect()
+          const transform = lf.getTransform()
+
+          const nodeCanvasX = node.x * transform.SCALE_X + transform.TRANSLATE_X
+          const nodeCanvasY = node.y * transform.SCALE_Y + transform.TRANSLATE_Y
+
+          const mockEvent = {
+            clientX: containerRect.left + nodeCanvasX,
+            clientY: containerRect.top + nodeCanvasY
+          }
+
+          handleNodeClick(node, mockEvent)
+        }
+      }, 300)
+
+      message.success(
+        `已定位到: ${device.name || device.hostname || device.ip || device.id}`
+      )
+    } else {
+      message.warning('该设备未在拓扑图中显示')
+    }
+  } catch (error) {
+    console.error('定位设备失败:', error)
+    message.error('定位设备失败')
   }
 }
 
@@ -1475,9 +1528,9 @@ const findTargetNode = (currentDeviceNode, gatewayIp, nodeByIp, graphData) => {
           : connectedEdge.sourceNodeId
       targetNode = graphData.nodes.find((node) => node.id === targetNodeId)
       if (targetNode) {
-        console.log(
-          `策略3: 找到连线的节点 ${targetNode.id} (连线ID: ${connectedEdge.id})`
-        )
+        // console.log(
+        //   `策略3: 找到连线的节点 ${targetNode.id} (连线ID: ${connectedEdge.id})`
+        // )
         return targetNode
       }
     }
@@ -1586,9 +1639,9 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
       let finalHasData = hasData
       if (!bothOnline) {
         finalHasData = false
-        console.log(
-          `边 ${edge.id} 的节点不全在线 (源: ${sourceStatus}, 目标: ${targetStatus})，关闭动画`
-        )
+        // console.log(
+        //   `边 ${edge.id} 的节点不全在线 (源: ${sourceStatus}, 目标: ${targetStatus})，关闭动画`
+        // )
       }
 
       // 检查边的当前状态
@@ -1596,11 +1649,11 @@ const updateEdgeDataStatus = (sourceId, targetId, hasData) => {
 
       // 如果当前状态和需要更新的状态一致，则跳过更新
       if (currentState === finalHasData) {
-        console.log(`边 ${edge.id} 状态未变化 (${finalHasData})，跳过更新`)
+        // console.log(`边 ${edge.id} 状态未变化 (${finalHasData})，跳过更新`)
         return
       }
 
-      console.log(`更新边 ${edge.id} 状态: ${currentState} -> ${finalHasData}`)
+      // console.log(`更新边 ${edge.id} 状态: ${currentState} -> ${finalHasData}`)
 
       // 更新状态映射
       edgeDataMap.value.set(edge.id, finalHasData)

@@ -954,8 +954,10 @@ class SNMPMonitor:
         if_count = int(value) if value else 0
         if if_count <= 0:
             return interfaces
+        # 注意：不少设备的 ifIndex 并非从 1 连续递增（例如厂商自定义的高位索引）。
+        # 先用 ifNumber 作为数量提示，后续根据遍历结果动态重建索引集合。
         indices = list(range(1, if_count + 1))
-        logger.info(f"{ip} 获取到 {if_count} 个接口索引: {indices}")
+        logger.info(f"{ip} 获取到 {if_count} 个接口索引提示: {indices}")
 
         # 常量映射
         type_map = {
@@ -1088,6 +1090,24 @@ class SNMPMonitor:
                         _if_count_hint=if_count,
                         max_repetitions=1,
                     )
+
+            # 根据遍历结果动态重建索引集合，兼容非连续 ifIndex（如部分迪普设备）
+            discovered_indices = set()
+            for b in base_oids:
+                for k in results_by_oid.get(b, {}).keys():
+                    try:
+                        discovered_indices.add(int(k))
+                    except Exception:
+                        # 键已为 int 或不可转，直接加入
+                        discovered_indices.add(k)
+
+            if discovered_indices:
+                indices = sorted(discovered_indices)
+                logger.info(f"{ip} 遍历得到实际接口索引: {indices}")
+            else:
+                logger.warning(
+                    f"{ip} 遍历结果为空，保留 ifNumber 提示的索引范围以尝试组装"
+                )
 
             # 组装
             descr_map = {
