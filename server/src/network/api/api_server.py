@@ -12,7 +12,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-from src.core.config import API_PORT, API_HOST
+from src.core.config import API_PORT, API_HOST, METRICS_ENABLED, METRICS_ROUTE
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.database.managers.topology_manager import TopologyManager
@@ -58,6 +58,7 @@ from src.network.api.handlers.resident_process_handlers import (
 )
 from src.network.api.handlers.health_handler import HealthHandler
 from src.network.api.handlers.performance_handler import PerformanceHandler
+from src.network.api.handlers.metrics_handler import MetricsHandler
 from src.network.api.websocket_handler import WebSocketHandler
 from src.network.api.handlers.static_handler import StaticFileHandler
 from src.network.api.handlers.well_known_handler import WellKnownHandler
@@ -126,6 +127,15 @@ class APIServer:
                     get_tcp_server_func=self.get_tcp_server,
                 ),
             ),
+            # 轻量指标端点（可开关）
+            (
+                METRICS_ROUTE,
+                MetricsHandler,
+                dict(
+                    db_manager=self.db_manager,
+                    get_tcp_server_func=self.get_tcp_server,
+                ),
+            ) if METRICS_ENABLED else None,
             (
                 r"/api/devices/(?P<device_id>[^/]+)/type",
                 DeviceTypeHandler,
@@ -271,7 +281,9 @@ class APIServer:
             "debug": False,
         }
 
-        return tornado.web.Application(routes, **settings)
+        # 过滤掉可能的None路由项
+        filtered_routes = [r for r in routes if r is not None]
+        return tornado.web.Application(filtered_routes, **settings)
 
     def start(self):
         """启动API服务器"""

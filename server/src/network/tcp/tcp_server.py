@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from src.core.config import TCP_PORT
+from src.core.config import TCP_PORT, TCP_THREADPOOL_WORKERS
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.models.device_info import DeviceInfo
@@ -28,7 +28,7 @@ from src.core.state_manager import state_manager
 class TCPServer:
     """TCP服务端，用于与客户端建立长连接"""
 
-    def __init__(self, db_manager=None, max_workers=100):
+    def __init__(self, db_manager=None, max_workers=TCP_THREADPOOL_WORKERS):
         self.tcp_port = TCP_PORT
         self.clients = set()  # 使用set存储连接的客户端，提高查找效率
         self.client_id_map = {}  # 存储client_id到地址的映射关系
@@ -116,7 +116,7 @@ class TCPServer:
         except ConnectionResetError:
             logger.info(f"客户端 {address} 断开连接")
         except Exception as e:
-            logger.error(f"处理客户端 {address} 数据时出错: {e}")
+            logger.exception(f"处理客户端 {address} 数据时出错: {e}")
         finally:
             # 发送设备离线状态
             state_manager.broadcast_message(
@@ -208,7 +208,7 @@ class TCPServer:
             hex_data = data.hex()[:200] + ("..." if len(data.hex()) > 200 else "")
             logger.debug(f"原始数据(十六进制): {hex_data}")
         except Exception as e:
-            logger.error(f"  处理数据时出错: {e}")
+            logger.exception(f"  处理数据时出错: {e}")
 
     def _create_device_info(self, info):
         """创建设备信息对象"""
@@ -301,7 +301,11 @@ class TCPServer:
         """确保接收指定长度的数据"""
         data = b""
         while len(data) < length:
-            packet = sock.recv(length - len(data))
+            try:
+                packet = sock.recv(length - len(data))
+            except socket.timeout:
+                logger.warning("接收数据超时")
+                return None
             if not packet:
                 return None
             data += packet
@@ -330,7 +334,7 @@ class TCPServer:
                     # 设置accept超时，以便能够响应Ctrl+C
                     server_socket.settimeout(1.0)
                     client_socket, address = server_socket.accept()
-                    client_socket.settimeout(None)  # 重置客户端套接字超时
+                    client_socket.settimeout(None)  # 重置客户端套接字为阻塞模式
 
                     # 为每个客户端提交到线程池处理
                     # 在提交前检查服务器是否仍在运行
@@ -352,12 +356,12 @@ class TCPServer:
                     continue
                 except Exception as e:
                     if self.running:
-                        logger.error(f"接受连接时出错: {e}")
+                        logger.exception(f"接受连接时出错: {e}")
 
         except KeyboardInterrupt:
             logger.info("TCP服务端正在停止...")
         except Exception as e:
-            logger.error(f"服务端运行出错: {e}")
+            logger.exception(f"服务端运行出错: {e}")
         finally:
             self.running = False
             # 关闭所有客户端连接

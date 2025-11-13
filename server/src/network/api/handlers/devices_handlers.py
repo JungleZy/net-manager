@@ -131,23 +131,14 @@ class DeviceHandler(BaseHandler):
 
     def get_online_status(self, device_id):
         """根据client_id判断客户端是否在线"""
-        # 首先通过设备ID获取client_id
+        # 通过DeviceManager获取设备信息，避免直连与表名错误
         try:
-            conn = sqlite3.connect(self.db_manager.db_path)
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT client_id FROM devices_info WHERE id = ? ORDER BY timestamp DESC LIMIT 1
-            """,
-                (device_id,),
-            )
-            row = cursor.fetchone()
-            conn.close()
-
-            if not row or not row[0]:
+            device = self.db_manager.device_manager.get_device_info_by_id(device_id)
+            if not device:
                 return False
-
-            client_id = row[0]
+            client_id = device.get("client_id")
+            if not client_id:
+                return False
         except Exception:
             return False
 

@@ -1060,8 +1060,7 @@ class SNMPMonitor:
                         max_repetitions=effective_rep,
                     )
             except Exception:
-                # 初次尝试异常，置空以触发后续回退检查
-                logger.warning("列遍历初次尝试异常，将进行回退检查", exc_info=True)
+                logger.exception("列遍历初次尝试异常，将进行回退检查")
                 results_by_oid = {}
 
             # 若列数据明显不足且当前为 bulk，则回退到 next 再试一次（兼容部分设备）
@@ -1098,7 +1097,6 @@ class SNMPMonitor:
                     try:
                         discovered_indices.add(int(k))
                     except Exception:
-                        # 键已为 int 或不可转，直接加入
                         discovered_indices.add(k)
 
             if discovered_indices:

@@ -14,6 +14,14 @@ from .unified_poller import (
     stop_device_poller,
     stop_interface_poller,
 )
+from src.core.config import (
+    POLLERS_DEVICE_INTERVAL,
+    POLLERS_DEVICE_MIN_WORKERS,
+    POLLERS_DEVICE_MAX_WORKERS,
+    POLLERS_INTERFACE_INTERVAL,
+    POLLERS_INTERFACE_MIN_WORKERS,
+    POLLERS_INTERFACE_MAX_WORKERS,
+)
 
 # 注意：SNMPMonitor已经处理了pysnmp的导入，这里不需要重复导入
 
@@ -613,14 +621,14 @@ class SNMPManager:
 
     def start_pollers(
         self,
-        device_poll_interval: int = 10,
-        device_min_workers: int = 5,
-        device_max_workers: int = 20,
+        device_poll_interval: int = POLLERS_DEVICE_INTERVAL,
+        device_min_workers: int = POLLERS_DEVICE_MIN_WORKERS,
+        device_max_workers: int = POLLERS_DEVICE_MAX_WORKERS,
         device_timeout: int = 30,
-        interface_poll_interval: int = 30,
-        interface_min_workers: int = 5,
-        interface_max_workers: int = 30,
-        interface_timeout: int = 600,
+        interface_poll_interval: int = POLLERS_INTERFACE_INTERVAL,
+        interface_min_workers: int = POLLERS_INTERFACE_MIN_WORKERS,
+        interface_max_workers: int = POLLERS_INTERFACE_MAX_WORKERS,
+        interface_timeout: int = 60,
         enable_cache: bool = True,
         cache_ttl: int = 300,
         dynamic_adjustment: bool = True,

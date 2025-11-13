@@ -16,6 +16,11 @@ from datetime import datetime
 import statistics
 
 from src.database.managers.switch_manager import SwitchManager
+from src.core.config import (
+    SNMP_QUEUE_MAXSIZE,
+    SNMP_QUEUE_STRATEGY,
+    SNMP_QUEUE_PUT_TIMEOUT,
+)
 from src.core.logger import logger
 
 if TYPE_CHECKING:
@@ -187,7 +192,7 @@ class SNMPPoller:
 
     async def _polling_loop(self):
         """异步轮询循环（快进快出队列模式）"""
-        self._task_queue = asyncio.Queue()
+        self._task_queue = asyncio.Queue(maxsize=SNMP_QUEUE_MAXSIZE)
         self._active_lock = asyncio.Lock()
 
         logger.info(
@@ -243,8 +248,50 @@ class SNMPPoller:
                         if ip in self._active_tasks:
                             continue
 
-                    await self._task_queue.put(switch)
-                    enqueued += 1
+                    # 入队策略
+                    if SNMP_QUEUE_STRATEGY == "backpressure":
+                        try:
+                            await asyncio.wait_for(
+                                self._task_queue.put(switch),
+                                timeout=SNMP_QUEUE_PUT_TIMEOUT,
+                            )
+                            enqueued += 1
+                        except asyncio.TimeoutError:
+                            logger.warning(
+                                f"{self._type_name}队列背压超时，跳过设备 {ip} 入队"
+                            )
+                    elif SNMP_QUEUE_STRATEGY == "drop_oldest":
+                        if self._task_queue.full():
+                            try:
+                                dropped = self._task_queue.get_nowait()
+                                # 标记丢弃项为完成，避免未完成计数积压
+                                self._task_queue.task_done()
+                                with self._stats_lock:
+                                    self._stats["dropped_items"] = (
+                                        self._stats.get("dropped_items", 0) + 1
+                                    )
+                                logger.debug(
+                                    f"{self._type_name}队列满，丢弃最旧项并插入 {ip}"
+                                )
+                            except asyncio.QueueEmpty:
+                                pass
+                        try:
+                            self._task_queue.put_nowait(switch)
+                            enqueued += 1
+                        except asyncio.QueueFull:
+                            logger.warning(
+                                f"{self._type_name}队列仍满，跳过设备 {ip} 入队"
+                            )
+                    else:  # drop_new
+                        if not self._task_queue.full():
+                            await self._task_queue.put(switch)
+                            enqueued += 1
+                        else:
+                            with self._stats_lock:
+                                self._stats["dropped_items"] = (
+                                    self._stats.get("dropped_items", 0) + 1
+                                )
+                            logger.debug(f"{self._type_name}队列满，丢弃新项 {ip}")
 
                 with self._stats_lock:
                     self._stats["queue_size"] = self._task_queue.qsize()

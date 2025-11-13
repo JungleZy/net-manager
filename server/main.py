@@ -71,7 +71,7 @@ def cleanup_on_exit():
             logger.info("停止服务器监控器...")
             server_monitor.stop()
     except Exception as e:
-        logger.error(f"停止服务器监控器时出错: {e}")
+        logger.exception(f"停止服务器监控器时出错: {e}")
 
     # 停止SNMP轮询器
     try:
@@ -79,7 +79,7 @@ def cleanup_on_exit():
         stop_device_poller()
         stop_interface_poller()
     except Exception as e:
-        logger.error(f"停止SNMP轮询器时出错: {e}")
+        logger.exception(f"停止SNMP轮询器时出错: {e}")
 
     # 停止TCP服务器
     if "tcp_server" in globals() and tcp_server is not None:
@@ -87,7 +87,7 @@ def cleanup_on_exit():
             logger.info("停止TCP服务器...")
             tcp_server.running = False
         except Exception as e:
-            logger.error(f"停止TCP服务器时出错: {e}")
+            logger.exception(f"停止TCP服务器时出错: {e}")
 
     # 停止API服务器
     if "api_server" in globals() and api_server is not None:
@@ -95,7 +95,7 @@ def cleanup_on_exit():
             logger.info("停止API服务器...")
             api_server.stop()
         except Exception as e:
-            logger.error(f"停止API服务器时出错: {e}")
+            logger.exception(f"停止API服务器时出错: {e}")
 
     # 停止UDP服务器（组播）
     try:
@@ -104,7 +104,7 @@ def cleanup_on_exit():
         logger.info("停止UDP组播服务器...")
         stop_udp_server()
     except Exception as e:
-        logger.error(f"停止UDP组播服务器时出错: {e}")
+        logger.exception(f"停止UDP组播服务器时出错: {e}")
 
     # 停止UDP广播服务器
     try:
@@ -113,13 +113,13 @@ def cleanup_on_exit():
         logger.info("停止UDP广播服务器...")
         stop_broadcast_server()
     except Exception as e:
-        logger.error(f"停止UDP广播服务器时出错: {e}")
+        logger.exception(f"停止UDP广播服务器时出错: {e}")
 
     # 释放单例锁
     try:
         singleton_manager.release_lock()
     except Exception as e:
-        logger.error(f"释放单例锁时出错: {e}")
+        logger.exception(f"释放单例锁时出错: {e}")
 
     logger.info("服务端已完成退出清理")
 
@@ -142,7 +142,7 @@ def start_tcp_server(tcp_server_instance):
     try:
         tcp_server_instance.start()
     except Exception as e:
-        logger.error(f"TCP服务端运行出错: {e}")
+        logger.exception(f"TCP服务端运行出错: {e}")
 
 
 def start_api_server(api_server_instance):
@@ -150,7 +150,7 @@ def start_api_server(api_server_instance):
     try:
         api_server_instance.start()
     except Exception as e:
-        logger.error(f"API服务端运行出错: {e}")
+        logger.exception(f"API服务端运行出错: {e}")
 
 
 def main():
@@ -255,7 +255,7 @@ def main():
     except KeyboardInterrupt:
         logger.info("服务端被用户中断")
     except Exception as e:
-        logger.error(f"服务端运行出错: {e}", exc_info=True)
+        logger.exception(f"服务端运行出错: {e}")
     finally:
         # cleanup_on_exit 会通过 atexit 自动调用
         pass

@@ -125,7 +125,7 @@ class StateManager:
 
         except Exception as e:
             self._broadcast_errors += 1
-            logger.error(f"消息序列化或发送过程中出错: {str(e)}")
+            logger.exception(f"消息序列化或发送过程中出错: {str(e)}")
 
     def broadcast_message(
         self, message: Dict[str, Any], message_type: str = "general"
@@ -172,11 +172,11 @@ class StateManager:
                         logger.debug("已将消息发送任务添加到主线程事件循环")
 
                 except Exception as e:
-                    logger.error(f"无法获取主IOLoop实例: {str(e)}")
+                    logger.exception(f"无法获取主IOLoop实例: {str(e)}")
                     # 如果无法通过IOLoop发送，记录错误但不阻塞程序
         except Exception as e:
             self._broadcast_errors += 1
-            logger.error(f"广播消息时发生错误: {str(e)}")
+            logger.exception(f"广播消息时发生错误: {str(e)}")
 
 
     # -------- 事件发布订阅系统 --------
@@ -230,7 +230,7 @@ class StateManager:
             try:
                 callback(event_data)
             except Exception as e:
-                pass
+                logger.exception(f"事件回调执行失败: {event_name}: {e}")
               
 # 创建全局状态管理器实例
 state_manager = StateManager()
