@@ -123,7 +123,7 @@
         </div>
       </div>
       <div
-        class="w-full bottom-area table-container"
+        class="w-full bottom-area table-container overflow-auto"
         v-else-if="!scanTaskId && scanTaskData && scanTaskData.length > 0"
       >
         <a-table
@@ -380,8 +380,6 @@ const handleOk = () => {
         // 调用后端SNMP扫描接口
         const response = await SwitchApi.scanNetworkDevices(filteredParams)
 
-        console.log(response)
-
         scanTaskId.value = response.task_id
         message.success({
           content: `发起扫描成功，请等待扫描完成`,
@@ -476,10 +474,6 @@ const addToSwitches = async (record) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-
-.table-container {
-  overflow: hidden;
 }
 
 .table-container :deep(.ant-table) {

@@ -131,7 +131,7 @@ export const deriveDeviceType = (description) => {
   }
 
   // 默认返回未知类型
-  return '未知';
+  return '交换机';
 };
 
 /**
