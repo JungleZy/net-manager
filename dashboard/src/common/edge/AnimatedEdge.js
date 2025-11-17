@@ -165,7 +165,7 @@ class AnimatedEdgeModel extends LineEdgeModel {
       return {
         ...style,
         stroke: '#1890ff',
-        strokeWidth: 3
+        strokeWidth: 2
       }
     }
 

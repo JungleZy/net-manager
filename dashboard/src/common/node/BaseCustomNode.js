@@ -69,7 +69,7 @@ class BaseCustomNode extends RectNode {
       'text',
       {
         x: x,
-        y: y + height / 2 + 5, // 在节点下方显示文本
+        y: y + height / 2 + 8, // 在节点下方显示文本
         textAnchor: 'middle',
         fontSize: textStyle.fontSize || DEFAULT_STYLES.DEFAULT_FONT_SIZE,
         fill: textStyle.fill || getTextFillColor(), // 使用主题感知的文字颜色

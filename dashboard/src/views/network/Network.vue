@@ -1695,6 +1695,72 @@ const handleDeviceStatusUpdate = (data) => {
       switchDevice.last_seen = formatLocalDateTime()
     }
     console.log('设备列表已更新:', devices.value)
+
+    // 同步更新与该设备相关的边颜色，避免延迟
+    updateEdgesByDeviceStatus(deviceId)
+  }
+}
+
+// 根据端点在线状态更新与设备相关的边颜色（移除接口流量判断，仅按在线状态）
+const updateEdgesByDeviceStatus = (deviceId) => {
+  if (!lf || !deviceId) return
+
+  try {
+    const graphData = lf.getGraphData()
+    // 兼容 properties.data.id 与节点 id
+    const node = graphData.nodes.find(
+      (n) => n.properties?.data?.id === deviceId || n.id === deviceId
+    )
+    if (!node) return
+
+    const nodeId = node.id
+
+    // 构建节点索引以加速查找
+    const nodeById = new Map()
+    for (let i = 0, len = graphData.nodes.length; i < len; i++) {
+      const n = graphData.nodes[i]
+      nodeById.set(n.id, n)
+    }
+
+    // 查找与该节点相连的所有边
+    const relatedEdges = graphData.edges.filter(
+      (e) => e.sourceNodeId === nodeId || e.targetNodeId === nodeId
+    )
+    if (relatedEdges.length === 0) return
+
+    for (let i = 0, len = relatedEdges.length; i < len; i++) {
+      const edge = relatedEdges[i]
+      const otherId =
+        edge.sourceNodeId === nodeId ? edge.targetNodeId : edge.sourceNodeId
+
+      const srcNode = node
+      const dstNode = nodeById.get(otherId)
+      if (!dstNode) continue
+
+      const srcStatus =
+        deviceStatusMap.get(srcNode.properties?.data?.id || srcNode.id) ||
+        srcNode.properties?.status ||
+        'offline'
+      const dstStatus =
+        deviceStatusMap.get(dstNode.properties?.data?.id || dstNode.id) ||
+        dstNode.properties?.status ||
+        'offline'
+
+      const active = srcStatus === 'online' && dstStatus === 'online'
+      const current = !!edge.properties?.hasData
+      if (current === active) continue
+
+      const edgeModel = lf.getEdgeModelById(edge.id)
+      if (edgeModel) {
+        edgeModel.setProperties({
+          ...(edge.properties || {}),
+          // 两端都在线：设置为活跃颜色(#1890ff)，否则灰色(#999)
+          hasData: active
+        })
+      }
+    }
+  } catch (error) {
+    console.error('根据节点在线状态更新边颜色失败:', error)
   }
 }
 
@@ -1727,26 +1793,8 @@ const handleSnmpDeviceUpdate = (data) => {
       // 更新 Map
       updateSwitchIdMap()
     }
-  }
-
-  // 检查接口流量数据，更新边的动画状态
-  if (data.interface_info) {
-    const interfaces = Array.isArray(data.interface_info)
-      ? data.interface_info
-      : data.interface_info?.interfaces || []
-
-    for (const iface of interfaces) {
-      // 判断接口是否有数据传输（入站或出站速率 > 0）
-      const hasData =
-        (iface.in_octets_rate && iface.in_octets_rate > 0) ||
-        (iface.out_octets_rate && iface.out_octets_rate > 0)
-
-      // 根据接口描述或MAC地址映射到目标设备
-      // 这里需要根据实际业务逻辑调整
-      if (hasData && iface.connected_device_id) {
-        updateEdgeDataStatus(deviceId, iface.connected_device_id, hasData)
-      }
-    }
+    // 按端点在线状态更新与该设备相关的边颜色
+    updateEdgesByDeviceStatus(deviceId)
   }
 }
 
@@ -1793,71 +1841,8 @@ const handleDeviceInfoUpdate = (data) => {
       // 更新 Map
       updateDeviceIdMap()
     }
-  }
-
-  // 检查网络接口流量数据，更新边的动画状态
-  // 注意：客户端发送的字段名是 networks，不是 network_info
-  if (data.networks) {
-    let interfaces = []
-
-    // 处理两种可能的数据格式
-    if (typeof data.networks === 'string') {
-      // 如果是JSON字符串，先解析
-      try {
-        interfaces = JSON.parse(data.networks)
-      } catch (e) {
-        console.warn('解析 networks 字段失败:', e)
-        return
-      }
-    } else if (Array.isArray(data.networks)) {
-      // 如果已经是数组，直接使用
-      interfaces = data.networks
-    } else {
-      return
-    }
-
-    // 优化：预先获取 graphData 和构建节点 Map
-    const graphData = lf?.getGraphData()
-    if (!graphData) return
-
-    const nodeByIp = new Map()
-    const nodeByDeviceId = new Map()
-
-    for (const node of graphData.nodes) {
-      const ip = node.properties?.data?.ip
-      const id = node.properties?.data?.id
-
-      if (ip) nodeByIp.set(ip, node)
-      if (id) nodeByDeviceId.set(id, node)
-    }
-
-    for (const iface of interfaces) {
-      // 判断接口是否有数据传输（上传或下载速率 > 0）
-      const hasData =
-        (iface.upload_rate && iface.upload_rate > 0) ||
-        (iface.download_rate && iface.download_rate > 0)
-
-      if (hasData && iface.gateway) {
-        const currentDeviceNode = nodeByDeviceId.get(deviceId)
-
-        if (!currentDeviceNode) {
-          console.warn(`未找到设备 ${deviceId} 对应的节点`)
-          continue
-        }
-
-        // 使用降级策略查找目标节点
-        const targetNode = findTargetNode(
-          currentDeviceNode,
-          iface.gateway,
-          nodeByIp,
-          graphData
-        )
-
-        if (targetNode) {
-          updateEdgeDataStatus(currentDeviceNode.id, targetNode.id, hasData)
-        }
-      }
-    }
+    // 按端点在线状态更新与该设备相关的边颜色
+    updateEdgesByDeviceStatus(deviceId)
   }
 }
 
@@ -1870,10 +1855,10 @@ const initPubSubSubscriptions = () => {
     // 订阅SNMP设备更新
     PubSub.subscribe(wsCode.SNMP_DEVICE_UPDATE, handleSnmpDeviceUpdate)
 
-    // 订阅客户端设备信息更新（用于网络流量动画）
+    // 订阅客户端设备信息更新（按在线状态更新边）
     PubSub.subscribe(wsCode.DEVICE_INFO, handleDeviceInfoUpdate)
 
-    // 订阅SNMP设备信息更新（用于网络流量动画）
+    // 订阅SNMP设备信息更新（按在线状态更新边）
     PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleSnmpInterfaceUpdate)
 
     console.log('Network.vue: PubSub订阅已初始化')
