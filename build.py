@@ -104,6 +104,7 @@ VENV_DIR = PROJECT_ROOT / "venv"
 
 # Nuitka构建选项常量
 NUITKA_STATIC_LIBPYTHON_NO = "--static-libpython=no"  # 不静态链接Python库
+NUITKA_STATIC_LIBPYTHON_YES = "--static-libpython=yes"  # 静态链接Python库（Linux优先）
 NUITKA_ASSUME_YES_FOR_DOWNLOADS = "--assume-yes-for-downloads"  # 自动下载必要的依赖
 NUITKA_ENABLE_PLUGIN_MULTIPROCESSING = (
     "--enable-plugin=multiprocessing"  # 启用多进程插件
@@ -322,6 +323,10 @@ def _build_application(
 
     if app_type == "client":
         cmd.append("--onefile")  # 单文件
+        if os.name != "nt":
+            cmd.append(
+                NUITKA_STATIC_LIBPYTHON_YES
+            )  # Linux下尽可能静态链接Python库，减少系统依赖
 
     # 如果是server，需要包含static目录
     if app_type == "server":

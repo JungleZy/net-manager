@@ -21,7 +21,7 @@ from src.network.tcp.tcp_server import TCPServer
 from src.network.api.api_server import APIServer
 from src.database import DatabaseManager
 from src.core.logger import logger
-from src.core.config import VERSION
+from src.core.config import VERSION, TCP_THREADPOOL_WORKERS
 from src.core.singleton_manager import get_server_singleton_manager
 from src.snmp.unified_poller import stop_device_poller, stop_interface_poller
 
@@ -179,7 +179,7 @@ def main():
     try:
         # 1. 初始化数据库
         logger.info("数据库初始化...")
-        db_manager = DatabaseManager()
+        db_manager = DatabaseManager(max_connections=min(TCP_THREADPOOL_WORKERS, 100))
 
         # 2. 创建TCP服务器实例
         tcp_server = TCPServer(db_manager)

@@ -7,6 +7,7 @@ TCP服务端 - 用于与Net Manager客户端建立长连接并接收数据
 
 import socket
 import json
+import zlib
 import threading
 import sys
 import os
@@ -32,12 +33,13 @@ class TCPServer:
         self.tcp_port = TCP_PORT
         self.clients = set()  # 使用set存储连接的客户端，提高查找效率
         self.client_id_map = {}  # 存储client_id到地址的映射关系
-        self.clients_lock = threading.Lock()  # 保护clients集合的锁
+        self.clients_lock = threading.Lock()
         self.running = False
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
         self.db_manager = db_manager if db_manager else DatabaseManager()
         # 使用线程池来处理客户端连接，避免为每个客户端创建新线程
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        self.client_device_id_map = {}
 
     def handle_client(self, client_socket, address):
         """处理客户端连接"""
@@ -62,7 +64,11 @@ class TCPServer:
                 handshake_data = self._recv_all(client_socket, message_length)
                 if handshake_data:
                     try:
-                        handshake_info = json.loads(handshake_data.decode("utf-8"))
+                        if handshake_data.startswith(b"CMP1"):
+                            raw = zlib.decompress(handshake_data[4:])
+                            handshake_info = json.loads(raw.decode("utf-8"))
+                        else:
+                            handshake_info = json.loads(handshake_data.decode("utf-8"))
                         if handshake_info.get("type") == "handshake":
                             client_id = handshake_info.get("client_id", "unknown")
                             logger.info(
@@ -136,38 +142,43 @@ class TCPServer:
 
         logger.debug(f"收到来自 {address} 的数据，长度: {len(data)} 字节")
 
-        json_str = None  # 初始化变量，避免在异常处理中可能未绑定
+        json_str = None
         try:
-            # 解析JSON数据
-            json_str = data.decode("utf-8").strip()  # 去除首尾空白字符，包括换行符
-
-            # 检查解码后的字符串是否为空
+            if data.startswith(b"CMP1"):
+                raw = zlib.decompress(data[4:])
+                json_str = raw.decode("utf-8").strip()
+            else:
+                json_str = data.decode("utf-8").strip()
             if not json_str:
                 logger.warning(f"收到来自 {address} 的空JSON字符串，忽略")
                 return
-
             info = json.loads(json_str)
 
             # 检查是否提供了client_id
             client_id = info.get("client_id")
             if client_id:
-                # 根据client_id查询设备信息
-                existing_device = (
-                    self.db_manager.device_manager.get_device_info_by_client_id(
-                        client_id
-                    )
-                )
-                if existing_device:
-                    # 如果存在，则使用现有设备的ID进行更新
-                    info["id"] = existing_device["id"]
-                    logger.debug(f"使用现有设备ID更新: {info['id']}")
+                mapped_id = None
+                with self.clients_lock:
+                    mapped_id = self.client_device_id_map.get(client_id)
+                if mapped_id:
+                    info["id"] = mapped_id
                 else:
-                    # 如果不存在，则生成新的ID、类型
-                    import uuid
+                    existing_device = (
+                        self.db_manager.device_manager.get_device_info_by_client_id(
+                            client_id
+                        )
+                    )
+                    if existing_device:
+                        info["id"] = existing_device["id"]
+                        with self.clients_lock:
+                            self.client_device_id_map[client_id] = info["id"]
+                    else:
+                        import uuid
 
-                    info["id"] = str(uuid.uuid4())
-                    info["type"] = "台式机"
-                    logger.debug(f"为新设备生成ID: {info['id']}")
+                        info["id"] = str(uuid.uuid4())
+                        info["type"] = "台式机"
+                        with self.clients_lock:
+                            self.client_device_id_map[client_id] = info["id"]
             else:
                 # 如果没有提供client_id，则忽略
                 logger.warning(
