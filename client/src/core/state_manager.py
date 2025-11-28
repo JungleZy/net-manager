@@ -59,16 +59,13 @@ class StateManager:
             is_nuitka = "__compiled__" in globals()
 
             if is_frozen or is_nuitka:
-                # 打包后的可执行文件路径
-                # 在Linux下Nuitka onefile模式，sys.executable指向临时目录
-                # 需要使用sys.argv[0]获取真实的可执行文件路径
                 if os.name != "nt":
-                    # Linux/Unix系统：使用realpath解析符号链接，获取真实路径
-                    executable_path = os.path.realpath(sys.argv[0])
+                    executable_path = os.path.realpath(sys.executable)
                     application_path = Path(executable_path).parent
-                    logger.info(f"检测到Linux打包环境，使用argv[0]: {executable_path}")
+                    logger.info(
+                        f"检测到Linux打包环境，使用executable: {executable_path}"
+                    )
                 else:
-                    # Windows系统：sys.executable是可靠的
                     application_path = Path(sys.executable).parent
                     logger.info(
                         f"检测到Windows打包环境，使用executable: {sys.executable}"

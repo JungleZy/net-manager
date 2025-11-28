@@ -11,9 +11,9 @@ import struct
 import time
 import json
 import logging
+import platform
 from datetime import datetime
 from typing import Optional, Tuple, List, Dict, Any
-from functools import lru_cache
 
 # 导入自定义异常类
 from src.exceptions.exceptions import NetworkDiscoveryError
@@ -42,6 +42,8 @@ class UDPClient:
         self.logger = get_logger()
 
         self.logger.debug("UDP客户端初始化完成")
+        self._interfaces_cache = None
+        self._interfaces_cache_time = 0.0
 
     def discover_server_multicast(self) -> Optional[Tuple[str, int]]:
         """
@@ -58,7 +60,9 @@ class UDPClient:
         DISCOVERY_TIMEOUT = 5  # 5秒超时
 
         # 验证多播设置
-        is_valid, error_msg = self._validate_multicast_setup(MULTICAST_GROUP, MULTICAST_PORT)
+        is_valid, error_msg = self._validate_multicast_setup(
+            MULTICAST_GROUP, MULTICAST_PORT
+        )
         if not is_valid:
             self.logger.error(f"多播设置验证失败: {error_msg}")
             self.logger.info("尝试使用广播方式作为回退方案")
@@ -75,14 +79,22 @@ class UDPClient:
             active_interfaces = self.refresh_network_interfaces()
             if not active_interfaces:
                 self.logger.warning("未找到活跃的网络接口，多播服务发现可能会失败")
-            
+
             # 优先选择支持多播的接口
-            multicast_interfaces = [iface for iface in active_interfaces if iface.get("is_multicast_capable", True)]
+            multicast_interfaces = [
+                iface
+                for iface in active_interfaces
+                if iface.get("is_multicast_capable", True)
+            ]
             if multicast_interfaces:
-                self.logger.info(f"找到 {len(multicast_interfaces)} 个支持多播的网络接口")
+                self.logger.info(
+                    f"找到 {len(multicast_interfaces)} 个支持多播的网络接口"
+                )
             else:
-                self.logger.warning("没有找到明确支持多播的网络接口，将尝试使用所有可用接口")
-            
+                self.logger.warning(
+                    "没有找到明确支持多播的网络接口，将尝试使用所有可用接口"
+                )
+
             # 创建发送socket
             send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             ttl = struct.pack("b", 32)
@@ -92,25 +104,29 @@ class UDPClient:
             # 创建监听socket
             listen_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            
+
             # 尝试绑定到多播端口，如果失败则尝试绑定到特定接口
             try:
                 listen_socket.bind(("", MULTICAST_PORT))
             except OSError as e:
                 self.logger.warning(f"绑定到所有接口失败: {e}，尝试绑定到特定接口")
-                
+
                 # 尝试绑定到第一个活跃的非回环接口
                 bind_success = False
                 for interface in active_interfaces:
                     try:
                         listen_socket.bind((interface["ip"], MULTICAST_PORT))
-                        self.logger.info(f"成功绑定到接口 {interface['name']} ({interface['ip']})")
+                        self.logger.info(
+                            f"成功绑定到接口 {interface['name']} ({interface['ip']})"
+                        )
                         bind_success = True
                         break
                     except OSError as bind_error:
-                        self.logger.debug(f"绑定到接口 {interface['name']} ({interface['ip']}) 失败: {bind_error}")
+                        self.logger.debug(
+                            f"绑定到接口 {interface['name']} ({interface['ip']}) 失败: {bind_error}"
+                        )
                         continue
-                
+
                 if not bind_success:
                     raise OSError("无法绑定到任何网络接口进行多播监听")
 
@@ -118,25 +134,39 @@ class UDPClient:
             try:
                 group = socket.inet_aton(MULTICAST_GROUP)
                 mreq = struct.pack("4sL", group, socket.INADDR_ANY)
-                listen_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                listen_socket.setsockopt(
+                    socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq
+                )
                 self.logger.info(f"成功加入多播组 {MULTICAST_GROUP}")
             except OSError as e:
                 self.logger.error(f"加入多播组失败: {e}")
                 # 如果加入多播组失败，尝试使用特定接口
                 if active_interfaces:
                     # 优先尝试支持多播的接口
-                    interfaces_to_try = multicast_interfaces if multicast_interfaces else active_interfaces
-                    
+                    interfaces_to_try = (
+                        multicast_interfaces
+                        if multicast_interfaces
+                        else active_interfaces
+                    )
+
                     for interface in interfaces_to_try:
                         try:
                             interface_ip = interface["ip"]
                             group = socket.inet_aton(MULTICAST_GROUP)
-                            mreq = struct.pack("4sL", group, socket.inet_aton(interface_ip))
-                            listen_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                            self.logger.info(f"使用接口 {interface['name']} ({interface_ip}) 成功加入多播组 {MULTICAST_GROUP}")
+                            mreq = struct.pack(
+                                "4sL", group, socket.inet_aton(interface_ip)
+                            )
+                            listen_socket.setsockopt(
+                                socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq
+                            )
+                            self.logger.info(
+                                f"使用接口 {interface['name']} ({interface_ip}) 成功加入多播组 {MULTICAST_GROUP}"
+                            )
                             break
                         except OSError as interface_error:
-                            self.logger.debug(f"使用接口 {interface['name']} ({interface_ip}) 加入多播组失败: {interface_error}")
+                            self.logger.debug(
+                                f"使用接口 {interface['name']} ({interface_ip}) 加入多播组失败: {interface_error}"
+                            )
                             continue
                     else:
                         raise OSError("无法使用任何接口加入多播组")
@@ -201,14 +231,16 @@ class UDPClient:
         except OSError as e:
             error_msg = str(e)
             self.logger.error(f"多播服务发现过程中出现网络错误: {error_msg}")
-            
+
             # 特殊错误处理
             if "errno 19" in error_msg or "No such device" in error_msg:
-                self.logger.error("网络设备不存在或不可用，可能是因为网络接口被禁用或不存在")
+                self.logger.error(
+                    "网络设备不存在或不可用，可能是因为网络接口被禁用或不存在"
+                )
                 self.logger.info("尝试使用广播方式作为回退方案")
                 # 回退到广播方式
                 return self.discover_server_broadcast()
-            
+
             # 其他网络错误
             self.logger.error(f"多播服务发现失败: {e}")
             return None
@@ -305,11 +337,12 @@ class UDPClient:
     def refresh_network_interfaces(self) -> List[Dict[str, Any]]:
         """
         强制刷新并获取最新的网络接口列表
-        
+
         Returns:
             List[Dict[str, Any]]: 包含接口名称和IP地址的字典列表
         """
         self.logger.info("强制刷新网络接口信息")
+        self._interfaces_cache = None
         return self._get_active_interfaces()
 
     def _get_active_interfaces(self) -> List[Dict[str, Any]]:
@@ -319,6 +352,8 @@ class UDPClient:
         Returns:
             List[Dict[str, Any]]: 包含接口名称和IP地址的字典列表
         """
+        if self._interfaces_cache is not None:
+            return self._interfaces_cache
         active_interfaces = []
 
         try:
@@ -353,8 +388,12 @@ class UDPClient:
                                     # 排除回环地址
                                     if addr.address != "127.0.0.1":
                                         # 验证接口是否支持多播
-                                        is_multicast_capable = self._check_interface_multicast_capability(interface_name)
-                                        
+                                        is_multicast_capable = (
+                                            self._check_interface_multicast_capability(
+                                                interface_name
+                                            )
+                                        )
+
                                         active_interfaces.append(
                                             {
                                                 "name": interface_name,
@@ -366,15 +405,16 @@ class UDPClient:
         except Exception as e:
             self.logger.error(f"获取网络接口信息失败: {e}")
 
+        self._interfaces_cache = active_interfaces
         return active_interfaces
-    
+
     def _check_interface_multicast_capability(self, interface_name: str) -> bool:
         """
         检查网络接口是否支持多播
-        
+
         Args:
             interface_name: 网络接口名称
-            
+
         Returns:
             bool: 如果接口支持多播返回True，否则返回False
         """
@@ -382,13 +422,20 @@ class UDPClient:
             # 在Windows系统上，使用Get-NetAdapter检查接口是否支持多播
             if platform.system() == "Windows":
                 import subprocess
+
                 result = subprocess.run(
-                    ["powershell", "-Command", f"Get-NetAdapter -Name '{interface_name}' | Select-Object -ExpandProperty 'Multicast'"],
-                    capture_output=True, text=True, timeout=5
+                    [
+                        "powershell",
+                        "-Command",
+                        f"Get-NetAdapter -Name '{interface_name}' | Select-Object -ExpandProperty 'Multicast'",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 if result.returncode == 0:
                     return result.stdout.strip().lower() == "true"
-            
+
             # 在Linux系统上，检查/proc/net/dev中的接口标志
             elif platform.system() == "Linux":
                 with open("/proc/net/dev", "r") as f:
@@ -396,32 +443,37 @@ class UDPClient:
                         if interface_name in line:
                             # 检查接口标志，MULTICAST标志通常表示支持多播
                             return True
-            
+
             # 在macOS系统上，使用ifconfig检查
             elif platform.system() == "Darwin":
                 import subprocess
+
                 result = subprocess.run(
                     ["ifconfig", interface_name],
-                    capture_output=True, text=True, timeout=5
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 if result.returncode == 0 and "MULTICAST" in result.stdout:
                     return True
-            
+
             # 默认情况下，假设接口支持多播
             return True
         except Exception as e:
             self.logger.debug(f"检查接口 {interface_name} 多播能力时出错: {e}")
             # 出错时默认返回True，避免阻止多播尝试
             return True
-    
-    def _validate_multicast_setup(self, multicast_group: str, multicast_port: int) -> Tuple[bool, str]:
+
+    def _validate_multicast_setup(
+        self, multicast_group: str, multicast_port: int
+    ) -> Tuple[bool, str]:
         """
         验证多播设置是否有效
-        
+
         Args:
             multicast_group: 多播组地址
             multicast_port: 多播端口
-            
+
         Returns:
             Tuple[bool, str]: (是否有效, 错误消息)
         """
@@ -430,25 +482,32 @@ class UDPClient:
             try:
                 socket.inet_aton(multicast_group)
                 # 检查是否为有效的多播地址 (224.0.0.0 到 239.255.255.255)
-                ip_parts = list(map(int, multicast_group.split('.')))
+                ip_parts = list(map(int, multicast_group.split(".")))
                 if not (224 <= ip_parts[0] <= 239):
-                    return False, f"无效的多播组地址: {multicast_group}，多播地址应在224.0.0.0-239.255.255.255范围内"
+                    return (
+                        False,
+                        f"无效的多播组地址: {multicast_group}，多播地址应在224.0.0.0-239.255.255.255范围内",
+                    )
             except socket.error:
                 return False, f"无效的IP地址格式: {multicast_group}"
-            
+
             # 验证端口范围
             if not (1 <= multicast_port <= 65535):
                 return False, f"无效的端口号: {multicast_port}，端口应在1-65535范围内"
-            
+
             # 检查是否有支持多播的网络接口
             active_interfaces = self._get_active_interfaces()
             if not active_interfaces:
                 return False, "没有找到活跃的网络接口"
-            
-            multicast_capable = [iface for iface in active_interfaces if iface.get("is_multicast_capable", True)]
+
+            multicast_capable = [
+                iface
+                for iface in active_interfaces
+                if iface.get("is_multicast_capable", True)
+            ]
             if not multicast_capable:
                 self.logger.warning("没有找到明确支持多播的网络接口，仍将尝试多播操作")
-            
+
             return True, ""
         except Exception as e:
             return False, f"验证多播设置时出错: {e}"
@@ -479,7 +538,3 @@ def get_udp_client() -> UDPClient:
             if _udp_client is None:
                 _udp_client = UDPClient()
     return _udp_client
-
-
-
-
