@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        architecture: [x64, x86, arm]
+        architecture: [x64, x86, arm64]
         python-version: ['3.11']
     steps:
       - name: Checkout code
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        architecture: [x64, x86, arm, arm64]
+        architecture: [x64, x86, arm64]
         python-version: ['3.11']
     steps:
       - name: Checkout code
@@ -101,7 +101,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        architecture: [x64, x86, arm]
+        architecture: [x64, x86, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -131,6 +131,8 @@ jobs:
           # 根据架构设置环境变量
           if ("${{ matrix.architecture }}" -eq "x86") {
             $outputName = "net-manager-client-win-x86.exe"
+          } elseif ("${{ matrix.architecture }}" -eq "arm64") {
+            $outputName = "net-manager-client-win-aarch64.exe"
           } else {
             $outputName = "net-manager-client-win-x64.exe"
           }
@@ -151,8 +153,8 @@ jobs:
             --include-package=src `
             --python-flag=-O `
             --lto=yes `
-            --assume-yes-for-downloads `
             --static-libpython=no `
+            --assume-yes-for-downloads `
             --noinclude-unittest-mode=allow `
             --disable-ccache `
             --no-pyi-file `
@@ -162,7 +164,15 @@ jobs:
           # 设置输出变量供后续步骤使用
           echo "outputName=$outputName" >> $env:GITHUB_OUTPUT
 
-      - name: Upload artifacts
+      - name: Upload artifacts (Windows aarch64)
+        if: matrix.architecture == 'arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-client-windows-aarch64
+          path: client/${{ steps.build.outputs.outputName }}
+
+      - name: Upload artifacts (Windows)
+        if: matrix.architecture != 'arm64'
         uses: actions/upload-artifact@v4
         with:
           name: net-manager-client-windows-${{ matrix.architecture }}
@@ -174,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        architecture: [x64, x86, arm, arm64]
+        architecture: [x64, x86, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -210,10 +220,10 @@ jobs:
           # 根据架构设置编译选项
           if [ "${{ matrix.architecture }}" = "x86" ]; then
             export OUTPUT_NAME="net-manager-client-linux-x86"
-          elif [ "${{ matrix.architecture }}" = "arm" ]; then
-            export OUTPUT_NAME="net-manager-client-linux-arm"
+          elif [ "${{ matrix.architecture }}" = "x64" ]; then
+            export OUTPUT_NAME="net-manager-client-linux-x64"
           else
-            export OUTPUT_NAME="net-manager-client-linux-arm64"
+            export OUTPUT_NAME="net-manager-client-linux-aarch64"
           fi
 
           # 设置输出变量供后续步骤使用
@@ -230,11 +240,22 @@ jobs:
             --follow-imports \
             --include-package=src \
             --python-flag=-O \
+            --static-libpython=yes \
+            --assume-yes-for-downloads \
+            --disable-ccache \
             --lto=yes \
             --remove-output \
             main.py
 
-      - name: Upload artifacts
+      - name: Upload artifacts (Linux aarch64)
+        if: matrix.architecture == 'arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-client-linux-aarch64
+          path: client/${{ steps.build.outputs.outputName }}
+
+      - name: Upload artifacts (Linux)
+        if: matrix.architecture != 'arm64'
         uses: actions/upload-artifact@v4
         with:
           name: net-manager-client-linux-${{ matrix.architecture }}
@@ -275,14 +296,15 @@ jobs:
             ## 自动构建版本 ${{ steps.tag.outputs.tag }}
 
             ### 包含平台
-            - Windows (x86, x64, ARM)
-            - Linux (x86, x64, ARM, ARM64)
+            - Windows (x86, x64, aarch64)
+            - Linux (x86, x64, aarch64)
 
             ### 下载说明
             请根据您的系统选择对应的可执行文件。
           files: |
             dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
             dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
+            dist/net-manager-client-windows-aarch64/net-manager-client-win-aarch64.exe
+            dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
-            dist/net-manager-client-linux-arm/net-manager-client-linux-arm
-            dist/net-manager-client-linux-arm64/net-manager-client-linux-arm64
+            dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
