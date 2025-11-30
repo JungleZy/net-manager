@@ -9,10 +9,16 @@ on:
 jobs:
   test-windows:
     name: Test on Windows
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - architecture: x64
+            runner: windows-latest
+          - architecture: x86
+            runner: windows-latest
+          - architecture: arm64
+            runner: windows-11-arm
         python-version: ['3.11']
     steps:
       - name: Checkout code
@@ -49,10 +55,16 @@ jobs:
 
   test-linux:
     name: Test on Linux
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - architecture: x64
+            runner: ubuntu-latest
+          - architecture: x86
+            runner: ubuntu-latest
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
         python-version: ['3.11']
     steps:
       - name: Checkout code
@@ -98,10 +110,16 @@ jobs:
   build-windows:
     name: Build for Windows
     needs: [test-summary] # 只有在测试成功完成后才执行打包
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - architecture: x64
+            runner: windows-latest
+          - architecture: x86
+            runner: windows-latest
+          - architecture: arm64
+            runner: windows-11-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -110,6 +128,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Verify Python architecture
+        shell: pwsh
+        run: |
+          python -c "import platform,sys;print(platform.machine());print(sys.maxsize)"
 
       - name: Get current date
         id: date
@@ -161,8 +184,17 @@ jobs:
             --remove-output `
             main.py
             
-          # 设置输出变量供后续步骤使用
           echo "outputName=$outputName" >> $env:GITHUB_OUTPUT
+
+      - name: Verify binary architecture (Windows)
+        shell: pwsh
+        run: |
+          $path = "client/${{ steps.build.outputs.outputName }}"
+          $bytes = [System.IO.File]::ReadAllBytes($path)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          switch ($machine) { 0x8664 { $arch = "x64" } 0x014c { $arch = "x86" } 0xAA64 { $arch = "arm64" } default { $arch = "unknown" } }
+          Write-Output "PE Machine=$([String]::Format('0x{0:X4}',$machine)) Arch=$arch"
 
       - name: Upload artifacts (Windows aarch64)
         if: matrix.architecture == 'arm64'
@@ -181,10 +213,16 @@ jobs:
   build-linux:
     name: Build for Linux
     needs: [test-summary] # 只有在测试成功完成后才执行打包
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - architecture: x64
+            runner: ubuntu-latest
+          - architecture: x86
+            runner: ubuntu-latest
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -211,6 +249,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib
+
+      - name: Install system dependencies (Linux arm64)
+        if: matrix.architecture == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf
 
       - name: Build client for Linux (${{ matrix.architecture }})
         id: build
@@ -245,6 +289,11 @@ jobs:
             --lto=no \
             --remove-output \
             main.py
+
+      - name: Verify binary architecture
+        run: |
+          uname -m
+          file client/${{ steps.build.outputs.outputName }}
 
       - name: Upload artifacts (Linux aarch64)
         if: matrix.architecture == 'arm64'
