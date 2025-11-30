@@ -176,7 +176,7 @@ jobs:
             --include-package=src `
             --python-flag=-O `
             --lto=yes `
-            --static-libpython=yes `
+            --static-libpython=no `
             --assume-yes-for-downloads `
             --noinclude-unittest-mode=allow `
             --disable-ccache `
