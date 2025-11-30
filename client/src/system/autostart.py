@@ -255,7 +255,7 @@ def _enable_autostart_linux(daemon_script_path: Optional[str]) -> bool:
         # 检查是否有root权限
         has_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
 
-        if has_root or _can_write_to_system_dir():
+        if has_root:
             # 使用系统级服务
             service_content = f"""[Unit]
 Description=NetManager Client Service

@@ -21,6 +21,21 @@ try:
     WIN32_AVAILABLE = True
 except ImportError:
     WIN32_AVAILABLE = False
+    class _WinError:
+        ERROR_ALREADY_EXISTS = 183
+    class _WinApi:
+        def CloseHandle(self, handle):
+            return None
+        def GetLastError(self):
+            return 0
+        def OpenProcess(self, *args, **kwargs):
+            raise OSError()
+    class _Win32Event:
+        def CreateMutex(self, *args, **kwargs):
+            return 0
+    win32event = _Win32Event()
+    win32api = _WinApi()
+    winerror = _WinError()
 
 from ..utils.platform_utils import get_executable_path, normalize_path
 from ..exceptions.exceptions import SingletonManagerError

@@ -137,8 +137,7 @@ class StateManager:
             except PermissionError as e:
                 logger.error(f"加载状态文件失败 - 权限不足: {e}")
                 logger.error(f"目标路径: {self.state_file}")
-                # 使用默认状态
-                self.state = {}
+                raise StateManagerError(f"加载状态文件失败 - 权限不足: {e}")
             except Exception as e:
                 logger.error(f"加载状态文件失败: {e}")
                 logger.error(f"目标路径: {self.state_file}")

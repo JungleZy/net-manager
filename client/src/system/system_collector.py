@@ -193,6 +193,7 @@ class SystemCollector:
             # 查找对应的网络接口
             gateway = "unknown"
             netmask = "unknown"
+            matched = False
 
             # 首先尝试通过网络接口信息获取子网掩码
             for interface, addrs in net_if_addrs.items():
@@ -200,9 +201,14 @@ class SystemCollector:
                     # 找到与当前IP匹配的地址
                     if addr.family == socket.AF_INET and addr.address == current_ip:
                         netmask = addr.netmask if addr.netmask else "unknown"
+                        matched = True
                         break
                 if netmask != "unknown":
                     break
+
+            # 如果当前IP未匹配到任何接口，返回空值
+            if not matched:
+                return "", ""
 
             # 获取网关信息
             system_platform = platform.system()
