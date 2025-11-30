@@ -176,10 +176,9 @@ jobs:
             --include-package=src `
             --python-flag=-O `
             --lto=yes `
-            --static-libpython=no `
+            --static-libpython=yes `
             --assume-yes-for-downloads `
             --noinclude-unittest-mode=allow `
-            --static-libpython=yes `
             --disable-ccache `
             --no-pyi-file `
             --remove-output `
