@@ -3,288 +3,167 @@ name: Test Then Build
 on:
   push:
     tags:
-      - 'v*' # 匹配所有以v开头的tag，例如 v1.0.0, v2.1.3
-  workflow_dispatch: # 保留手动触发选项
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
-  test-windows:
-    name: Test on Windows
-    runs-on: windows-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        os: [windows-latest, ubuntu-latest, ubuntu-24.04-arm]
         python-version: ['3.11']
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Create logs directory
-        run: |
-          mkdir client\logs
-        continue-on-error: true
-
-      - name: Run tests with coverage
-        run: |
-          cd client
-          python -m pytest -v --cov=src --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./client/coverage.xml
-          flags: windows
-          name: codecov-umbrella
-        if: github.repository == 'your-username/net-manager' && github.event_name != 'pull_request'
-
-  test-linux:
-    name: Test on Linux
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        architecture: [x64, x86, arm64]
-        python-version: ['3.11']
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Create logs directory
-        run: |
-          mkdir -p client/logs
-        continue-on-error: true
-
-      - name: Run tests with coverage
-        run: |
-          cd client
-          python -m pytest -v --cov=src --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./client/coverage.xml
-          flags: linux
-          name: codecov-umbrella
-        if: github.repository == 'your-username/net-manager' && github.event_name != 'pull_request'
-
-  test-summary:
-    name: Test Summary
-    needs: [test-windows, test-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - name: All tests passed
-        run: echo "All cross-platform tests completed successfully!"
+      - run: |
+          python -m unittest discover -s client/tests -p "test_*.py"
+          python -m unittest discover -s server/tests -p "test_*.py"
 
   build-windows:
-    name: Build for Windows
-    needs: [test-summary] # 只有在测试成功完成后才执行打包
-    runs-on: windows-latest
+    needs: [test]
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - arch: x86
+            runner: windows-latest
+            pyarch: x86
+          - arch: x64
+            runner: windows-latest
+            pyarch: x64
+          - arch: aarch64
+            runner: windows-11-arm
+            pyarch: arm64
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Get current date
-        id: date
-        run: |
-          echo "date=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
-      - name: Install dependencies
-        run: |
+          architecture: ${{ matrix.pyarch }}
+      - run: |
           python -m pip install --upgrade pip
-          pip install "nuitka>=2.7.0,<3.0.0"
           pip install -r requirements.txt
-
-      - name: Build client for Windows (${{ matrix.architecture }})
-        id: build
+      - name: Build Client
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: client/main.py
+          mode: app
+          enable-plugins: multiprocessing
+      - name: Rename Client Artifact
         shell: pwsh
         run: |
-          cd client
-          # 根据架构设置环境变量
-          if ("${{ matrix.architecture }}" -eq "x86") {
-            $outputName = "net-manager-client-win-x86.exe"
-          } elseif ("${{ matrix.architecture }}" -eq "arm64") {
-            $outputName = "net-manager-client-win-aarch64.exe"
-          } else {
-            $outputName = "net-manager-client-win-x64.exe"
-          }
-
-          # 使用Nuitka打包，添加--assume-yes-for-downloads参数避免交互式询问
-          python -m nuitka `
-            --standalone `
-            --onefile `
-            --output-filename="$outputName" `
-            --windows-product-name="NetManagerClient" `
-            --product-version="1.0.0" `
-            --file-version="1.0.0" `
-            --windows-console-mode=hide `
-            --windows-uac-admin `
-            --enable-plugin=multiprocessing `
-            --follow-imports `
-            --follow-stdlib `
-            --include-package=src `
-            --python-flag=-O `
-            --lto=yes `
-            --static-libpython=no `
-            --assume-yes-for-downloads `
-            --noinclude-unittest-mode=allow `
-            --disable-ccache `
-            --no-pyi-file `
-            --remove-output `
-            main.py
-            
-          # 设置输出变量供后续步骤使用
-          echo "outputName=$outputName" >> $env:GITHUB_OUTPUT
-
-      - name: Upload artifacts (Windows aarch64)
-        if: matrix.architecture == 'arm64'
-        uses: actions/upload-artifact@v4
+          if (Test-Path build/main.exe) { Move-Item build/main.exe build/net-manager-client-windows-${{ matrix.arch }}.exe }
+      - uses: actions/upload-artifact@v4
         with:
-          name: net-manager-client-windows-aarch64
-          path: client/${{ steps.build.outputs.outputName }}
-
-      - name: Upload artifacts (Windows)
-        if: matrix.architecture != 'arm64'
-        uses: actions/upload-artifact@v4
+          name: net-manager-client-windows-${{ matrix.arch }}
+          path: build/net-manager-client-windows-${{ matrix.arch }}.exe
+          include-hidden-files: true
+      - name: Build Server
+        uses: Nuitka/Nuitka-Action@main
         with:
-          name: net-manager-client-windows-${{ matrix.architecture }}
-          path: client/${{ steps.build.outputs.outputName }}
+          nuitka-version: main
+          script-name: server/main.py
+          mode: app
+          enable-plugins: multiprocessing
+      - name: Rename Server Artifact
+        shell: pwsh
+        run: |
+          if (Test-Path build/main.exe) { Move-Item build/main.exe build/net-manager-server-windows-${{ matrix.arch }}.exe }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-server-windows-${{ matrix.arch }}
+          path: build/net-manager-server-windows-${{ matrix.arch }}.exe
+          include-hidden-files: true
 
   build-linux:
-    name: Build for Linux
-    needs: [test-summary] # 只有在测试成功完成后才执行打包
-    runs-on: ubuntu-latest
+    needs: [test]
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        architecture: [x64, x86, arm64]
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+            setup_python: true
+            container_image: ubuntu:24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            setup_python: true
+            container_image: ubuntu:24.04
+          - arch: x86
+            runner: ubuntu-latest
+            setup_python: false
+            container_image: i386/ubuntu:22.04
+    container: ${{ matrix.container_image }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - name: Prepare Python (x86)
+        if: ${{ matrix.setup_python == false }}
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip gcc g++
       - name: Setup Python
+        if: ${{ matrix.setup_python == true }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Get current date
-        id: date
-        run: |
-          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Install dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
-          pip install "nuitka>=2.7.0,<3.0.0"
           pip install -r requirements.txt
-
-      - name: Install system dependencies (Linux x86)
-        if: matrix.architecture == 'x86'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
-
-      - name: Build client for Linux (${{ matrix.architecture }})
-        id: build
-        run: |
-          cd client
-
-          # 根据架构设置编译选项
-          if [ "${{ matrix.architecture }}" = "x86" ]; then
-            export OUTPUT_NAME="net-manager-client-linux-x86"
-          elif [ "${{ matrix.architecture }}" = "x64" ]; then
-            export OUTPUT_NAME="net-manager-client-linux-x64"
-          else
-            export OUTPUT_NAME="net-manager-client-linux-aarch64"
-          fi
-
-          # 设置输出变量供后续步骤使用
-          echo "outputName=$OUTPUT_NAME" >> $GITHUB_OUTPUT
-
-          # 使用Nuitka打包
-          python -m nuitka \
-            --standalone \
-            --onefile \
-            --output-filename="$OUTPUT_NAME" \
-            --product-version="1.0.0" \
-            --file-version="1.0.0" \
-            --enable-plugin=multiprocessing \
-            --follow-imports \
-            --include-package=src \
-            --python-flag=-O \
-            --static-libpython=yes \
-            --assume-yes-for-downloads \
-            --disable-ccache \
-            --lto=yes \
-            --remove-output \
-            main.py
-
-      - name: Upload artifacts (Linux aarch64)
-        if: matrix.architecture == 'arm64'
-        uses: actions/upload-artifact@v4
+      - name: Build Client
+        uses: Nuitka/Nuitka-Action@main
         with:
-          name: net-manager-client-linux-aarch64
-          path: client/${{ steps.build.outputs.outputName }}
-
-      - name: Upload artifacts (Linux)
-        if: matrix.architecture != 'arm64'
-        uses: actions/upload-artifact@v4
+          nuitka-version: main
+          script-name: client/main.py
+          mode: app
+          enable-plugins: multiprocessing
+      - name: Rename Client Artifact
+        run: |
+          if [ -f build/main ]; then mv build/main build/net-manager-client-linux-${{ matrix.arch }}; fi
+          if [ -f build/main.bin ]; then mv build/main.bin build/net-manager-client-linux-${{ matrix.arch }}; fi
+      - uses: actions/upload-artifact@v4
         with:
-          name: net-manager-client-linux-${{ matrix.architecture }}
-          path: client/${{ steps.build.outputs.outputName }}
+          name: net-manager-client-linux-${{ matrix.arch }}
+          path: build/net-manager-client-linux-${{ matrix.arch }}
+          include-hidden-files: true
+      - name: Build Server
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: server/main.py
+          mode: app
+          enable-plugins: multiprocessing
+      - name: Rename Server Artifact
+        run: |
+          if [ -f build/main ]; then mv build/main build/net-manager-server-linux-${{ matrix.arch }}; fi
+          if [ -f build/main.bin ]; then mv build/main.bin build/net-manager-server-linux-${{ matrix.arch }}; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-server-linux-${{ matrix.arch }}
+          path: build/net-manager-server-linux-${{ matrix.arch }}
+          include-hidden-files: true
 
   release:
-    name: Create Release
     needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') # 只在tag推送时执行
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: dist/
-
-      - name: Display structure of downloaded files
-        run: ls -R dist/
-
-      - name: Get tag name
-        id: tag
-        run: |
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+      - run: ls -R dist/
+      - id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -302,9 +181,4 @@ jobs:
             ### 下载说明
             请根据您的系统选择对应的可执行文件。
           files: |
-            dist/net-manager-client-windows-x86/net-manager-client-win-x86.exe
-            dist/net-manager-client-windows-x64/net-manager-client-win-x64.exe
-            dist/net-manager-client-windows-aarch64/net-manager-client-win-aarch64.exe
-            dist/net-manager-client-linux-x64/net-manager-client-linux-x64
-            dist/net-manager-client-linux-x86/net-manager-client-linux-x86
-            dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
+            dist/**
