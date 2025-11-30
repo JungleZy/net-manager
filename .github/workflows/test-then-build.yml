@@ -242,8 +242,7 @@ jobs:
             --python-flag=-O \
             --static-libpython=yes \
             --assume-yes-for-downloads \
-            --disable-ccache \
-            --lto=yes \
+            --lto=no \
             --remove-output \
             main.py
 
