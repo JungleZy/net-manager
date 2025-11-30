@@ -128,6 +128,8 @@ class StateManager:
                 logger.error(f"解析状态文件失败: {e}")
                 # 使用默认状态
                 self.state = {}
+            except StateManagerError as e:
+                raise e
             except PermissionError as e:
                 logger.error(f"加载状态文件失败 - 权限不足: {e}")
                 logger.error(f"目标路径: {self.state_file}")
