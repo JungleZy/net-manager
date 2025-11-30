@@ -179,6 +179,7 @@ jobs:
             --static-libpython=no `
             --assume-yes-for-downloads `
             --noinclude-unittest-mode=allow `
+            --static-libpython=yes `
             --disable-ccache `
             --no-pyi-file `
             --remove-output `
@@ -282,11 +283,15 @@ jobs:
             --file-version="1.0.0" \
             --enable-plugin=multiprocessing \
             --follow-imports \
+            --follow-stdlib \
             --include-package=src \
             --python-flag=-O \
             --static-libpython=yes \
             --assume-yes-for-downloads \
-            --lto=no \
+            --lto=yes \
+            --noinclude-unittest-mode=allow \
+            --disable-ccache \
+            --no-pyi-file \
             --remove-output \
             main.py
 
