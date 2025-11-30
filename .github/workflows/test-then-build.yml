@@ -270,10 +270,10 @@ jobs:
             export OUTPUT_NAME="net-manager-client-linux-aarch64"
           fi
 
-          # 设置输出变量供后续步骤使用
           echo "outputName=$OUTPUT_NAME" >> $GITHUB_OUTPUT
+          export CCFLAGS="$CCFLAGS -fno-pie"
+          export LDFLAGS="$LDFLAGS -no-pie"
 
-          # 使用Nuitka打包
           python -m nuitka \
             --standalone \
             --onefile \
@@ -294,10 +294,13 @@ jobs:
             --remove-output \
             main.py
 
+          chmod +x "$OUTPUT_NAME"
+
       - name: Verify binary architecture
         run: |
           uname -m
           file client/${{ steps.build.outputs.outputName }}
+          readelf -h client/${{ steps.build.outputs.outputName }} | grep -E "Type:\s+EXEC" || (echo "Unexpected ELF Type (not EXEC)"; exit 1)
 
       - name: Upload artifacts (Linux aarch64)
         if: matrix.architecture == 'arm64'
