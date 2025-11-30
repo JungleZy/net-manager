@@ -80,13 +80,7 @@ class StateManager:
             # 确保目录存在
             application_path.mkdir(parents=True, exist_ok=True)
 
-            # 在Linux下设置目录权限
-            if os.name != "nt":
-                try:
-                    os.chmod(application_path, 0o755)
-                    logger.debug(f"已设置应用目录权限: {application_path}")
-                except Exception as chmod_err:
-                    logger.warning(f"设置应用目录权限失败: {chmod_err}")
+            # 不主动修改目录权限，遵循现有权限以避免测试干扰
 
             logger.info(
                 f"最终应用程序路径: {application_path.absolute()} (可写: {os.access(application_path, os.W_OK)})"
@@ -157,12 +151,7 @@ class StateManager:
             # 确保目录存在
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
 
-            # 在Linux下设置目录权限
-            if os.name != "nt":
-                try:
-                    os.chmod(self.state_file.parent, 0o755)
-                except Exception as chmod_err:
-                    logger.warning(f"设置目录权限失败: {chmod_err}")
+            # 不主动修改目录权限，遵循现有权限
 
             # 写入状态文件
             with open(self.state_file, "w", encoding="utf-8") as f:
