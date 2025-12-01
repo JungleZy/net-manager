@@ -252,7 +252,6 @@ jobs:
           if (Test-Path server\static) { Remove-Item -Recurse -Force server\static }
           New-Item -ItemType Directory -Force -Path server\static | Out-Null
           Copy-Item -Recurse -Force dashboard\dist\* server\static\
-          if (Test-Path agent) { New-Item -ItemType Directory -Force -Path server\static\agent | Out-Null; Copy-Item -Recurse -Force agent\* server\static\agent\ }
 
       - name: Build server for Windows (${{ matrix.architecture }})
         id: build_server
@@ -290,9 +289,18 @@ jobs:
             main.py
 
           cd ../dist
-          $zipName = "net-manager-server-windows-${{ matrix.architecture }}.zip"
+          $ref = $env:GITHUB_REF
+          $version = "1.0.0"
+          if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
+          $zipName = "net-manager-server-$version-windows-${{ matrix.architecture }}.zip"
           if (Test-Path $zipName) { Remove-Item -Force $zipName }
-          Compress-Archive -Path server\* -DestinationPath $zipName
+          $distFolder = Get-ChildItem server -Directory | Where-Object { $_.Name -like '*.dist' } | Select-Object -First 1
+          if ($null -eq $distFolder) { Write-Error "Server dist folder not found"; exit 1 }
+          $targetName = "net-manager-server-$version"
+          $targetPath = Join-Path $distFolder.Parent.FullName $targetName
+          if (Test-Path $targetPath) { Remove-Item -Recurse -Force $targetPath }
+          Move-Item $distFolder.FullName $targetPath
+          Compress-Archive -Path $targetPath -DestinationPath $zipName
           echo "serverZip=$zipName" >> $env:GITHUB_OUTPUT
 
       - name: Upload artifacts (Server Windows)
@@ -631,7 +639,7 @@ jobs:
             dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
             dist/net-manager-server-windows-x86/*.zip
             dist/net-manager-server-windows-x64/*.zip
-            dist/net-manager-server-windows-aarch64/*.zip
+            dist/net-manager-server-windows-arm64/*.zip
             dist/net-manager-server-linux-x64/*.tar.gz
             dist/net-manager-server-linux-x86/*.tar.gz
-            dist/net-manager-server-linux-aarch64/*.tar.gz
+            dist/net-manager-server-linux-arm64/*.tar.gz
