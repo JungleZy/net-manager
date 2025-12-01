@@ -281,7 +281,8 @@ jobs:
               -e CCFLAGS="$CCFLAGS" \
               -e LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++" \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
-              bash -lc "$PY -m pip install --upgrade pip && \
+              bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+                $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
                 $PY -m nuitka \
                   --standalone \
@@ -291,6 +292,7 @@ jobs:
                   --file-version=\"1.0.0\" \
                   --enable-plugin=multiprocessing \
                   --follow-imports \
+                  --static-libpython=yes \
                   --include-package=src \
                   --python-flag=-O \
                   --assume-yes-for-downloads \
