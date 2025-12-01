@@ -278,7 +278,8 @@ jobs:
             PY="/opt/python/cp311-cp311/bin/python3.11"
             docker run --rm \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
-              bash -lc "cd /work/client && \
+              bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+                cd /work/client && \
                 (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
@@ -293,7 +294,7 @@ jobs:
                   --follow-stdlib \
                   --include-package=src \
                   --python-flag=-O \
-                  --static-libpython=no \
+                  --static-libpython=yes \
                   --assume-yes-for-downloads \
                   --lto=no \
                   --noinclude-unittest-mode=allow \
@@ -310,7 +311,8 @@ jobs:
             PY="/opt/python/cp311-cp311/bin/python3.11"
             docker run --rm \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
-              bash -lc "cd /work/client && \
+              bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+                cd /work/client && \
                 (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
@@ -325,7 +327,7 @@ jobs:
                   --follow-stdlib \
                   --include-package=src \
                   --python-flag=-O \
-                  --static-libpython=no \
+                  --static-libpython=yes \
                   --assume-yes-for-downloads \
                   --lto=no \
                   --noinclude-unittest-mode=allow \
@@ -342,7 +344,8 @@ jobs:
             PY="/opt/python/cp311-cp311/bin/python3.11"
             docker run --rm \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
-              bash -lc "cd /work/client && \
+              bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+                cd /work/client && \
                 (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
@@ -357,7 +360,7 @@ jobs:
                   --follow-stdlib \
                   --include-package=src \
                   --python-flag=-O \
-                  --static-libpython=no \
+                  --static-libpython=yes \
                   --assume-yes-for-downloads \
                   --lto=no \
                   --noinclude-unittest-mode=allow \
