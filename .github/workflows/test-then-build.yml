@@ -556,7 +556,7 @@ jobs:
                 --include-package=src \
                 --include-data-dir=static=static \
                 --python-flag=-O \
-                --static-libpython=$( [ "${{ matrix.architecture }}" = "x86" ] && echo no || echo yes ) \
+                --static-libpython=$( [ \"${{ matrix.architecture }}\" = \"x86\" ] && echo no || echo yes ) \
                 --assume-yes-for-downloads \
                 --lto=no \
                 --noinclude-unittest-mode=allow \
@@ -568,6 +568,7 @@ jobs:
                 main.py" && \
             true
 
+          sudo chown -R $USER:$USER "$GITHUB_WORKSPACE/dist" || true
           cd ../dist
           TAR_NAME="net-manager-server-linux-${{ matrix.architecture }}.tar.gz"
           rm -f "$TAR_NAME" || true
