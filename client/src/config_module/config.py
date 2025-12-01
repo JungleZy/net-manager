@@ -10,114 +10,141 @@ import os
 import json
 from pathlib import Path
 
+
 class ConfigManager:
     """配置管理器"""
-    
+
     # UDP配置
     UDP_HOST = "<broadcast>"  # 广播地址
     UDP_PORT = 12345  # UDP端口（用于服务发现）
-    
+
     # TCP配置
     TCP_PORT = 12346  # TCP端口（用于数据传输）
-    
+
     # 数据收集间隔（秒）
     COLLECT_INTERVAL = 10
-    
+
     def __init__(self):
         """初始化配置管理器并从状态文件加载配置"""
         self._load_config_from_state()
-    
+
     def _load_config_from_state(self):
         """从状态文件加载配置"""
         try:
             # 获取状态文件路径
             state_file_path = self.get_state_file_path()
-            
+
             # 检查状态文件是否存在
             if os.path.exists(state_file_path):
-                with open(state_file_path, 'r', encoding='utf-8') as f:
+                with open(state_file_path, "r", encoding="utf-8") as f:
                     state_data = json.load(f)
-                    
+
                 # 从状态文件读取配置，如果不存在则使用默认值
-                udp_port = state_data.get('udp_port', self.UDP_PORT)
+                udp_port = state_data.get("udp_port", self.UDP_PORT)
                 self.UDP_PORT = int(udp_port) if isinstance(udp_port, str) else udp_port
-                tcp_port = state_data.get('tcp_port', self.TCP_PORT)
+                tcp_port = state_data.get("tcp_port", self.TCP_PORT)
                 self.TCP_PORT = int(tcp_port) if isinstance(tcp_port, str) else tcp_port
-                self.COLLECT_INTERVAL = state_data.get('collect_interval', self.COLLECT_INTERVAL)
+                self.COLLECT_INTERVAL = state_data.get(
+                    "collect_interval", self.COLLECT_INTERVAL
+                )
             # 如果状态文件不存在，保持默认配置不变
         except Exception as e:
             # 出现异常时保持默认配置不变
             pass
-    
+
     # 日志配置
     LOG_LEVEL = "INFO"
-    
+
     # 默认配置值
     _default_config = {
-        'logging': {
-            'level': 'INFO',
-            'file': 'logs/net_manager_client.log'
-        },
-        'client': {
-            'autostart': False
-        }
+        "logging": {"level": "INFO", "file": "logs/net_manager_client.log"},
+        "client": {"autostart": False},
     }
-    
+
     def get(self, section, key, default=None):
         """
         获取配置值
-        
+
         Args:
             section (str): 配置节名称
             key (str): 配置项名称
             default (any): 默认值
-            
+
         Returns:
             any: 配置值或默认值
         """
         # 首先检查是否有对应的类属性
-        if section == 'logging':
-            if key == 'level':
+        if section == "logging":
+            if key == "level":
                 return self.LOG_LEVEL
-            elif key == 'file':
+            elif key == "file":
                 return str(self.get_log_file_path())
-        elif section == 'client':
-            if key == 'autostart':
+        elif section == "client":
+            if key == "autostart":
                 # 从默认配置中获取
                 return self._default_config.get(section, {}).get(key, default)
-        
+
         # 如果没有对应的类属性，从默认配置中获取
         return self._default_config.get(section, {}).get(key, default)
-    
+
     def get_server_broadcast_address(self):
         """
         获取服务端广播地址
-        
+
         Returns:
             str: 服务端广播地址
         """
         return self.UDP_HOST
-    
+
     def get_server_broadcast_port(self):
         """
         获取服务端广播端口
-        
+
         Returns:
             int: 服务端广播端口
         """
         # 确保返回整数类型的端口
         return int(self.UDP_PORT)
-    
+
     @staticmethod
     def get_log_file_path():
         """获取日志文件路径"""
-        # 使用pathlib处理跨平台路径
-        return Path(__file__).parent.parent.parent / "logs" / "net_manager_client.log"
-    
+        import sys
+
+        is_frozen = getattr(sys, "frozen", False)
+        is_nuitka = "__compiled__" in globals()
+        if is_frozen or is_nuitka:
+            if os.name != "nt":
+                exe_path = os.path.realpath(sys.argv[0])
+                app_dir = Path(exe_path).parent
+            else:
+                app_dir = Path(sys.executable).parent
+        else:
+            app_dir = Path(__file__).parent.parent.parent
+        log_dir = app_dir / "logs"
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return log_dir / "net_manager_client.log"
+
     @staticmethod
     def get_state_file_path():
         """获取状态文件路径"""
-        return "client_state.json"
+        import sys
+
+        is_frozen = getattr(sys, "frozen", False)
+        is_nuitka = "__compiled__" in globals()
+        if is_frozen or is_nuitka:
+            if os.name != "nt":
+                exe_path = os.path.realpath(sys.argv[0])
+                app_dir = Path(exe_path).parent
+            else:
+                app_dir = Path(sys.executable).parent
+        else:
+            app_dir = Path(__file__).parent.parent.parent
+        return str(app_dir / "client_state.json")
+
 
 # 创建全局配置管理器实例
 config = ConfigManager()
