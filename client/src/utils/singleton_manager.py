@@ -90,36 +90,8 @@ class SingletonManager:
             bool: 成功获取锁返回True，否则返回False
         """
         if not WIN32_AVAILABLE:
-            try:
-                lock_name = self._get_lock_name()
-                temp_dir = os.environ.get("TEMP") or os.path.expanduser("~")
-                self.lock_file = os.path.join(temp_dir, f"{lock_name}.lock")
-                flags = os.O_CREAT | os.O_EXCL | os.O_RDWR
-                try:
-                    self.lock_handle = os.open(self.lock_file, flags)
-                    os.write(self.lock_handle, str(os.getpid()).encode())
-                    _get_logger().info(f"成功获取Windows文件锁: {self.lock_file}")
-                    return True
-                except FileExistsError:
-                    _get_logger().warning("无法获取Windows文件锁，可能已存在实例")
-                    self.lock_handle = None
-                    self.lock_file = None
-                    return False
-            except Exception as e:
-                _get_logger().error(f"获取Windows文件锁失败: {e}")
-                if self.lock_handle:
-                    try:
-                        os.close(self.lock_handle)
-                    except Exception:
-                        pass
-                    self.lock_handle = None
-                if self.lock_file:
-                    try:
-                        os.remove(self.lock_file)
-                    except Exception:
-                        pass
-                    self.lock_file = None
-                return False
+            _get_logger().warning("Windows API不可用，无法创建Windows锁，请安装pywin32库")
+            return False
             
         try:
             lock_name = self._get_lock_name()
@@ -243,7 +215,38 @@ class SingletonManager:
             try:
                 system = platform.system().lower()
                 if system == "windows":
-                    success = self._acquire_windows_lock()
+                    if WIN32_AVAILABLE:
+                        success = self._acquire_windows_lock()
+                    else:
+                        try:
+                            lock_name = self._get_lock_name()
+                            temp_dir = os.environ.get("TEMP") or os.path.expanduser("~")
+                            self.lock_file = os.path.join(temp_dir, f"{lock_name}.lock")
+                            flags = os.O_CREAT | os.O_EXCL | os.O_RDWR
+                            self.lock_handle = os.open(self.lock_file, flags)
+                            os.write(self.lock_handle, str(os.getpid()).encode())
+                            _get_logger().info(f"成功获取Windows文件锁: {self.lock_file}")
+                            success = True
+                        except FileExistsError:
+                            _get_logger().warning("无法获取Windows文件锁，可能已存在实例")
+                            self.lock_handle = None
+                            self.lock_file = None
+                            success = False
+                        except Exception as e:
+                            _get_logger().error(f"获取Windows文件锁失败: {e}")
+                            if self.lock_handle:
+                                try:
+                                    os.close(self.lock_handle)
+                                except Exception:
+                                    pass
+                                self.lock_handle = None
+                            if self.lock_file:
+                                try:
+                                    os.remove(self.lock_file)
+                                except Exception:
+                                    pass
+                                self.lock_file = None
+                            success = False
                 else:
                     success = self._acquire_unix_lock()
                 
