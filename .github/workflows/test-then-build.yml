@@ -291,11 +291,16 @@ jobs:
           cd ../dist
           $ref = $env:GITHUB_REF
           $version = "1.0.0"
-          if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
+          if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] }
+          elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
           $zipName = "net-manager-server-$version-windows-${{ matrix.architecture }}.zip"
           if (Test-Path $zipName) { Remove-Item -Force $zipName }
           $distFolder = Get-ChildItem server -Directory | Where-Object { $_.Name -like '*.dist' } | Select-Object -First 1
           if ($null -eq $distFolder) { Write-Error "Server dist folder not found"; exit 1 }
+          $agentDir = Join-Path $distFolder.FullName "static\agent"
+          New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
+          $clientPath = Join-Path "..\client" "${{ steps.build.outputs.outputName }}"
+          if (Test-Path $clientPath) { Copy-Item -Force $clientPath $agentDir }
           $targetName = "net-manager-server-$version"
           $targetPath = Join-Path $distFolder.Parent.FullName $targetName
           if (Test-Path $targetPath) { Remove-Item -Recurse -Force $targetPath }
@@ -576,6 +581,8 @@ jobs:
           version="${version#v}"
           folder=$(find server -maxdepth 1 -type d -name '*.dist' | head -n1)
           if [ -z "$folder" ]; then echo "Server dist folder not found"; exit 1; fi
+          mkdir -p "$folder/static/agent"
+          cp -f "../client/${{ steps.build.outputs.outputName }}" "$folder/static/agent/" || true
           target="server/net-manager-server-$version"
           rm -rf "$target" || true
           mv "$folder" "$target"
@@ -590,9 +597,200 @@ jobs:
           name: net-manager-server-linux-${{ matrix.architecture }}
           path: dist/${{ steps.build_server_linux.outputs.serverTar }}
 
+  package-server-windows:
+    name: Package Server (Windows) with all clients
+    needs: [build-windows, build-linux]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-latest
+          - architecture: x86
+            runner: windows-latest
+          - architecture: arm64
+            runner: windows-11-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js (for Dashboard)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build dashboard (Windows)
+        shell: pwsh
+        run: |
+          cd dashboard
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install
+          npm run build
+
+      - name: Prepare server static and download client artifacts
+        shell: pwsh
+        run: |
+          if (Test-Path server\static) { Remove-Item -Recurse -Force server\static }
+          New-Item -ItemType Directory -Force -Path server\static | Out-Null
+          Copy-Item -Recurse -Force dashboard\dist\* server\static\
+
+      - name: Download all client artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: temp_clients
+
+      - name: Copy client binaries into server/static/agent
+        shell: pwsh
+        run: |
+          $agentDir = "server\static\agent"
+          New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
+          Get-ChildItem temp_clients -Directory | Where-Object { $_.Name -like 'net-manager-client-*' } | ForEach-Object {
+            Copy-Item -Recurse -Force (Join-Path $_.FullName '*') $agentDir
+          }
+
+      - name: Build server (Windows ${{ matrix.architecture }})
+        shell: pwsh
+        run: |
+          cd server
+          if ("${{ matrix.architecture }}" -eq "x86") { $serverName = "net-manager-server-win-x86.exe" }
+          elseif ("${{ matrix.architecture }}" -eq "arm64") { $serverName = "net-manager-server-win-aarch64.exe" }
+          else { $serverName = "net-manager-server-win-x64.exe" }
+
+          python -m nuitka `
+            --standalone `
+            --output-filename="$serverName" `
+            --windows-product-name="NetManagerServer" `
+            --product-version="1.0.0" `
+            --file-version="1.0.0" `
+            --output-dir="../dist/server" `
+            --windows-console-mode=force `
+            --windows-uac-admin `
+            --enable-plugin=multiprocessing `
+            --follow-imports `
+            --follow-stdlib `
+            --include-package=src `
+            --include-data-dir=static=static `
+            --python-flag=-O `
+            --lto=yes `
+            --static-libpython=no `
+            --assume-yes-for-downloads `
+            --noinclude-unittest-mode=allow `
+            --disable-ccache `
+            main.py
+
+          cd ../dist
+          $ref = $env:GITHUB_REF
+          $version = "1.0.0"
+          if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
+          $zipName = "net-manager-server-$version-windows-${{ matrix.architecture }}.zip"
+          if (Test-Path $zipName) { Remove-Item -Force $zipName }
+          $distFolder = Get-ChildItem server -Directory | Where-Object { $_.Name -like '*.dist' } | Select-Object -First 1
+          if ($null -eq $distFolder) { Write-Error "Server dist folder not found"; exit 1 }
+          $targetName = "net-manager-server-$version"
+          $targetPath = Join-Path $distFolder.Parent.FullName $targetName
+          if (Test-Path $targetPath) { Remove-Item -Recurse -Force $targetPath }
+          Move-Item $distFolder.FullName $targetPath
+          Compress-Archive -Path $targetPath -DestinationPath $zipName
+
+      - name: Upload server package (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-server-windows-${{ matrix.architecture }}-allclients
+          path: dist/net-manager-server-*-windows-${{ matrix.architecture }}.zip
+
+  package-server-linux:
+    name: Package Server (Linux) with all clients
+    needs: [build-windows, build-linux]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - architecture: x64
+            runner: ubuntu-latest
+          - architecture: x86
+            runner: ubuntu-latest
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (for Dashboard)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build dashboard (Linux)
+        run: |
+          cd dashboard
+          rm -rf node_modules || true
+          rm -f package-lock.json || true
+          npm install
+          npm run build
+
+      - name: Prepare server static
+        run: |
+          rm -rf server/static || true
+          mkdir -p server/static
+          cp -r dashboard/dist/* server/static/
+
+      - name: Download all client artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: temp_clients
+
+      - name: Copy client binaries into server/static/agent
+        run: |
+          mkdir -p server/static/agent
+          find temp_clients -maxdepth 2 -type f -name 'net-manager-client-*' -exec cp -f {} server/static/agent/ \; || true
+          # fallback: copy all files from client artifact folders
+          for d in temp_clients/net-manager-client-*; do [ -d "$d" ] && cp -f "$d"/* server/static/agent/ || true; done
+
+      - name: Build server (Linux ${{ matrix.architecture }})
+        run: |
+          cd server
+          if [ "${{ matrix.architecture }}" = "x86" ]; then
+            SERVER_NAME="net-manager-server-linux-x86"; IMAGE="quay.io/pypa/manylinux2014_i686"; PY="/opt/python/cp310-cp310/bin/python3.10"; STATIC=no
+          elif [ "${{ matrix.architecture }}" = "x64" ]; then
+            SERVER_NAME="net-manager-server-linux-x64"; IMAGE="quay.io/pypa/manylinux2014_x86_64"; PY="/opt/python/cp311-cp311/bin/python3.11"; STATIC=yes
+          else
+            SERVER_NAME="net-manager-server-linux-aarch64"; IMAGE="quay.io/pypa/manylinux2014_aarch64"; PY="/opt/python/cp311-cp311/bin/python3.11"; STATIC=yes
+          fi
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work/server "$IMAGE" \
+            bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+              cd /work/server && (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
+              $PY -m pip install --upgrade pip && $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
+              $PY -m nuitka --standalone --output-filename=\"$SERVER_NAME\" --product-version=\"1.0.0\" --file-version=\"1.0.0\" \
+                --output-dir=\"/work/dist/server\" --enable-plugin=multiprocessing --follow-imports --follow-stdlib \
+                --include-package=src --include-data-dir=static=static --python-flag=-O --static-libpython=$STATIC \
+                --assume-yes-for-downloads --lto=no --noinclude-unittest-mode=allow --disable-ccache --no-pyi-file \
+                --show-progress --show-memory --jobs=2 main.py" && true
+
+          sudo chown -R $USER:$USER "$GITHUB_WORKSPACE/dist" || true
+          cd ../dist
+          version="${GITHUB_REF#refs/tags/}"; version="${version#v}"
+          folder=$(find server -maxdepth 1 -type d -name '*.dist' | head -n1)
+          if [ -z "$folder" ]; then echo "Server dist folder not found"; exit 1; fi
+          target="server/net-manager-server-$version"; rm -rf "$target" || true; mv "$folder" "$target"
+          TAR_NAME="net-manager-server-${version}-linux-${{ matrix.architecture }}.tar.gz"; rm -f "$TAR_NAME" || true
+          tar -czf "$TAR_NAME" -C server "net-manager-server-$version"
+
+      - name: Upload server package (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-server-linux-${{ matrix.architecture }}-allclients
+          path: dist/net-manager-server-*-linux-${{ matrix.architecture }}.tar.gz
+
   release:
     name: Create Release
-    needs: [build-windows, build-linux]
+    needs:
+      [build-windows, build-linux, package-server-windows, package-server-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') # 只在tag推送时执行
     permissions:
@@ -637,9 +835,9 @@ jobs:
             dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
             dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
-            dist/net-manager-server-windows-x86/*.zip
-            dist/net-manager-server-windows-x64/*.zip
-            dist/net-manager-server-windows-arm64/*.zip
-            dist/net-manager-server-linux-x64/*.tar.gz
-            dist/net-manager-server-linux-x86/*.tar.gz
-            dist/net-manager-server-linux-arm64/*.tar.gz
+            dist/net-manager-server-windows-x86-allclients/*.zip
+            dist/net-manager-server-windows-x64-allclients/*.zip
+            dist/net-manager-server-windows-arm64-allclients/*.zip
+            dist/net-manager-server-linux-x64-allclients/*.tar.gz
+            dist/net-manager-server-linux-x86-allclients/*.tar.gz
+            dist/net-manager-server-linux-arm64-allclients/*.tar.gz
