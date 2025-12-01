@@ -282,6 +282,7 @@ jobs:
               -e LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++" \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
               bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
+                cd /work/client && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
                 $PY -m nuitka \
