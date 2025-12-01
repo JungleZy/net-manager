@@ -114,11 +114,8 @@ class ConfigManager:
         is_frozen = getattr(sys, "frozen", False)
         is_nuitka = "__compiled__" in globals()
         if is_frozen or is_nuitka:
-            if os.name != "nt":
-                exe_path = os.path.realpath(sys.argv[0])
-                app_dir = Path(exe_path).parent
-            else:
-                app_dir = Path(sys.executable).parent
+            exe_path = os.path.realpath(sys.argv[0])
+            app_dir = Path(exe_path).parent
         else:
             app_dir = Path(__file__).parent.parent.parent
         log_dir = app_dir / "logs"
@@ -136,11 +133,8 @@ class ConfigManager:
         is_frozen = getattr(sys, "frozen", False)
         is_nuitka = "__compiled__" in globals()
         if is_frozen or is_nuitka:
-            if os.name != "nt":
-                exe_path = os.path.realpath(sys.argv[0])
-                app_dir = Path(exe_path).parent
-            else:
-                app_dir = Path(sys.executable).parent
+            exe_path = os.path.realpath(sys.argv[0])
+            app_dir = Path(exe_path).parent
         else:
             app_dir = Path(__file__).parent.parent.parent
         return str(app_dir / "client_state.json")

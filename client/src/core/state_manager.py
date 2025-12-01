@@ -59,15 +59,9 @@ class StateManager:
             is_nuitka = "__compiled__" in globals()
 
             if is_frozen or is_nuitka:
-                if os.name != "nt":
-                    executable_path = os.path.realpath(sys.argv[0])
-                    application_path = Path(executable_path).parent
-                    logger.info(f"检测到Linux打包环境，使用argv[0]: {executable_path}")
-                else:
-                    application_path = Path(sys.executable).parent
-                    logger.info(
-                        f"检测到Windows打包环境，使用executable: {sys.executable}"
-                    )
+                executable_path = os.path.realpath(sys.argv[0])
+                application_path = Path(executable_path).parent
+                logger.info(f"检测到打包环境，使用argv[0]: {executable_path}")
 
                 logger.info(f"应用路径: {application_path}")
             else:
