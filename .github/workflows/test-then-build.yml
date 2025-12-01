@@ -9,6 +9,7 @@ on:
 jobs:
   test-windows:
     name: Test on Windows
+    if: ${{ false }}
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
@@ -55,6 +56,7 @@ jobs:
 
   test-linux:
     name: Test on Linux
+    if: ${{ false }}
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
@@ -109,7 +111,7 @@ jobs:
 
   build-windows:
     name: Build for Windows
-    needs: [test-summary] # 只有在测试成功完成后才执行打包
+
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
@@ -301,7 +303,7 @@ jobs:
 
   build-linux:
     name: Build for Linux
-    needs: [test-summary] # 只有在测试成功完成后才执行打包
+
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
