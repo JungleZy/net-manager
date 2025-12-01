@@ -60,11 +60,9 @@ class StateManager:
 
             if is_frozen or is_nuitka:
                 if os.name != "nt":
-                    executable_path = os.path.realpath(sys.executable)
+                    executable_path = os.path.realpath(sys.argv[0])
                     application_path = Path(executable_path).parent
-                    logger.info(
-                        f"检测到Linux打包环境，使用executable: {executable_path}"
-                    )
+                    logger.info(f"检测到Linux打包环境，使用argv[0]: {executable_path}")
                 else:
                     application_path = Path(sys.executable).parent
                     logger.info(
