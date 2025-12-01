@@ -271,18 +271,14 @@ jobs:
           fi
 
           echo "outputName=$OUTPUT_NAME" >> $GITHUB_OUTPUT
-          export CCFLAGS="$CCFLAGS -fno-pie"
-          export LDFLAGS="$LDFLAGS -no-pie"
+
 
           if [ "${{ matrix.architecture }}" = "arm64" ]; then
             IMAGE="quay.io/pypa/manylinux2014_aarch64"
             PY="/opt/python/cp311-cp311/bin/python3.11"
             docker run --rm \
-              -e CCFLAGS="$CCFLAGS" \
-              -e LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++" \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
-              bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
-                cd /work/client && \
+              bash -lc "cd /work/client && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
                 $PY -m nuitka \
@@ -293,11 +289,18 @@ jobs:
                   --file-version=\"1.0.0\" \
                   --enable-plugin=multiprocessing \
                   --follow-imports \
-                  --static-libpython=yes \
+                  --follow-stdlib \
                   --include-package=src \
                   --python-flag=-O \
+                  --static-libpython=no \
                   --assume-yes-for-downloads \
                   --lto=no \
+                  --noinclude-unittest-mode=allow \
+                  --disable-ccache \
+                  --no-pyi-file \
+                  --show-progress \
+                  --show-memory \
+                  --jobs=2 \
                   --remove-output \
                   main.py && \
                 chmod +x \"$OUTPUT_NAME\""
