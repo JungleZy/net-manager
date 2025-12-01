@@ -180,11 +180,31 @@ jobs:
             --assume-yes-for-downloads `
             --noinclude-unittest-mode=allow `
             --disable-ccache `
-            --no-pyi-file `
-            --remove-output `
             main.py
             
           echo "outputName=$outputName" >> $env:GITHUB_OUTPUT
+
+      - name: Cleanup Nuitka build directory (Windows)
+        if: always()
+        shell: pwsh
+        run: |
+          $distPath = "client/main.dist"
+          if (Test-Path $distPath) {
+            Write-Output "Attempting to remove $distPath"
+            for ($i = 0; $i -lt 5; $i++) {
+              try {
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $distPath
+              } catch {}
+              if (-not (Test-Path $distPath)) { break }
+              Start-Sleep -Seconds 2
+            }
+            if (Test-Path $distPath) {
+              Write-Output "Warning: $distPath still exists; skipping cleanup."
+            } else {
+              Write-Output "Removed $distPath successfully."
+            }
+          }
+        continue-on-error: true
 
       - name: Verify binary architecture (Windows)
         shell: pwsh
