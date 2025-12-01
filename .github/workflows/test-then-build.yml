@@ -279,6 +279,39 @@ jobs:
             docker run --rm \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
               bash -lc "cd /work/client && \
+                (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
+                $PY -m pip install --upgrade pip && \
+                $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
+                $PY -m nuitka \
+                  --standalone \
+                  --onefile \
+                  --output-filename=\"$OUTPUT_NAME\" \
+                  --product-version=\"1.0.0\" \
+                  --file-version=\"1.0.0\" \
+                  --enable-plugin=multiprocessing \
+                  --follow-imports \
+                  --follow-stdlib \
+                  --include-package=src \
+                  --python-flag=-O \
+                  --static-libpython=no \
+                  --assume-yes-for-downloads \
+                  --lto=no \
+                  --noinclude-unittest-mode=allow \
+                  --disable-ccache \
+                  --no-pyi-file \
+                  --show-progress \
+                  --show-memory \
+                  --jobs=2 \
+                  --remove-output \
+                  main.py && \
+                chmod +x \"$OUTPUT_NAME\""
+          elif [ "${{ matrix.architecture }}" = "x64" ]; then
+            IMAGE="quay.io/pypa/manylinux2014_x86_64"
+            PY="/opt/python/cp311-cp311/bin/python3.11"
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
+              bash -lc "cd /work/client && \
+                (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
                 $PY -m pip install --upgrade pip && \
                 $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
                 $PY -m nuitka \
@@ -305,26 +338,37 @@ jobs:
                   main.py && \
                 chmod +x \"$OUTPUT_NAME\""
           else
-            python -m nuitka \
-              --standalone \
-              --onefile \
-              --output-filename="$OUTPUT_NAME" \
-              --product-version="1.0.0" \
-              --file-version="1.0.0" \
-              --enable-plugin=multiprocessing \
-              --follow-imports \
-              --follow-stdlib \
-              --include-package=src \
-              --python-flag=-O \
-              --static-libpython=yes \
-              --assume-yes-for-downloads \
-              --lto=yes \
-              --noinclude-unittest-mode=allow \
-              --disable-ccache \
-              --no-pyi-file \
-              --remove-output \
-              main.py
-            chmod +x "$OUTPUT_NAME"
+            IMAGE="quay.io/pypa/manylinux2014_i686"
+            PY="/opt/python/cp311-cp311/bin/python3.11"
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
+              bash -lc "cd /work/client && \
+                (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
+                $PY -m pip install --upgrade pip && \
+                $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
+                $PY -m nuitka \
+                  --standalone \
+                  --onefile \
+                  --output-filename=\"$OUTPUT_NAME\" \
+                  --product-version=\"1.0.0\" \
+                  --file-version=\"1.0.0\" \
+                  --enable-plugin=multiprocessing \
+                  --follow-imports \
+                  --follow-stdlib \
+                  --include-package=src \
+                  --python-flag=-O \
+                  --static-libpython=no \
+                  --assume-yes-for-downloads \
+                  --lto=no \
+                  --noinclude-unittest-mode=allow \
+                  --disable-ccache \
+                  --no-pyi-file \
+                  --show-progress \
+                  --show-memory \
+                  --jobs=2 \
+                  --remove-output \
+                  main.py && \
+                chmod +x \"$OUTPUT_NAME\""
           fi
 
           chmod +x "$OUTPUT_NAME" || true
