@@ -274,33 +274,71 @@ jobs:
           export CCFLAGS="$CCFLAGS -fno-pie"
           export LDFLAGS="$LDFLAGS -no-pie"
 
-          python -m nuitka \
-            --standalone \
-            --onefile \
-            --output-filename="$OUTPUT_NAME" \
-            --product-version="1.0.0" \
-            --file-version="1.0.0" \
-            --enable-plugin=multiprocessing \
-            --follow-imports \
-            --follow-stdlib \
-            --include-package=src \
-            --python-flag=-O \
-            --static-libpython=yes \
-            --assume-yes-for-downloads \
-            --lto=yes \
-            --noinclude-unittest-mode=allow \
-            --disable-ccache \
-            --no-pyi-file \
-            --remove-output \
-            main.py
+          if [ "${{ matrix.architecture }}" = "arm64" ]; then
+            IMAGE="quay.io/pypa/manylinux2014_aarch64"
+            PY="/opt/python/cp311-cp311/bin/python3.11"
+            docker run --rm \
+              -e CCFLAGS="$CCFLAGS" \
+              -e LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++" \
+              -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
+              bash -lc "$PY -m pip install --upgrade pip && \
+                $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
+                $PY -m nuitka \
+                  --standalone \
+                  --onefile \
+                  --output-filename=\"$OUTPUT_NAME\" \
+                  --product-version=\"1.0.0\" \
+                  --file-version=\"1.0.0\" \
+                  --enable-plugin=multiprocessing \
+                  --follow-imports \
+                  --include-package=src \
+                  --python-flag=-O \
+                  --assume-yes-for-downloads \
+                  --lto=no \
+                  --remove-output \
+                  main.py && \
+                chmod +x \"$OUTPUT_NAME\""
+          else
+            python -m nuitka \
+              --standalone \
+              --onefile \
+              --output-filename="$OUTPUT_NAME" \
+              --product-version="1.0.0" \
+              --file-version="1.0.0" \
+              --enable-plugin=multiprocessing \
+              --follow-imports \
+              --follow-stdlib \
+              --include-package=src \
+              --python-flag=-O \
+              --static-libpython=yes \
+              --assume-yes-for-downloads \
+              --lto=yes \
+              --noinclude-unittest-mode=allow \
+              --disable-ccache \
+              --no-pyi-file \
+              --remove-output \
+              main.py
+            chmod +x "$OUTPUT_NAME"
+          fi
 
-          chmod +x "$OUTPUT_NAME"
+          chmod +x "$OUTPUT_NAME" || true
 
       - name: Verify binary architecture
         run: |
           uname -m
           file client/${{ steps.build.outputs.outputName }}
           readelf -h client/${{ steps.build.outputs.outputName }} | grep -E "Type:\s+EXEC" || (echo "Unexpected ELF Type (not EXEC)"; exit 1)
+          echo "Checking GLIBC symbol requirements (must be <= 2.23)"
+          if command -v objdump >/dev/null 2>&1; then
+            max_glibc=$(objdump -p client/${{ steps.build.outputs.outputName }} | grep -o 'GLIBC_[0-9]\+\.[0-9]\+' | sort -V | tail -n1 || true)
+          else
+            max_glibc=$(strings client/${{ steps.build.outputs.outputName }} | grep -o 'GLIBC_[0-9]\+\.[0-9]\+' | sort -V | tail -n1 || true)
+          fi
+          echo "Max required GLIBC: ${max_glibc:-unknown}"
+          if [ -n "$max_glibc" ]; then
+            highest=$(printf "%s\n%s" "$max_glibc" "GLIBC_2.23" | sort -V | tail -n1)
+            [ "$highest" = "GLIBC_2.23" ] || (echo "GLIBC requirement $max_glibc exceeds 2.23"; exit 1)
+          fi
 
       - name: Upload artifacts (Linux aarch64)
         if: matrix.architecture == 'arm64'

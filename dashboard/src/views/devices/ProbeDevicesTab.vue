@@ -99,7 +99,7 @@
           </template>
           <template v-else-if="column.dataIndex === 'os_name'">
             <div class="layout-center" v-if="record.os_name === 'Linux'">
-              <a-tooltip title="Windows">
+              <a-tooltip title="Linux">
                 <svg
                   t="1761046997370"
                   class="icon"
@@ -184,7 +184,7 @@
               </a-tooltip>
             </div>
             <div class="layout-center" v-else-if="record.os_name === 'Windows'">
-              <a-tooltip title="Linux">
+              <a-tooltip title="Windows">
                 <svg
                   t="1761047141548"
                   class="icon"
