@@ -1,5 +1,5 @@
 <template>
-  <div class="size-full">
+  <div class="size-full" ref="el">
     <div class="mb-[12px] layout-side">
       <div>
         <span class="mr-2 font-medium">IP地址:</span>
@@ -12,7 +12,6 @@
         <a-select
           v-model:value="filterType"
           style="width: 100px; margin-right: 12px"
-          allow-clear
         >
           <a-select-option value="">全部类型</a-select-option>
           <a-select-option value="台式机">台式机</a-select-option>
@@ -26,7 +25,6 @@
         <a-select
           v-model:value="filterOS"
           style="width: 100px; margin-right: 12px"
-          allow-clear
         >
           <a-select-option value="">全部系统</a-select-option>
           <a-select-option value="Windows">Windows</a-select-option>
@@ -37,7 +35,6 @@
         <a-select
           v-model:value="filterStatus"
           style="width: 80px; margin-right: 12px"
-          allow-clear
         >
           <a-select-option value="">全部</a-select-option>
           <a-select-option value="online">在线</a-select-option>
@@ -62,6 +59,7 @@
         size="small"
         row-key="id"
         bordered
+        :scroll="{ y: tableHeight }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record, index }">
@@ -86,10 +84,12 @@
                 <div
                   v-html="getDeviceIcon(record.type)"
                   class="device-icon"
-                  style="width: 32px; height: 32px; cursor: help"
+                  style="width: 28px; height: 28px; cursor: help"
                 ></div>
               </a-tooltip>
-              <span v-else>{{ record.type || '未设置' }}</span>
+              <span style="height: 28px" class="layout-center" v-else>{{
+                record.type || '未设置'
+              }}</span>
             </div>
           </template>
           <template v-else-if="column.dataIndex === 'online'">
@@ -276,7 +276,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  shallowRef,
+  watch,
+  h,
+  useTemplateRef
+} from 'vue'
+import { useElementSize } from '@vueuse/core'
 import {
   DeleteOutlined,
   EditOutlined,
@@ -284,7 +294,6 @@ import {
 } from '@ant-design/icons-vue'
 import { formatMachineType } from '@/common/utils/Utils.js'
 import { message, Tooltip } from 'ant-design-vue'
-import { h } from 'vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import ServiceDetailModal from '@/components/devices/ServiceDetailModal.vue'
 import ProcessDetailModal from '@/components/devices/ProcessDetailModal.vue'
@@ -313,7 +322,6 @@ const CHANGE_KEYS = [
   'processes_count'
 ] // 需要监听变化的字段
 
-// 设备类型图标映射
 const DEVICE_ICON_MAP = {
   台式机: PCIcon,
   笔记本: LaptopIcon,
@@ -323,30 +331,29 @@ const DEVICE_ICON_MAP = {
   路由器: RouterIcon,
   交换机: SwitchIcon
 }
-
-/**
- * 获取设备类型对应的SVG图标
- * @param {string} type - 设备类型
- * @returns {string} SVG字符串
- */
-const getDeviceIcon = (type) => {
-  const icon = DEVICE_ICON_MAP[type]
-  if (!icon) return null
-
-  // 解析SVG并设置颜色
+const tableHeight = ref(240)
+const el = useTemplateRef('el')
+const { width, height } = useElementSize(el)
+tableHeight.value = height.value - 44
+const sanitizeSvg = (raw) => {
   const parser = new DOMParser()
-  const svgDoc = parser.parseFromString(icon, 'image/svg+xml')
-  const svgElement = svgDoc.documentElement
-
-  // 移除宽度和高度属性，让CSS控制
-  svgElement.removeAttribute('width')
-  svgElement.removeAttribute('height')
-  svgElement.setAttribute(
-    'viewBox',
-    svgElement.getAttribute('viewBox') || '0 0 1024 1024'
-  )
-
-  return new XMLSerializer().serializeToString(svgElement)
+  const doc = parser.parseFromString(raw, 'image/svg+xml')
+  const el = doc.documentElement
+  el.removeAttribute('width')
+  el.removeAttribute('height')
+  el.setAttribute('viewBox', el.getAttribute('viewBox') || '0 0 1024 1024')
+  return new XMLSerializer().serializeToString(el)
+}
+const SANITIZED_ICON_MAP = {}
+Object.keys(DEVICE_ICON_MAP).forEach((k) => {
+  const raw = DEVICE_ICON_MAP[k]
+  if (raw) {
+    SANITIZED_ICON_MAP[k] = sanitizeSvg(raw)
+  }
+})
+const getDeviceIcon = (type) => {
+  const icon = SANITIZED_ICON_MAP[type]
+  return icon || null
 }
 
 // 定义组件属性
@@ -796,6 +803,15 @@ const filterIP = ref('')
 const filterOS = ref('')
 const filterStatus = ref('')
 
+const debouncedFilterIP = ref('')
+let ipDebounceTimer = null
+watch(filterIP, (val) => {
+  if (ipDebounceTimer) clearTimeout(ipDebounceTimer)
+  ipDebounceTimer = setTimeout(() => {
+    debouncedFilterIP.value = val
+  }, 200)
+})
+
 const fetchDevices = async () => {
   try {
     const response = await DeviceApi.getDevicesList()
@@ -806,67 +822,53 @@ const fetchDevices = async () => {
   }
 }
 
-// 计算筛选后的设备列表
 const filteredDevices = computed(() => {
-  let filtered = devices.value
-
-  // 设备类型筛选
-  if (filterType.value) {
-    // 特殊处理"未设置"类型
-    if (filterType.value === '__unset__') {
-      filtered = filtered.filter((device) => !device.type)
-    } else {
-      filtered = filtered.filter((device) => device.type === filterType.value)
-    }
-  }
-
-  // IP地址模糊匹配筛选
-  if (filterIP.value) {
-    filtered = filtered.filter((device) => {
-      if (!device.ips || !Array.isArray(device.ips)) {
-        return false
+  const ft = filterType.value
+  const fi = debouncedFilterIP.value
+  const fo = filterOS.value
+  const fs = filterStatus.value
+  const out = []
+  for (let i = 0; i < devices.value.length; i++) {
+    const d = devices.value[i]
+    if (ft) {
+      if (ft === '__unset__') {
+        if (d.type) continue
+      } else {
+        if (d.type !== ft) continue
       }
-      // 检查所有IP地址是否包含输入的IP片段
-      return device.ips.some((ip) => {
-        // ip格式为 "接口名: IP地址"，我们只检查IP地址部分
+    }
+    if (fi) {
+      const ips = d.ips
+      if (!ips || !Array.isArray(ips)) continue
+      let matched = false
+      for (let j = 0; j < ips.length; j++) {
+        const ip = ips[j]
         const ipAddress = ip.split(': ')[1] || ip
-        return ipAddress && ipAddress.includes(filterIP.value)
-      })
-    })
-  }
-
-  // 操作系统筛选
-  if (filterOS.value) {
-    if (filterOS.value === '__unset__') {
-      // 筛选未设置操作系统的设备
-      filtered = filtered.filter(
-        (device) =>
-          !device.os_name ||
-          device.os_name === 'N/A' ||
-          device.os_name === '未知'
-      )
-    } else {
-      // 筛选指定操作系统的设备
-      filtered = filtered.filter((device) => {
-        if (!device.os_name) return false
-        // 不区分大小写匹配
-        return device.os_name
-          .toLowerCase()
-          .includes(filterOS.value.toLowerCase())
-      })
+        if (ipAddress && ipAddress.includes(fi)) {
+          matched = true
+          break
+        }
+      }
+      if (!matched) continue
     }
-  }
-
-  // 状态筛选
-  if (filterStatus.value) {
-    if (filterStatus.value === 'online') {
-      filtered = filtered.filter((device) => device.online === true)
-    } else if (filterStatus.value === 'offline') {
-      filtered = filtered.filter((device) => device.online === false)
+    if (fo) {
+      if (fo === '__unset__') {
+        if (d.os_name && d.os_name !== 'N/A' && d.os_name !== '未知') continue
+      } else {
+        if (!d.os_name || !d.os_name.toLowerCase().includes(fo.toLowerCase()))
+          continue
+      }
     }
+    if (fs) {
+      if (fs === 'online') {
+        if (d.online !== true) continue
+      } else if (fs === 'offline') {
+        if (d.online !== false) continue
+      }
+    }
+    out.push(d)
   }
-
-  return filtered
+  return out
 })
 
 // 清除筛选
