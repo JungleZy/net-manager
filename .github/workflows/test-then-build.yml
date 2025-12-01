@@ -432,7 +432,7 @@ jobs:
                 chmod +x \"$OUTPUT_NAME\""
           else
             IMAGE="quay.io/pypa/manylinux2014_i686"
-            PY="/opt/python/cp311-cp311/bin/python3.11"
+            PY="/opt/python/cp310-cp310/bin/python3.10"
             docker run --rm \
               -v "$GITHUB_WORKSPACE:/work" -w /work/client "$IMAGE" \
               bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
@@ -451,7 +451,7 @@ jobs:
                   --follow-stdlib \
                   --include-package=src \
                   --python-flag=-O \
-                  --static-libpython=yes \
+                  --static-libpython=no \
                   --assume-yes-for-downloads \
                   --lto=no \
                   --noinclude-unittest-mode=allow \
@@ -532,8 +532,11 @@ jobs:
             SERVER_NAME="net-manager-server-linux-aarch64"
             IMAGE="quay.io/pypa/manylinux2014_aarch64"
           fi
-
-          PY="/opt/python/cp311-cp311/bin/python3.11"
+          if [ "${{ matrix.architecture }}" = "x86" ]; then
+            PY="/opt/python/cp310-cp310/bin/python3.10"
+          else
+            PY="/opt/python/cp311-cp311/bin/python3.11"
+          fi
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/work" -w /work/server "$IMAGE" \
             bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
@@ -553,7 +556,7 @@ jobs:
                 --include-package=src \
                 --include-data-dir=static=static \
                 --python-flag=-O \
-                --static-libpython=yes \
+                --static-libpython=$( [ "${{ matrix.architecture }}" = "x86" ] && echo no || echo yes ) \
                 --assume-yes-for-downloads \
                 --lto=no \
                 --noinclude-unittest-mode=allow \
