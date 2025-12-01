@@ -233,13 +233,15 @@ jobs:
       - name: Setup Node.js (for Dashboard)
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Build dashboard (Windows)
         shell: pwsh
         run: |
           cd dashboard
-          if (Test-Path package-lock.json) { npm ci } else { npm install }
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install
           npm run build
 
       - name: Copy dashboard dist to server/static (Windows)
@@ -497,12 +499,14 @@ jobs:
       - name: Setup Node.js (for Dashboard)
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Build dashboard (Linux)
         run: |
           cd dashboard
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          rm -rf node_modules || true
+          rm -f package-lock.json || true
+          npm install
           npm run build
 
       - name: Copy dashboard dist to server/static (Linux)
