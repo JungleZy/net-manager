@@ -230,73 +230,6 @@ jobs:
           name: net-manager-client-windows-${{ matrix.architecture }}
           path: client/${{ steps.build.outputs.outputName }}
 
-      - name: Setup Node.js (for Dashboard)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Build dashboard (Windows)
-        shell: pwsh
-        run: |
-          cd dashboard
-          if (Test-Path package-lock.json) { npm ci } else { npm install }
-          npm run build
-
-      - name: Copy dashboard dist to server/static (Windows)
-        shell: pwsh
-        run: |
-          if (Test-Path server\static) { Remove-Item -Recurse -Force server\static }
-          New-Item -ItemType Directory -Force -Path server\static | Out-Null
-          Copy-Item -Recurse -Force dashboard\dist\* server\static\
-          if (Test-Path agent) { New-Item -ItemType Directory -Force -Path server\static\agent | Out-Null; Copy-Item -Recurse -Force agent\* server\static\agent\ }
-
-      - name: Build server for Windows (${{ matrix.architecture }})
-        id: build_server
-        shell: pwsh
-        run: |
-          cd server
-          if ("${{ matrix.architecture }}" -eq "x86") {
-            $serverName = "net-manager-server-win-x86.exe"
-          } elseif ("${{ matrix.architecture }}" -eq "arm64") {
-            $serverName = "net-manager-server-win-aarch64.exe"
-          } else {
-            $serverName = "net-manager-server-win-x64.exe"
-          }
-
-          python -m nuitka `
-            --standalone `
-            --output-filename="$serverName" `
-            --windows-product-name="NetManagerServer" `
-            --product-version="1.0.0" `
-            --file-version="1.0.0" `
-            --output-dir="../dist/server" `
-            --windows-console-mode=force `
-            --windows-uac-admin `
-            --enable-plugin=multiprocessing `
-            --follow-imports `
-            --follow-stdlib `
-            --include-package=src `
-            --include-data-dir=static=static `
-            --python-flag=-O `
-            --lto=yes `
-            --static-libpython=no `
-            --assume-yes-for-downloads `
-            --noinclude-unittest-mode=allow `
-            --disable-ccache `
-            main.py
-
-          cd ../dist
-          $zipName = "net-manager-server-windows-${{ matrix.architecture }}.zip"
-          if (Test-Path $zipName) { Remove-Item -Force $zipName }
-          Compress-Archive -Path server\* -DestinationPath $zipName
-          echo "serverZip=$zipName" >> $env:GITHUB_OUTPUT
-
-      - name: Upload artifacts (Server Windows)
-        uses: actions/upload-artifact@v4
-        with:
-          name: net-manager-server-windows-${{ matrix.architecture }}
-          path: dist/${{ steps.build_server.outputs.serverZip }}
-
   build-linux:
     name: Build for Linux
     needs: [test-summary] # 只有在测试成功完成后才执行打包
@@ -494,83 +427,6 @@ jobs:
           name: net-manager-client-linux-${{ matrix.architecture }}
           path: client/${{ steps.build.outputs.outputName }}
 
-      - name: Setup Node.js (for Dashboard)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Build dashboard (Linux)
-        run: |
-          cd dashboard
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm run build
-
-      - name: Copy dashboard dist to server/static (Linux)
-        run: |
-          rm -rf server/static || true
-          mkdir -p server/static
-          cp -r dashboard/dist/* server/static/
-          if [ -d agent ]; then mkdir -p server/static/agent && cp -r agent/* server/static/agent/; fi
-
-      - name: Build server for Linux (${{ matrix.architecture }})
-        id: build_server_linux
-        run: |
-          cd server
-          if [ "${{ matrix.architecture }}" = "x86" ]; then
-            SERVER_NAME="net-manager-server-linux-x86"
-            IMAGE="quay.io/pypa/manylinux2014_i686"
-          elif [ "${{ matrix.architecture }}" = "x64" ]; then
-            SERVER_NAME="net-manager-server-linux-x64"
-            IMAGE="quay.io/pypa/manylinux2014_x86_64"
-          else
-            SERVER_NAME="net-manager-server-linux-aarch64"
-            IMAGE="quay.io/pypa/manylinux2014_aarch64"
-          fi
-
-          PY="/opt/python/cp311-cp311/bin/python3.11"
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/work" -w /work/server "$IMAGE" \
-            bash -lc "cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz || true && \
-              cd /work/server && \
-              (command -v patchelf >/dev/null 2>&1 || yum -y install patchelf || true) && \
-              $PY -m pip install --upgrade pip && \
-              $PY -m pip install 'nuitka>=2.7.0,<3.0.0' -r /work/requirements.txt && \
-              $PY -m nuitka \
-                --standalone \
-                --output-filename=\"$SERVER_NAME\" \
-                --product-version=\"1.0.0\" \
-                --file-version=\"1.0.0\" \
-                --output-dir=\"/work/dist/server\" \
-                --enable-plugin=multiprocessing \
-                --follow-imports \
-                --follow-stdlib \
-                --include-package=src \
-                --include-data-dir=static=static \
-                --python-flag=-O \
-                --static-libpython=yes \
-                --assume-yes-for-downloads \
-                --lto=no \
-                --noinclude-unittest-mode=allow \
-                --disable-ccache \
-                --no-pyi-file \
-                --show-progress \
-                --show-memory \
-                --jobs=2 \
-                main.py" && \
-            true
-
-          cd ../dist
-          TAR_NAME="net-manager-server-linux-${{ matrix.architecture }}.tar.gz"
-          rm -f "$TAR_NAME" || true
-          tar -czf "$TAR_NAME" -C server .
-          echo "serverTar=$TAR_NAME" >> $GITHUB_OUTPUT
-
-      - name: Upload artifacts (Server Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: net-manager-server-linux-${{ matrix.architecture }}
-          path: dist/${{ steps.build_server_linux.outputs.serverTar }}
-
   release:
     name: Create Release
     needs: [build-windows, build-linux]
@@ -618,9 +474,3 @@ jobs:
             dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
             dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
-            dist/net-manager-server-windows-x86/net-manager-server-windows-x86.zip
-            dist/net-manager-server-windows-x64/net-manager-server-windows-x64.zip
-            dist/net-manager-server-windows-aarch64/net-manager-server-windows-aarch64.zip
-            dist/net-manager-server-linux-x64/net-manager-server-linux-x64.tar.gz
-            dist/net-manager-server-linux-x86/net-manager-server-linux-x86.tar.gz
-            dist/net-manager-server-linux-aarch64/net-manager-server-linux-aarch64.tar.gz
