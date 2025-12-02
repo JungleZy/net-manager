@@ -631,6 +631,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: temp_clients
+          pattern: net-manager-client-*
 
       - name: Repackage server with all clients (Windows)
         shell: pwsh
@@ -657,9 +658,13 @@ jobs:
           if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
           if ($null -eq $distFolder) { Write-Error "Server dist folder not found"; exit 1 }
           $targetName = "net-manager-server-$version"
-          $targetPath = Join-Path $distFolder.Parent.FullName $targetName
-          if (Test-Path $targetPath) { Remove-Item -Recurse -Force $targetPath }
-          Move-Item $distFolder.FullName $targetPath
+          if ($distFolder.Name -eq $targetName) {
+            $targetPath = $distFolder.FullName
+          } else {
+            $targetPath = Join-Path $distFolder.Parent.FullName $targetName
+            if (Test-Path $targetPath) { Remove-Item -Recurse -Force $targetPath }
+            Move-Item $distFolder.FullName $targetPath
+          }
           Compress-Archive -Path $targetPath -DestinationPath (Join-Path dist $zipName)
 
       - name: Upload server package (Windows)
@@ -695,6 +700,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: temp_clients
+          pattern: net-manager-client-*
 
       - name: Repackage server with all clients (Linux)
         run: |
@@ -708,9 +714,15 @@ jobs:
           mkdir -p "$folder/static/agent"
           find temp_clients -maxdepth 2 -type f -name 'net-manager-client-*' -exec cp -f {} "$folder/static/agent/" \; || true
           true
-          target="work_server/net-manager-server-$version"; rm -rf "$target" || true; mv "$folder" "$target"
+          target="work_server/net-manager-server-$version"
+          if [ "$(basename "$folder")" = "net-manager-server-$version" ]; then
+            target="$folder"
+          else
+            rm -rf "$target" || true
+            mv "$folder" "$target"
+          fi
           TAR_NAME="net-manager-server-${version}-linux-${{ matrix.architecture }}.tar.gz"; rm -f "$TAR_NAME" || true
-          tar -czf "$TAR_NAME" -C work_server "net-manager-server-$version"
+          tar -czf "$TAR_NAME" -C "$(dirname "$target")" "$(basename "$target")"
 
       - name: Upload server package (Linux)
         uses: actions/upload-artifact@v4
