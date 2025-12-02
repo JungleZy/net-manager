@@ -636,6 +636,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
+          New-Item -ItemType Directory -Force -Path work_server | Out-Null
           $ref = $env:GITHUB_REF
           $version = "1.0.0"
           if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
@@ -644,12 +645,12 @@ jobs:
           $serverZip = Get-ChildItem temp_server -Filter *.zip | Select-Object -First 1
           if ($null -eq $serverZip) { Write-Error "Server zip not found"; exit 1 }
           Expand-Archive -Path $serverZip.FullName -DestinationPath work_server -Force
-          $distFolder = Get-ChildItem work_server\server -Directory | Where-Object { $_.Name -like '*.dist' -or $_.Name -like 'net-manager-server-*' } | Select-Object -First 1
+          $distFolder = Get-ChildItem work_server -Directory | Where-Object { $_.Name -like '*.dist' -or $_.Name -like 'net-manager-server-*' } | Select-Object -First 1
           if ($null -eq $distFolder) { Write-Error "Server dist folder not found after extract"; exit 1 }
           $agentDir = Join-Path $distFolder.FullName "static\agent"
           New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
-          Get-ChildItem temp_clients -Directory | Where-Object { $_.Name -like 'net-manager-client-*' } | ForEach-Object {
-            Copy-Item -Recurse -Force (Join-Path $_.FullName '*') $agentDir
+          Get-ChildItem temp_clients -Recurse -File -Filter 'net-manager-client-*' | ForEach-Object {
+            Copy-Item -Force $_.FullName $agentDir
           }
           $ref = $env:GITHUB_REF
           $version = "1.0.0"
@@ -702,14 +703,14 @@ jobs:
           serverTar=$(find temp_server -maxdepth 1 -type f -name '*.tar.gz' | head -n1)
           [ -z "$serverTar" ] && echo "Server tar not found" && exit 1
           tar -xzf "$serverTar" -C work_server
-          folder=$(find work_server/server -maxdepth 1 -type d -name '*.dist' -o -name 'net-manager-server-*' | head -n1)
+          folder=$(find work_server -maxdepth 1 -type d -name '*.dist' -o -name 'net-manager-server-*' | head -n1)
           [ -z "$folder" ] && echo "Server dist folder not found after extract" && exit 1
           mkdir -p "$folder/static/agent"
           find temp_clients -maxdepth 2 -type f -name 'net-manager-client-*' -exec cp -f {} "$folder/static/agent/" \; || true
-          for d in temp_clients/net-manager-client-*; do [ -d "$d" ] && cp -f "$d"/* "$folder/static/agent/" || true; done
-          target="work_server/server/net-manager-server-$version"; rm -rf "$target" || true; mv "$folder" "$target"
+          true
+          target="work_server/net-manager-server-$version"; rm -rf "$target" || true; mv "$folder" "$target"
           TAR_NAME="net-manager-server-${version}-linux-${{ matrix.architecture }}.tar.gz"; rm -f "$TAR_NAME" || true
-          tar -czf "$TAR_NAME" -C work_server/server "net-manager-server-$version"
+          tar -czf "$TAR_NAME" -C work_server "net-manager-server-$version"
 
       - name: Upload server package (Linux)
         uses: actions/upload-artifact@v4
