@@ -643,7 +643,7 @@ jobs:
           if ($ref -match '^refs/tags/v(.+)$') { $version = $Matches[1] } elseif ($ref -match '^refs/tags/(.+)$') { $version = $Matches[1] }
           $zipName = "net-manager-server-$version-windows-${{ matrix.architecture }}.zip"
           if (Test-Path $zipName) { Remove-Item -Force $zipName }
-          $serverZip = Get-ChildItem temp_server -Filter *.zip | Select-Object -First 1
+          $serverZip = Get-ChildItem temp_server -Recurse -Filter *.zip | Select-Object -First 1
           if ($null -eq $serverZip) { Write-Error "Server zip not found"; exit 1 }
           Expand-Archive -Path $serverZip.FullName -DestinationPath work_server -Force
           $distFolder = Get-ChildItem work_server -Directory | Where-Object { $_.Name -like '*.dist' -or $_.Name -like 'net-manager-server-*' } | Select-Object -First 1
@@ -706,7 +706,7 @@ jobs:
         run: |
           mkdir -p dist work_server
           version="${GITHUB_REF#refs/tags/}"; version="${version#v}"
-          serverTar=$(find temp_server -maxdepth 1 -type f -name '*.tar.gz' | head -n1)
+          serverTar=$(find temp_server -type f -name '*.tar.gz' | head -n1)
           [ -z "$serverTar" ] && echo "Server tar not found" && exit 1
           tar -xzf "$serverTar" -C work_server
           folder=$(find work_server -maxdepth 1 -type d -name '*.dist' -o -name 'net-manager-server-*' | head -n1)
@@ -721,7 +721,7 @@ jobs:
             rm -rf "$target" || true
             mv "$folder" "$target"
           fi
-          TAR_NAME="net-manager-server-${version}-linux-${{ matrix.architecture }}.tar.gz"; rm -f "$TAR_NAME" || true
+          TAR_NAME="dist/net-manager-server-${version}-linux-${{ matrix.architecture }}.tar.gz"; rm -f "$TAR_NAME" || true
           tar -czf "$TAR_NAME" -C "$(dirname "$target")" "$(basename "$target")"
 
       - name: Upload server package (Linux)
