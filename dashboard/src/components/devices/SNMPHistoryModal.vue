@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :open="showSNMPHistoryModal"
-    title="历史记录"
+    :title="'历史记录 - ' + currentSwitch?.alias || currentSwitch?.device_name"
     @cancel="handleCancel"
     centered
     :body-style="{ height: '90vh' }"
@@ -320,7 +320,9 @@ const loadHistory = async () => {
     loading.value = false
   }
 }
-
+const reload = async () => {
+  await loadHistory()
+}
 const clearCurrent = async () => {
   loading.value = true
   try {

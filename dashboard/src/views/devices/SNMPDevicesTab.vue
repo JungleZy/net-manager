@@ -571,8 +571,7 @@ const switchColumns = [
     dataIndex: 'device_name',
     align: 'center',
     key: 'device_name',
-    ellipsis: true,
-    width: 150
+    ellipsis: true
   },
   {
     title: '设备别名',
@@ -580,7 +579,6 @@ const switchColumns = [
     align: 'center',
     key: 'alias',
     ellipsis: true,
-    width: 150,
     customRender: ({ text }) => {
       if (!text || text.length === 0) {
         return '无'

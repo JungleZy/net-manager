@@ -1,6 +1,6 @@
 <template>
   <div class="p-[12px] size-full">
-    <div class="size-full bg-white rounded-lg shadow p-[12px] pt-[0]">
+    <div class="size-full bg-white rounded-lg shadow px-[12px]">
       <!-- 顶部指南入口已移至头部导航（Index.vue） -->
       <a-tabs class="size-full" v-model:activeKey="activeKey">
         <a-tab-pane class="size-full" key="1" tab="探针设备">

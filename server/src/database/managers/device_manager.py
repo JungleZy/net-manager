@@ -165,6 +165,48 @@ class DeviceManager(BaseDatabaseManager):
                 )
 
                 conn.commit()
+                # 迁移修复：清理重复client_id，仅保留最新记录
+                try:
+                    cursor.execute(
+                        """
+                        SELECT client_id FROM device_info 
+                        WHERE client_id IS NOT NULL AND client_id <> ''
+                        GROUP BY client_id HAVING COUNT(*) > 1
+                        """
+                    )
+                    dup_rows = cursor.fetchall()
+                    for (cid,) in dup_rows:
+                        # 保留最新created_at的记录
+                        cursor.execute(
+                            """
+                            SELECT id FROM device_info 
+                            WHERE client_id = ? 
+                            ORDER BY created_at DESC 
+                            LIMIT 1
+                            """,
+                            (cid,),
+                        )
+                        keep_row = cursor.fetchone()
+                        keep_id = keep_row[0] if keep_row else None
+                        if keep_id:
+                            cursor.execute(
+                                """
+                                DELETE FROM device_info 
+                                WHERE client_id = ? AND id != ?
+                                """,
+                                (cid, keep_id),
+                            )
+                    # 创建唯一索引以防止后续重复
+                    cursor.execute(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS uniq_device_info_client_id
+                        ON device_info(client_id)
+                        """
+                    )
+                    conn.commit()
+                except Exception as mig_e:
+                    # 迁移过程不中断初始化，记录日志
+                    logger.warning(f"清理重复client_id或创建唯一索引时出错: {mig_e}")
                 # logger.info("设备信息表初始化成功，已启用外键约束和优化设置")
         except Exception as e:
             logger.error(f"设备信息表初始化失败: {e}")
@@ -228,9 +270,9 @@ class DeviceManager(BaseDatabaseManager):
                         (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
                         services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                            COALESCE((SELECT type FROM device_info WHERE id = ?), ''), 
-                            COALESCE((SELECT alias FROM device_info WHERE id = ?), ''),
-                            ?, COALESCE((SELECT created_at FROM device_info WHERE id = ?), ?))
+                            COALESCE((SELECT type FROM device_info WHERE client_id = ?), ''), 
+                            COALESCE((SELECT alias FROM device_info WHERE client_id = ?), ''),
+                            ?, COALESCE((SELECT created_at FROM device_info WHERE client_id = ?), ?))
                     """,
                         (
                             device_info.id,
@@ -246,10 +288,10 @@ class DeviceManager(BaseDatabaseManager):
                             cpu_info_json,
                             memory_info_json,
                             disk_info_json,
-                            device_info.id,  # 用于COALESCE子查询的参数（type）
-                            device_info.id,  # 用于COALESCE子查询的参数（alias）
+                            device_info.client_id,  # 用于COALESCE子查询的参数（type）
+                            device_info.client_id,  # 用于COALESCE子查询的参数（alias）
                             device_info.timestamp,
-                            device_info.id,  # 用于created_at COALESCE子查询的参数
+                            device_info.client_id,  # 用于created_at COALESCE子查询的参数
                             device_info.created_at,
                         ),
                     )
