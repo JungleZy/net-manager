@@ -62,6 +62,10 @@ from src.network.api.handlers.metrics_handler import MetricsHandler
 from src.network.api.websocket_handler import WebSocketHandler
 from src.network.api.handlers.static_handler import StaticFileHandler
 from src.network.api.handlers.well_known_handler import WellKnownHandler
+from src.network.api.handlers.snmp_history_handlers import (
+    SNMPHistoryQueryHandler,
+    SNMPHistoryClearHandler,
+)
 
 
 class APIServer:
@@ -72,6 +76,10 @@ class APIServer:
         self.host = host
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
         self.db_manager = db_manager if db_manager else DatabaseManager()
+        try:
+            self.db_manager.init_async_pool()
+        except Exception:
+            pass
         # 初始化拓扑图管理器
         self.topology_manager = TopologyManager()
         # 初始化常驻进程管理器
@@ -129,13 +137,17 @@ class APIServer:
             ),
             # 轻量指标端点（可开关）
             (
-                METRICS_ROUTE,
-                MetricsHandler,
-                dict(
-                    db_manager=self.db_manager,
-                    get_tcp_server_func=self.get_tcp_server,
-                ),
-            ) if METRICS_ENABLED else None,
+                (
+                    METRICS_ROUTE,
+                    MetricsHandler,
+                    dict(
+                        db_manager=self.db_manager,
+                        get_tcp_server_func=self.get_tcp_server,
+                    ),
+                )
+                if METRICS_ENABLED
+                else None
+            ),
             (
                 r"/api/devices/(?P<device_id>[^/]+)/type",
                 DeviceTypeHandler,
@@ -198,6 +210,16 @@ class APIServer:
             (
                 r"/api/interfaces/traffic",
                 InterfaceTrafficHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/snmp/history/clear",
+                SNMPHistoryClearHandler,
+                dict(db_manager=self.db_manager),
+            ),
+            (
+                r"/api/snmp/history/(?P<switch_id>[^/]+)",
+                SNMPHistoryQueryHandler,
                 dict(db_manager=self.db_manager),
             ),
             # 拓扑图相关路由（注意：具体路径必须放在通配符路由之前）

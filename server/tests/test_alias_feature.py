@@ -7,6 +7,7 @@
 
 import sys
 from pathlib import Path
+import tempfile
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent
@@ -23,8 +24,9 @@ def test_device_alias():
     """测试设备别名功能"""
     print("\n=== 测试设备别名功能 ===")
 
-    # 初始化设备管理器
-    device_manager = DeviceManager(db_path="test_alias.db")
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    tmp.close()
+    device_manager = DeviceManager(db_path=tmp.name)
 
     # 创建测试设备
     test_device_data = {
@@ -88,8 +90,9 @@ def test_switch_alias():
     """测试交换机别名功能"""
     print("\n=== 测试交换机别名功能 ===")
 
-    # 初始化交换机管理器
-    switch_manager = SwitchManager(db_path="test_alias.db")
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    tmp.close()
+    switch_manager = SwitchManager(db_path=tmp.name)
 
     # 创建测试交换机
     print("\n1. 创建交换机（alias应为空）...")

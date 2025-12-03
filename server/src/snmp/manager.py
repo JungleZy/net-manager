@@ -656,6 +656,10 @@ class SNMPManager:
 
         # 使用共享的 switch_manager（如果 db_manager 存在）
         if self.db_manager is not None:
+            try:
+                self.db_manager.init_async_pool()
+            except Exception:
+                pass
             switch_manager = self.db_manager.switch_manager
             logger.debug("使用共享的 SwitchManager")
         else:
@@ -679,6 +683,7 @@ class SNMPManager:
             enable_cache=enable_cache,
             cache_ttl=cache_ttl,
             dynamic_adjustment=dynamic_adjustment,
+            db_manager=self.db_manager,
         )
 
         # 启动接口信息轮询器
@@ -695,6 +700,7 @@ class SNMPManager:
             enable_cache=enable_cache,
             cache_ttl=cache_ttl,
             dynamic_adjustment=dynamic_adjustment,
+            db_manager=self.db_manager,
         )
 
         logger.info("所有SNMP轮询器启动完成")

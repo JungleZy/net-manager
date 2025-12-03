@@ -48,6 +48,7 @@ class SNMPPoller:
         enable_cache: bool = True,
         cache_ttl: int = 300,
         dynamic_adjustment: bool = True,
+        db_manager=None,
     ):
         """
         初始化SNMP统一轮询器
@@ -75,6 +76,7 @@ class SNMPPoller:
         self.dynamic_adjustment = dynamic_adjustment
 
         self.snmp_manager: Optional["SNMPManager"] = None
+        self.db_manager = db_manager
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -647,6 +649,15 @@ class SNMPPoller:
                     "poll_time": time.time(),
                 }
             )
+            # 异步持久化历史记录
+            if self.db_manager is not None:
+                try:
+                    if self._loop and not self._loop.is_closed():
+                        asyncio.run_coroutine_threadsafe(
+                            self._persist_result(result), self._loop
+                        )
+                except Exception as pe:
+                    logger.debug(f"调度历史持久化失败: {pe}")
         except Exception as e:
             logger.error(f"发送{self._type_name}轮询结果失败: {e}")
 
@@ -679,6 +690,26 @@ class SNMPPoller:
                 )
 
         return stats
+
+    async def _persist_result(self, result: Dict[str, Any]):
+        try:
+            if self.db_manager is None or not hasattr(
+                self.db_manager, "snmp_history_manager"
+            ):
+                return
+            status = "online" if result.get("type") == "success" else "offline"
+            record = {
+                "switch_id": result.get("switch_id"),
+                "ip": result.get("ip"),
+                "poll_type": self.poll_type,
+                "status": status,
+                "interface_count": result.get("interface_count", 0),
+                "interface_info": result.get("interface_info"),
+                "poll_time": result.get("poll_time", time.time()),
+            }
+            await self.db_manager.snmp_history_manager.insert_history_async(record)
+        except Exception as e:
+            logger.debug(f"持久化{self._type_name}历史记录失败: {e}")
 
     @property
     def is_running(self) -> bool:

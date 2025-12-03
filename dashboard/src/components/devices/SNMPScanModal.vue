@@ -198,7 +198,7 @@ const okText = ref('发起扫描')
 
 // 表单状态
 const formState = reactive({
-  network: '192.168.43.0/24',
+  network: '192.168.110.0/24',
   snmp_version: '2c',
   community: 'wjkjv2user',
   user: '',
@@ -208,14 +208,25 @@ const formState = reactive({
   priv_protocol: 'DES'
 })
 
-// 表单验证规则
+const cidrValidator = (_rule, value) => {
+  if (!value || typeof value !== 'string') return Promise.reject('请输入IP段')
+  const m = value.match(
+    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/
+  )
+  if (!m) return Promise.reject('请输入有效的IP段，例如：192.168.1.0/24')
+  const nums = m.slice(1).map((v) => Number(v))
+  const prefix = nums[4]
+  const octetsValid = nums.slice(0, 4).every((n) => n >= 0 && n <= 255)
+  const prefixValid = prefix >= 0 && prefix <= 32
+  if (!octetsValid || !prefixValid)
+    return Promise.reject('请输入有效的IP段，例如：192.168.1.0/24')
+  return Promise.resolve()
+}
+
 const rules = {
   network: [
     { required: true, message: '请输入IP段' },
-    {
-      pattern: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/,
-      message: '请输入有效的IP段，例如：192.168.1.0/24'
-    }
+    { validator: cidrValidator }
   ],
   snmp_version: [{ required: true, message: '请选择SNMP版本' }],
   community: [{ required: true, message: '请输入团体名', trigger: 'blur' }],
@@ -312,7 +323,7 @@ const columns = [
 ]
 // 重置表单
 const resetForm = () => {
-  formState.network = '192.168.43.0/24'
+  formState.network = '192.168.110.0/24'
   formState.snmp_version = '2c'
   formState.community = 'wjkjv2user'
   formState.user = ''
@@ -345,6 +356,7 @@ const handleOk = () => {
     duration: 0,
     key: 'scanLoading'
   })
+  //验证formState.network必须满足192.168.110.0/24这种格式，满足才执行后面的代码，不满足则提示
   formRef.value
     .validate()
     .then(async () => {

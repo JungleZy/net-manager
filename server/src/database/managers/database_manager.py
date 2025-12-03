@@ -23,6 +23,7 @@ from src.database.managers.base_manager import BaseDatabaseManager
 from src.database.managers.device_manager import DeviceManager
 from src.database.managers.switch_manager import SwitchManager
 from src.database.managers.topology_manager import TopologyManager
+from src.database.managers.snmp_history_manager import SNMPHistoryManager
 
 
 class DatabaseManager:
@@ -98,6 +99,15 @@ class DatabaseManager:
                 shared_pool=self.shared_pool,
             )
 
+            # 创建 snmp_history_manager，使用共享连接池
+            self.snmp_history_manager = SNMPHistoryManager(
+                db_path,
+                max_connections,
+                cleanup_interval,
+                max_idle_time,
+                shared_pool=self.shared_pool,
+            )
+
             # 初始化异步连接池
             self.async_pool = None
             logger.info("数据库管理器初始化成功（所有管理器共享一个连接池）")
@@ -157,17 +167,18 @@ class DatabaseManager:
         if min_connections is None:
             min_connections = 2
 
-        if self.async_pool is None:
-            self.async_pool = AsyncConnectionPool(
-                db_path=str(self.base_manager.db_path),
-                max_connections=max_connections,
-                min_connections=min_connections,
-                cleanup_interval=cleanup_interval,
-                max_idle_time=max_idle_time,
-            )
+            if self.async_pool is None:
+                self.async_pool = AsyncConnectionPool(
+                    db_path=str(self.base_manager.db_path),
+                    max_connections=max_connections,
+                    min_connections=min_connections,
+                    cleanup_interval=cleanup_interval,
+                    max_idle_time=max_idle_time,
+                )
             # 为DeviceManager和SwitchManager初始化异步连接池引用
             self.device_manager.init_async_pool(self.async_pool)
             self.switch_manager.init_async_pool(self.async_pool)
+            self.snmp_history_manager.init_async_pool(self.async_pool)
             logger.info(
                 f"异步连接池初始化成功，最大连接数: {max_connections}, 最小连接数: {min_connections}"
             )

@@ -61,6 +61,14 @@
           手动添加
         </a-button>
       </a-space-compact>
+      <a-popconfirm
+        title="确定清空所有SNMP历史记录吗？此操作不可恢复"
+        ok-text="确定"
+        cancel-text="取消"
+        @confirm="clearAllSnmpHistory"
+      >
+        <a-button type="primary" danger>清空历史</a-button>
+      </a-popconfirm>
     </div>
     <!-- 交换机列表 -->
     <div class="w-full h-[calc(100%-56px)] overflow-auto">
@@ -181,10 +189,17 @@
             <a-tag v-else color="default" style="margin: 0"> 未知 </a-tag>
           </template>
           <template v-if="column.dataIndex === 'action'">
-            <EditOutlined
-              @click="openEditSwitchModal(record)"
+            <HistoryOutlined
+              title="历史记录"
+              @click="openSNMPHistoryModal(record)"
               style="font-size: 16px; color: #1677ff"
               class="cursor-pointer"
+            />
+            <EditOutlined
+              title="编辑"
+              @click="openEditSwitchModal(record)"
+              style="font-size: 16px; color: #1677ff"
+              class="cursor-pointer ml-2"
             />
             <a-popconfirm
               title="确定要删除这个交换机吗？"
@@ -216,6 +231,10 @@
       @ok="saveSwitch"
       @cancel="handleSwitchModalCancel"
     />
+    <SNMPHistoryModal
+      v-model:showSNMPHistoryModal="showSNMPHistoryModal"
+      v-model:current-switch="currentSwitch"
+    />
   </div>
 </template>
 
@@ -225,11 +244,14 @@ import {
   PlusOutlined,
   SearchOutlined,
   EditOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  HistoryOutlined
 } from '@ant-design/icons-vue'
 import SNMPScanModal from '@/components/devices/SNMPScanModal.vue'
 import SwitchAddModal from '@/components/devices/SwitchAddModal.vue'
+import SNMPHistoryModal from '../../components/devices/SNMPHistoryModal.vue'
 import SwitchApi from '@/common/api/switch.js'
+import SnmpApi from '@/common/api/snmp.js'
 import SNMPStorage from '@/common/utils/SNMPStorage.js'
 import { PubSub } from '@/common/utils/PubSub'
 import { wsCode } from '@/common/ws/Ws'
@@ -426,6 +448,7 @@ const showDiscoverSwitchModal = ref(false)
 
 // 交换机添加/编辑模态框相关
 const showSwitchModal = ref(false)
+const showSNMPHistoryModal = ref(false)
 const isSwitchEditing = ref(false)
 const currentSwitch = ref(null)
 
@@ -623,7 +646,7 @@ const switchColumns = [
     dataIndex: 'action',
     align: 'center',
     key: 'action',
-    width: 60
+    width: 90
   }
 ]
 // 获取交换机列表
@@ -665,7 +688,38 @@ const openEditSwitchModal = (switchData) => {
   currentSwitch.value = { ...switchData }
   showSwitchModal.value = true
 }
-
+// 打开SNMP历史记录模态框
+const openSNMPHistoryModal = (switchData) => {
+  currentSwitch.value = { ...switchData }
+  showSNMPHistoryModal.value = true
+}
+const clearSwitchHistory = async (switchId) => {
+  try {
+    const resp = await SnmpApi.clearHistory(switchId)
+    const ok = resp?.data?.status === 'success' || resp?.status === 'success'
+    if (ok) {
+      message.success('已清空该设备SNMP历史记录')
+    } else {
+      message.error('清空该设备SNMP历史记录失败')
+    }
+  } catch (e) {
+    message.error('清空该设备SNMP历史记录失败: ' + (e?.message || String(e)))
+  }
+}
+// 清空全部SNMP历史记录
+const clearAllSnmpHistory = async () => {
+  try {
+    const resp = await SnmpApi.clearHistory()
+    const ok = resp?.data?.status === 'success' || resp?.status === 'success'
+    if (ok) {
+      message.success('已清空所有SNMP历史记录')
+    } else {
+      message.error('清空SNMP历史记录失败')
+    }
+  } catch (e) {
+    message.error('清空SNMP历史记录失败: ' + (e?.message || String(e)))
+  }
+}
 // 关闭交换机模态框
 const closeSwitchModal = () => {
   showSwitchModal.value = false

@@ -59,7 +59,7 @@
         size="small"
         row-key="id"
         bordered
-        :scroll="{ y: tableHeight }"
+        :scroll="{ y: height - 176 + 'px' }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record, index }">
@@ -331,10 +331,9 @@ const DEVICE_ICON_MAP = {
   路由器: RouterIcon,
   交换机: SwitchIcon
 }
-const tableHeight = ref(240)
 const el = useTemplateRef('el')
 const { width, height } = useElementSize(el)
-tableHeight.value = height.value - 44
+
 const sanitizeSvg = (raw) => {
   const parser = new DOMParser()
   const doc = parser.parseFromString(raw, 'image/svg+xml')

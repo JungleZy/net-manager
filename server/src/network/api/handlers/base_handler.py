@@ -25,7 +25,7 @@ class BaseHandler(tornado.web.RequestHandler):
         # 设置Content-Type为UTF-8编码的JSON
         self.set_header("Content-Type", "application/json; charset=UTF-8")
 
-    def options(self, *args):
+    def options(self, *args, **kwargs):
         """处理OPTIONS预检请求"""
         self.set_status(204)
         self.finish()
