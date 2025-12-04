@@ -33,16 +33,26 @@
             style="width: 50px"
             :class="[
               'status-badge',
-              device.status === 'online' ? 'online' : 'offline'
+              device.isVirtual
+                ? 'virtual'
+                : device.status === 'online'
+                ? 'online'
+                : 'offline'
             ]"
           >
-            {{ device.status === 'online' ? '在线' : '离线' }}
+            {{
+              device.isVirtual
+                ? '虚拟'
+                : device.status === 'online'
+                ? '在线'
+                : '离线'
+            }}
           </span>
         </div>
       </div>
 
       <!-- 内容区 -->
-      <div class="popover-body">
+      <div class="popover-body" v-if="!device.isVirtual">
         <!-- 基本信息 -->
         <div class="info-section">
           <div class="section-title">基本信息</div>
@@ -126,11 +136,15 @@
                   <div class="detail-grid">
                     <div class="detail-cell">
                       <span class="detail-label">MAC地址:</span>
-                      <span class="detail-value">{{ iface.address || '-' }}</span>
+                      <span class="detail-value">{{
+                        iface.address || '-'
+                      }}</span>
                     </div>
                     <div class="detail-cell">
                       <span class="detail-label">速率:</span>
-                      <span class="detail-value">{{ iface.speed_text || '-' }}</span>
+                      <span class="detail-value">{{
+                        iface.speed_text || '-'
+                      }}</span>
                     </div>
                     <div class="detail-cell">
                       <span class="detail-label">管理状态:</span>
@@ -165,7 +179,8 @@
                     <div class="speed-item download">
                       <span class="speed-icon">⬇</span>
                       <span class="speed-value">{{
-                        iface.download_readable || formatSpeed(iface.download_bps)
+                        iface.download_readable ||
+                        formatSpeed(iface.download_bps)
                       }}</span>
                     </div>
                   </div>
@@ -262,6 +277,17 @@ const formatUptime = (milliseconds) => {
   if (minutes > 0) parts.push(`${minutes}分钟`)
 
   return parts.length > 0 ? parts.join('') : '不到1分钟'
+}
+
+const formatSpeed = (bps) => {
+  if (bps === null || bps === undefined) return '-'
+  const val = Number(bps)
+  if (Number.isNaN(val)) return String(bps)
+  if (val === 0) return '-'
+  if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)} Gbps`
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(0)} Mbps`
+  if (val >= 1_000) return `${(val / 1_000).toFixed(0)} Kbps`
+  return `${val} bps`
 }
 
 // 获取管理状态样式类
@@ -482,14 +508,3 @@ onUnmounted(() => {
   font-weight: 500;
 }
 </style>
-// 速率格式化（bps -> 读数字符串）
-const formatSpeed = (bps) => {
-  if (bps === null || bps === undefined) return '-'
-  const val = Number(bps)
-  if (Number.isNaN(val)) return String(bps)
-  if (val === 0) return '-'
-  if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)} Gbps`
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(0)} Mbps`
-  if (val >= 1_000) return `${(val / 1_000).toFixed(0)} Kbps`
-  return `${val} bps`
-}

@@ -22,14 +22,23 @@
               device.alias ? ' - ' + device.alias : ''
             }}</span>
           </h4>
-          <span :class="['status-badge', device.online ? 'online' : 'offline']">
-            {{ device.online ? '在线' : '离线' }}
+          <span
+            :class="[
+              'status-badge',
+              device.isVirtual
+                ? 'virtual'
+                : device.online
+                ? 'online'
+                : 'offline'
+            ]"
+          >
+            {{ device.isVirtual ? '虚拟' : device.online ? '在线' : '离线' }}
           </span>
         </div>
       </div>
 
       <!-- 内容区 -->
-      <div class="popover-body">
+      <div class="popover-body" v-if="!device.isVirtual">
         <!-- 基本信息 -->
         <div class="info-section">
           <div class="section-title">基本信息</div>

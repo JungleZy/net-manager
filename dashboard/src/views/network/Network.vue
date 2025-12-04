@@ -1112,6 +1112,9 @@ const loadLatestTopology = async () => {
           } else {
             node.properties = { status }
           }
+          // 同步虚拟属性到设备/交换机列表项
+          if (device) device.isVirtual = isVirtual
+          if (switchDevice) switchDevice.isVirtual = isVirtual
         }
       }
 
@@ -1785,11 +1788,16 @@ const handleSnmpDeviceUpdate = (data) => {
       })
     } else {
       // 新交换机，添加到列表
+      const graphData = lf.getGraphData()
+      const node = graphData?.nodes?.find(
+        (n) => n.properties?.data?.id === deviceId || n.id === deviceId
+      )
       const newSwitch = {
         ...data,
         status: data?.type === 'success' ? 'online' : 'offline',
         id: deviceId,
-        last_updated: formatLocalDateTime()
+        last_updated: formatLocalDateTime(),
+        isVirtual: !!(node && node.properties && node.properties.isVirtual)
       }
       switches.value.push(newSwitch)
       // 更新 Map
@@ -1833,11 +1841,16 @@ const handleDeviceInfoUpdate = (data) => {
       })
     } else {
       // 新设备，添加到列表
+      const graphData = lf.getGraphData()
+      const node = graphData?.nodes?.find(
+        (n) => n.properties?.data?.id === deviceId || n.id === deviceId
+      )
       const newDevice = {
         ...data,
         id: deviceId,
         status: 'online',
-        last_updated: formatLocalDateTime()
+        last_updated: formatLocalDateTime(),
+        isVirtual: !!(node && node.properties && node.properties.isVirtual)
       }
       devices.value.push(newDevice)
       // 更新 Map
