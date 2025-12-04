@@ -96,7 +96,7 @@ class SNMPHistoryManager(BaseDatabaseManager):
                     )
                     row = cursor.fetchone()
                     latest_status = row[0] if row else None
-                    if latest_status == record.get("status"):
+                    if record.get("status") == "offline" and latest_status == "offline":
                         return True, "状态未变化，跳过保存"
                     cursor.execute(
                         """
@@ -126,7 +126,7 @@ class SNMPHistoryManager(BaseDatabaseManager):
                     )
                     row = cursor.fetchone()
                     latest_status = row[0] if row else None
-                    if latest_status == record.get("status"):
+                    if record.get("status") == "offline" and latest_status == "offline":
                         return True, "状态未变化，跳过保存"
                     cursor.execute(
                         """
