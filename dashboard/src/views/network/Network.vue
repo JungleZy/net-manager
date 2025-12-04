@@ -1089,30 +1089,28 @@ const loadLatestTopology = async () => {
       if (content.nodes && content.nodes.length > 0) {
         for (const node of content.nodes) {
           const deviceId = node.properties?.data?.id || node.id
+          const isVirtual = !!(node.properties && node.properties.isVirtual)
 
           // 优化：使用 Map 查找而非 find
           const device = deviceIdMap.value.get(deviceId)
           const switchDevice = switchIdMap.value.get(deviceId)
 
-          if (device) {
-            const status = device.online ? 'online' : 'offline'
-            deviceStatusMap.set(deviceId, status)
-            if (node.properties) {
-              node.properties.status = status
-            } else {
-              node.properties = { status }
-            }
+          let status = 'offline'
+          if (isVirtual) {
+            status = 'online'
+          } else if (device) {
+            status = device.online ? 'online' : 'offline'
           } else if (switchDevice) {
-            const status = switchDevice.online ? 'online' : 'offline'
-            deviceStatusMap.set(deviceId, status)
-            if (node.properties) {
-              node.properties.status = status
-            } else {
-              node.properties = { status }
-            }
+            status = switchDevice.online ? 'online' : 'offline'
           } else {
-            const initialStatus = node.properties?.status || 'offline'
-            deviceStatusMap.set(deviceId, initialStatus)
+            status = node.properties?.status || 'offline'
+          }
+
+          deviceStatusMap.set(deviceId, status)
+          if (node.properties) {
+            node.properties.status = status
+          } else {
+            node.properties = { status }
           }
         }
       }
@@ -1548,13 +1546,17 @@ const updateNodeStatus = (deviceId, status) => {
 
   try {
     // 更新状态映射
-    deviceStatusMap.set(deviceId, status)
-
-    // 查找对应的节点
+    // 若节点为虚拟节点，强制在线
     const graphData = lf.getGraphData()
     const node = graphData.nodes.find(
       (n) => n.properties?.data?.id === deviceId || n.id === deviceId
     )
+    const isVirtual = !!(node && node.properties && node.properties.isVirtual)
+    const finalStatus = isVirtual ? 'online' : status
+    deviceStatusMap.set(deviceId, finalStatus)
+
+    // 查找对应的节点
+    // graphData 已在上方获取
 
     if (node) {
       // 更新节点属性
@@ -1562,13 +1564,13 @@ const updateNodeStatus = (deviceId, status) => {
       if (nodeModel) {
         nodeModel.setProperties({
           ...node.properties,
-          status: status
+          status: finalStatus
         })
       } else {
         console.warn(`无法获取节点模型: ${node.id}`)
       }
       // 如果设备离线,停止所有与该节点相连的边的动画
-      if (status === 'offline') {
+      if (finalStatus === 'offline') {
         stopNodeRelatedEdgesAnimation(node.id, graphData)
       }
     }
