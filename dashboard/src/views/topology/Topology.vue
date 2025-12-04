@@ -189,6 +189,26 @@
         </div>
       </a-modal>
 
+      <!-- 节点属性模态框 -->
+      <a-modal
+        v-model:open="showNodePropsModal"
+        title="节点属性"
+        :width="420"
+        centered
+        @ok="handleNodePropsConfirm"
+        @cancel="handleNodePropsCancel"
+      >
+        <div class="group-edit-form">
+          <div class="form-item layout-left-center mb-[12px]">
+            <label class="form-label">是否虚拟节点：</label>
+            <a-switch v-model:checked="nodePropsForm.isVirtual" />
+            <span class="form-hint"
+              >虚拟节点用于占位或说明，当设为虚拟节点后，该节点会一直保持在线状态</span
+            >
+          </div>
+        </div>
+      </a-modal>
+
       <!-- 保存按钮 -->
       <div class="absolute bottom-[24px] right-[24px]">
         <a-button type="primary" @click="handleAddNode" :loading="isSaving">
@@ -266,7 +286,12 @@ const topologyStats = computed(() => {
     return null
   }
 })
-
+// 节点属性模态框相关状态
+const showNodePropsModal = ref(false)
+const currentEditingNodeId = ref(null)
+const nodePropsForm = ref({
+  isVirtual: false
+})
 // 设备类型映射 - 移到外部作为常量,避免重复创建
 const DEVICE_TYPE_MAP = Object.freeze({
   台式机: { icon: Pc, type: 'pc' },
@@ -534,6 +559,14 @@ const initTopology = async () => {
       if (data && data.type === 'customGroup') {
         e.preventDefault() // 阻止默认右键菜单
         handleGroupRightClick(data)
+        return
+      }
+
+      // 其余普通节点右键，打开节点属性编辑
+      if (data && data.id) {
+        e.preventDefault()
+        handleNodeRightClick(data)
+        return
       }
     } catch (error) {
       console.warn('处理节点右键事件失败:', error)
@@ -1339,6 +1372,61 @@ const handleGroupRightClick = (nodeData) => {
 }
 
 /**
+ * 处理普通节点右键点击，打开属性编辑
+ */
+const handleNodeRightClick = (nodeData) => {
+  if (!lf || !nodeData) return
+  try {
+    const nodeModel = lf.getNodeModelById(nodeData.id)
+    if (!nodeModel) return
+
+    currentEditingNodeId.value = nodeData.id
+    const isVirtual = !!(nodeModel.properties && nodeModel.properties.isVirtual)
+    nodePropsForm.value = {
+      isVirtual
+    }
+    showNodePropsModal.value = true
+  } catch (error) {
+    console.error('打开节点属性失败:', error)
+    message.error('打开节点属性失败')
+  }
+}
+
+/**
+ * 确认节点属性编辑
+ */
+const handleNodePropsConfirm = () => {
+  if (!lf || !currentEditingNodeId.value) return
+  try {
+    const nodeModel = lf.getNodeModelById(currentEditingNodeId.value)
+    if (!nodeModel) {
+      message.error('未找到节点')
+      return
+    }
+
+    nodeModel.setProperties({
+      ...nodeModel.properties,
+      isVirtual: !!nodePropsForm.value.isVirtual
+    })
+
+    message.success('节点属性更新成功')
+    showNodePropsModal.value = false
+    currentEditingNodeId.value = null
+  } catch (error) {
+    console.error('更新节点属性失败:', error)
+    message.error('更新节点属性失败')
+  }
+}
+
+/**
+ * 取消节点属性编辑
+ */
+const handleNodePropsCancel = () => {
+  showNodePropsModal.value = false
+  currentEditingNodeId.value = null
+}
+
+/**
  * 确认分组编辑
  */
 const handleGroupEditConfirm = () => {
@@ -1395,6 +1483,10 @@ const handleGroupEditCancel = () => {
 </script>
 
 <style lang="less">
+.form-hint {
+  font-size: 12px;
+  color: #999;
+}
 .topology-area {
   // 左侧菜单空状态样式
   .left-menu-empty {
@@ -1566,12 +1658,6 @@ const handleGroupEditCancel = () => {
         font-size: 14px;
         font-weight: 500;
         color: #333;
-      }
-
-      .form-hint {
-        margin-left: 12px;
-        font-size: 12px;
-        color: #999;
       }
 
       .color-picker-wrapper {
