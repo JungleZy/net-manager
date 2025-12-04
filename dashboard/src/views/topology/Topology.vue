@@ -1627,6 +1627,18 @@ const handleGroupEditCancel = () => {
     pointer-events: none;
   }
 
+  // 增强分组节点的resize锚点点击区域与兼容性
+  :deep(.lf-node-group .lf-resize-control) {
+    pointer-events: auto !important;
+  }
+  :deep(.lf-node-group .lf-resize-control circle) {
+    r: 8 !important;
+    fill: #1677ff !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.5 !important;
+    cursor: nwse-resize !important;
+  }
+
   :deep(.lf-node-group .lf-node-text-edit) {
     font-size: 14px;
     font-weight: 600;
