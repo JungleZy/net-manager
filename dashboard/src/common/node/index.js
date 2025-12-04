@@ -7,6 +7,7 @@ import RouterNode from './RouterNode';
 import ServerNode from './ServerNode';
 import SwitchNode from './SwitchNode';
 import GroupNode from './GroupNode';
+import TextNode from './TextNode';
 
 export {
   SvgNode,
@@ -17,7 +18,8 @@ export {
   RouterNode,
   ServerNode,
   SwitchNode,
-  GroupNode
+  GroupNode,
+  TextNode
 };
 
 export default [
@@ -29,5 +31,6 @@ export default [
   RouterNode,
   ServerNode,
   SwitchNode,
-  GroupNode
+  GroupNode,
+  TextNode
 ];

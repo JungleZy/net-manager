@@ -222,6 +222,7 @@ import Router from '@/assets/router.png'
 import Server from '@/assets/server.png'
 import Switches from '@/assets/switches.png'
 import Printer from '@/assets/printer.png'
+import Text from '@/assets/text.png'
 import { deriveDeviceName, handleCenterView } from '@/common/utils/Utils.js'
 import {
   generateTopologyByScale,
@@ -274,7 +275,8 @@ const DEVICE_TYPE_MAP = Object.freeze({
   路由器: { icon: Router, type: 'router' },
   交换机: { icon: Switches, type: 'switch' },
   防火墙: { icon: Firewall, type: 'firewall' },
-  打印机: { icon: Printer, type: 'printer' }
+  打印机: { icon: Printer, type: 'printer' },
+  文本标签: { icon: Text, type: 'textLabel' }
 })
 
 // 锚点索引常量
@@ -414,8 +416,8 @@ const initTopology = async () => {
       snapToGrid: true,
       partial: true, // 启用局部渲染
       // 禁用双击节点编辑文本
-      nodeTextEdit: false,
-      edgeTextEdit: false
+      nodeTextEdit: true,
+      edgeTextEdit: true
     })
 
     lf.register(CustomHtml)
@@ -513,11 +515,10 @@ const initTopology = async () => {
         // 为分组添加默认名称
         const groupModel = lf.getNodeModelById(groupData.id)
         if (groupModel) {
-          // 设置分组文本
           groupModel.updateText({
             value: '新建分组',
             editable: true,
-            draggable: true
+            draggable: false
           })
         }
       }
@@ -956,6 +957,17 @@ const updateLeftMenus = () => {
 
   const newMenus = []
   newMenus.length = 0 // 确保从空开始
+
+  // 顶部添加可多次拖入的纯文本节点
+  newMenus.push({
+    type: 'text',
+    label: '文本标签',
+    text: '默认文本标签',
+    properties: {
+      textStyle: { fontSize: 14 }
+    },
+    icon: Text
+  })
 
   // 添加设备项（过滤已在拓扑图中的设备）
   const devicesArray = devices.value
@@ -1518,8 +1530,9 @@ const handleGroupEditCancel = () => {
     font-size: 14px;
     font-weight: 600;
     fill: #1890ff;
-    cursor: text;
+    cursor: default;
     user-select: none;
+    pointer-events: none;
   }
 
   :deep(.lf-node-group .lf-node-text-edit) {
