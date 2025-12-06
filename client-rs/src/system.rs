@@ -332,9 +332,13 @@ fn collect_services(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
     let mut out = Vec::new();
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         // TCP Listening
-        if let Ok(o) = Command::new("powershell").args([
+        if let Ok(o) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
+            "-NoProfile",
+            "-WindowStyle","Hidden",
             "-Command",
             "(Get-NetTCPConnection -State Listen | Select-Object LocalAddress,LocalPort,OwningProcess,State | ConvertTo-Json -Compress)"
         ]).output() {
@@ -354,7 +358,9 @@ fn collect_services(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
             }
         }
         // UDP endpoints
-        if let Ok(o) = Command::new("powershell").args([
+        if let Ok(o) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
+            "-NoProfile",
+            "-WindowStyle","Hidden",
             "-Command",
             "(Get-NetUDPEndpoint | Select-Object LocalAddress,LocalPort,OwningProcess | ConvertTo-Json -Compress)"
         ]).output() {
@@ -461,9 +467,13 @@ fn get_mac_address(iface_name: &str, ip: &str) -> String {
     }
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         // 先尝试通过 IP 精确匹配接口别名，再获取 MAC
-        if let Ok(alias_out) = Command::new("powershell").args([
+        if let Ok(alias_out) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
+            "-NoProfile",
+            "-WindowStyle","Hidden",
             "-Command",
             &format!(
                 "(Get-NetIPConfiguration | Where-Object {{ $_.IPv4Address.IPAddress -eq '{}' }} | Select-Object -First 1 -ExpandProperty InterfaceAlias)"
@@ -471,7 +481,9 @@ fn get_mac_address(iface_name: &str, ip: &str) -> String {
         ]).output() {
             let alias = String::from_utf8_lossy(&alias_out.stdout).trim().to_string();
             if !alias.is_empty() {
-                if let Ok(mac_out) = Command::new("powershell").args([
+                if let Ok(mac_out) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
+                    "-NoProfile",
+                    "-WindowStyle","Hidden",
                     "-Command",
                     &format!(
                         "(Get-NetAdapter -Name '{}' | Select-Object -First 1 -ExpandProperty MacAddress)"
@@ -485,7 +497,11 @@ fn get_mac_address(iface_name: &str, ip: &str) -> String {
             }
         }
         // 回退：按名称粗略解析 ipconfig 输出
-        if let Ok(o) = Command::new("ipconfig").arg("/all").output() {
+        if let Ok(o) = Command::new("ipconfig")
+            .creation_flags(CREATE_NO_WINDOW)
+            .arg("/all")
+            .output()
+        {
             let text = String::from_utf8_lossy(&o.stdout);
             let mut current_block = String::new();
             let mut blocks = Vec::new();
@@ -552,9 +568,11 @@ fn get_default_gateway_for_ip(_ip: &str) -> String {
     }
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         // 使用 PowerShell 读取默认网关
-        let out = Command::new("powershell").args(["-Command","Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop"]).output();
+        let out = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args(["-NoProfile","-WindowStyle","Hidden","-Command","Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop"]).output();
         if let Ok(o) = out {
             let gw = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if gw.contains('.') {
