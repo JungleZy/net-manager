@@ -207,6 +207,14 @@ pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
     });
     // 不限制进程数量，返回全部进程
 
+    // 建立 PID -> 进程名 映射，用于服务采集关联
+    let mut pid_name: HashMap<i32, String> = HashMap::new();
+    for p in sys.processes().values() {
+        pid_name.insert(p.pid().as_u32() as i32, p.name().to_string_lossy().into());
+    }
+
+    let services = collect_services(&pid_name);
+
     drop(sys);
     let networks = collect_interfaces().await;
 
@@ -217,7 +225,7 @@ pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
         os_version,
         os_architecture,
         machine_type,
-        services: Vec::new(),
+        services,
         processes: procs,
         networks,
         cpu_info,
@@ -318,6 +326,127 @@ fn is_virtual_iface(name: &str) -> bool {
         return true;
     }
     patterns.iter().any(|p| n.contains(p))
+}
+
+fn collect_services(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
+    let mut out = Vec::new();
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        // TCP Listening
+        if let Ok(o) = Command::new("powershell").args([
+            "-Command",
+            "(Get-NetTCPConnection -State Listen | Select-Object LocalAddress,LocalPort,OwningProcess,State | ConvertTo-Json -Compress)"
+        ]).output() {
+            if let Ok(text) = String::from_utf8(o.stdout) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                    let arr = if val.is_array() { val.as_array().unwrap().clone() } else { vec![val] };
+                    for v in arr {
+                        let ip = v.get("LocalAddress").and_then(|x| x.as_str()).unwrap_or("");
+                        let port = v.get("LocalPort").and_then(|x| x.as_u64()).unwrap_or(0);
+                        let pid = v.get("OwningProcess").and_then(|x| x.as_i64()).map(|x| x as i32);
+                        let status = v.get("State").and_then(|x| x.as_str()).unwrap_or("Listen").to_string();
+                        let addr = format!("{}:{}", ip, port);
+                        let pname = pid.and_then(|p| pid_name.get(&p).cloned());
+                        out.push(ServiceInfo { protocol: "TCP".into(), local_address: addr, status, pid, process_name: pname });
+                    }
+                }
+            }
+        }
+        // UDP endpoints
+        if let Ok(o) = Command::new("powershell").args([
+            "-Command",
+            "(Get-NetUDPEndpoint | Select-Object LocalAddress,LocalPort,OwningProcess | ConvertTo-Json -Compress)"
+        ]).output() {
+            if let Ok(text) = String::from_utf8(o.stdout) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                    let arr = if val.is_array() { val.as_array().unwrap().clone() } else { vec![val] };
+                    for v in arr {
+                        let ip = v.get("LocalAddress").and_then(|x| x.as_str()).unwrap_or("");
+                        let port = v.get("LocalPort").and_then(|x| x.as_u64()).unwrap_or(0);
+                        let pid = v.get("OwningProcess").and_then(|x| x.as_i64()).map(|x| x as i32);
+                        let addr = format!("{}:{}", ip, port);
+                        let pname = pid.and_then(|p| pid_name.get(&p).cloned());
+                        out.push(ServiceInfo { protocol: "UDP".into(), local_address: addr, status: "Open".into(), pid, process_name: pname });
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        // Prefer ss; fallback to netstat
+        let mut parsed = false;
+        if let Ok(o) = Command::new("ss").args(["-lntuap"]).output() {
+            if o.status.success() {
+                if let Ok(text) = String::from_utf8(o.stdout) {
+                    for line in text.lines() {
+                        if line.contains("LISTEN") || line.contains("udp") {
+                            // Example: tcp   LISTEN 0      128    0.0.0.0:80   ... users:(('nginx',pid=123,fd=6))
+                            let parts: Vec<&str> = line.split_whitespace().collect();
+                            if parts.len() >= 5 {
+                                let proto = parts[0].to_uppercase();
+                                let addr = parts[4].to_string();
+                                let mut pid: Option<i32> = None;
+                                let mut pname: Option<String> = None;
+                                if let Some(pos) = line.find("pid=") {
+                                    let sub = &line[pos + 4..];
+                                    let num: String =
+                                        sub.chars().take_while(|c| c.is_ascii_digit()).collect();
+                                    if let Ok(v) = num.parse::<i32>() {
+                                        pid = Some(v);
+                                        pname = pid_name.get(&v).cloned();
+                                    }
+                                }
+                                out.push(ServiceInfo {
+                                    protocol: proto,
+                                    local_address: addr,
+                                    status: "Listen".into(),
+                                    pid,
+                                    process_name: pname,
+                                });
+                            }
+                        }
+                    }
+                    parsed = true;
+                }
+            }
+        }
+        if !parsed {
+            if let Ok(o) = Command::new("netstat").args(["-tulnp"]).output() {
+                if let Ok(text) = String::from_utf8(o.stdout) {
+                    for line in text.lines() {
+                        if line.starts_with("tcp") || line.starts_with("udp") {
+                            let parts: Vec<&str> = line.split_whitespace().collect();
+                            if parts.len() >= 7 {
+                                let proto = parts[0].to_uppercase();
+                                let addr = parts[3].to_string();
+                                let mut pid: Option<i32> = None;
+                                let mut pname: Option<String> = None;
+                                let proc_field = parts.last().unwrap_or(&"");
+                                if let Some(slash) = proc_field.find("/") {
+                                    let pid_str = &proc_field[..slash];
+                                    if let Ok(v) = pid_str.parse::<i32>() {
+                                        pid = Some(v);
+                                        pname = pid_name.get(&v).cloned();
+                                    }
+                                }
+                                out.push(ServiceInfo {
+                                    protocol: proto,
+                                    local_address: addr,
+                                    status: "Listen".into(),
+                                    pid,
+                                    process_name: pname,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 // 按平台获取 MAC 地址
