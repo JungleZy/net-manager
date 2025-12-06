@@ -213,7 +213,7 @@ pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
         pid_name.insert(p.pid().as_u32() as i32, p.name().to_string_lossy().into());
     }
 
-    let services = collect_services(&pid_name);
+    let services = collect_services_lib(&pid_name);
 
     drop(sys);
     let networks = collect_interfaces().await;
@@ -298,7 +298,7 @@ async fn collect_interfaces() -> Vec<InterfaceInfo> {
                 _ => String::new(),
             };
 
-            let mac_address = get_mac_address(&name, &ip);
+            let mac_address = get_mac_address_lib(&name, &ip);
 
             // 获取默认网关（按平台分别处理）
             let gateway = get_default_gateway_for_ip(&ip);
@@ -328,125 +328,61 @@ fn is_virtual_iface(name: &str) -> bool {
     patterns.iter().any(|p| n.contains(p))
 }
 
-fn collect_services(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
-    let mut out = Vec::new();
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        // TCP Listening
-        if let Ok(o) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
-            "-NoProfile",
-            "-WindowStyle","Hidden",
-            "-Command",
-            "(Get-NetTCPConnection -State Listen | Select-Object LocalAddress,LocalPort,OwningProcess,State | ConvertTo-Json -Compress)"
-        ]).output() {
-            if let Ok(text) = String::from_utf8(o.stdout) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                    let arr = if val.is_array() { val.as_array().unwrap().clone() } else { vec![val] };
-                    for v in arr {
-                        let ip = v.get("LocalAddress").and_then(|x| x.as_str()).unwrap_or("");
-                        let port = v.get("LocalPort").and_then(|x| x.as_u64()).unwrap_or(0);
-                        let pid = v.get("OwningProcess").and_then(|x| x.as_i64()).map(|x| x as i32);
-                        let status = v.get("State").and_then(|x| x.as_str()).unwrap_or("Listen").to_string();
-                        let addr = format!("{}:{}", ip, port);
-                        let pname = pid.and_then(|p| pid_name.get(&p).cloned());
-                        out.push(ServiceInfo { protocol: "TCP".into(), local_address: addr, status, pid, process_name: pname });
-                    }
-                }
-            }
-        }
-        // UDP endpoints
-        if let Ok(o) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
-            "-NoProfile",
-            "-WindowStyle","Hidden",
-            "-Command",
-            "(Get-NetUDPEndpoint | Select-Object LocalAddress,LocalPort,OwningProcess | ConvertTo-Json -Compress)"
-        ]).output() {
-            if let Ok(text) = String::from_utf8(o.stdout) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                    let arr = if val.is_array() { val.as_array().unwrap().clone() } else { vec![val] };
-                    for v in arr {
-                        let ip = v.get("LocalAddress").and_then(|x| x.as_str()).unwrap_or("");
-                        let port = v.get("LocalPort").and_then(|x| x.as_u64()).unwrap_or(0);
-                        let pid = v.get("OwningProcess").and_then(|x| x.as_i64()).map(|x| x as i32);
-                        let addr = format!("{}:{}", ip, port);
-                        let pname = pid.and_then(|p| pid_name.get(&p).cloned());
-                        out.push(ServiceInfo { protocol: "UDP".into(), local_address: addr, status: "Open".into(), pid, process_name: pname });
-                    }
-                }
+fn get_mac_address_lib(iface_name: &str, _ip: &str) -> String {
+    let ifaces = default_net::get_interfaces();
+    for iface in ifaces {
+        let name_match = iface.name.eq_ignore_ascii_case(iface_name)
+            || iface
+                .friendly_name
+                .as_deref()
+                .map(|s| s.eq_ignore_ascii_case(iface_name))
+                .unwrap_or(false);
+        if name_match {
+            if let Some(mac) = iface.mac_addr {
+                return mac.to_string().replace("-", ":").to_lowercase();
             }
         }
     }
-    #[cfg(target_os = "linux")]
+    String::new()
+}
+// 按平台获取 MAC 地址
+fn collect_services_lib(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
+    let mut out = Vec::new();
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
-        use std::process::Command;
-        // Prefer ss; fallback to netstat
-        let mut parsed = false;
-        if let Ok(o) = Command::new("ss").args(["-lntuap"]).output() {
-            if o.status.success() {
-                if let Ok(text) = String::from_utf8(o.stdout) {
-                    for line in text.lines() {
-                        if line.contains("LISTEN") || line.contains("udp") {
-                            // Example: tcp   LISTEN 0      128    0.0.0.0:80   ... users:(('nginx',pid=123,fd=6))
-                            let parts: Vec<&str> = line.split_whitespace().collect();
-                            if parts.len() >= 5 {
-                                let proto = parts[0].to_uppercase();
-                                let addr = parts[4].to_string();
-                                let mut pid: Option<i32> = None;
-                                let mut pname: Option<String> = None;
-                                if let Some(pos) = line.find("pid=") {
-                                    let sub = &line[pos + 4..];
-                                    let num: String =
-                                        sub.chars().take_while(|c| c.is_ascii_digit()).collect();
-                                    if let Ok(v) = num.parse::<i32>() {
-                                        pid = Some(v);
-                                        pname = pid_name.get(&v).cloned();
-                                    }
-                                }
-                                out.push(ServiceInfo {
-                                    protocol: proto,
-                                    local_address: addr,
-                                    status: "Listen".into(),
-                                    pid,
-                                    process_name: pname,
-                                });
-                            }
+        use netstat2::{
+            get_sockets_info, AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, TcpState,
+        };
+        let af = AddressFamilyFlags::IPV4 | AddressFamilyFlags::IPV6;
+        let pf = ProtocolFlags::TCP | ProtocolFlags::UDP;
+        if let Ok(sockets) = get_sockets_info(af, pf) {
+            for s in sockets {
+                match s.protocol_socket_info {
+                    ProtocolSocketInfo::Tcp(t) => {
+                        if matches!(t.state, TcpState::Listen) {
+                            let addr = format!("{}:{}", t.local_addr, t.local_port);
+                            let pid_i32 = s.associated_pids.first().cloned().map(|p| p as i32);
+                            let pname = pid_i32.and_then(|p| pid_name.get(&p).cloned());
+                            out.push(ServiceInfo {
+                                protocol: "TCP".into(),
+                                local_address: addr,
+                                status: "Listen".into(),
+                                pid: pid_i32,
+                                process_name: pname,
+                            });
                         }
                     }
-                    parsed = true;
-                }
-            }
-        }
-        if !parsed {
-            if let Ok(o) = Command::new("netstat").args(["-tulnp"]).output() {
-                if let Ok(text) = String::from_utf8(o.stdout) {
-                    for line in text.lines() {
-                        if line.starts_with("tcp") || line.starts_with("udp") {
-                            let parts: Vec<&str> = line.split_whitespace().collect();
-                            if parts.len() >= 7 {
-                                let proto = parts[0].to_uppercase();
-                                let addr = parts[3].to_string();
-                                let mut pid: Option<i32> = None;
-                                let mut pname: Option<String> = None;
-                                let proc_field = parts.last().unwrap_or(&"");
-                                if let Some(slash) = proc_field.find("/") {
-                                    let pid_str = &proc_field[..slash];
-                                    if let Ok(v) = pid_str.parse::<i32>() {
-                                        pid = Some(v);
-                                        pname = pid_name.get(&v).cloned();
-                                    }
-                                }
-                                out.push(ServiceInfo {
-                                    protocol: proto,
-                                    local_address: addr,
-                                    status: "Listen".into(),
-                                    pid,
-                                    process_name: pname,
-                                });
-                            }
-                        }
+                    ProtocolSocketInfo::Udp(u) => {
+                        let addr = format!("{}:{}", u.local_addr, u.local_port);
+                        let pid_i32 = s.associated_pids.first().cloned().map(|p| p as i32);
+                        let pname = pid_i32.and_then(|p| pid_name.get(&p).cloned());
+                        out.push(ServiceInfo {
+                            protocol: "UDP".into(),
+                            local_address: addr,
+                            status: "Open".into(),
+                            pid: pid_i32,
+                            process_name: pname,
+                        });
                     }
                 }
             }
@@ -455,163 +391,12 @@ fn collect_services(pid_name: &HashMap<i32, String>) -> Vec<ServiceInfo> {
     out
 }
 
-// 按平台获取 MAC 地址
-fn get_mac_address(iface_name: &str, ip: &str) -> String {
-    #[cfg(target_os = "linux")]
-    {
-        let p = format!("/sys/class/net/{}/address", iface_name);
-        if let Ok(s) = std::fs::read_to_string(&p) {
-            return s.trim().to_string();
-        }
-        return String::new();
-    }
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        // 先尝试通过 IP 精确匹配接口别名，再获取 MAC
-        if let Ok(alias_out) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
-            "-NoProfile",
-            "-WindowStyle","Hidden",
-            "-Command",
-            &format!(
-                "(Get-NetIPConfiguration | Where-Object {{ $_.IPv4Address.IPAddress -eq '{}' }} | Select-Object -First 1 -ExpandProperty InterfaceAlias)"
-                , ip)
-        ]).output() {
-            let alias = String::from_utf8_lossy(&alias_out.stdout).trim().to_string();
-            if !alias.is_empty() {
-                if let Ok(mac_out) = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args([
-                    "-NoProfile",
-                    "-WindowStyle","Hidden",
-                    "-Command",
-                    &format!(
-                        "(Get-NetAdapter -Name '{}' | Select-Object -First 1 -ExpandProperty MacAddress)"
-                        , alias)
-                ]).output() {
-                    let mac = String::from_utf8_lossy(&mac_out.stdout).trim().to_string();
-                    if !mac.is_empty() {
-                        return mac.replace("-", ":");
-                    }
-                }
-            }
-        }
-        // 回退：按名称粗略解析 ipconfig 输出
-        if let Ok(o) = Command::new("ipconfig")
-            .creation_flags(CREATE_NO_WINDOW)
-            .arg("/all")
-            .output()
-        {
-            let text = String::from_utf8_lossy(&o.stdout);
-            let mut current_block = String::new();
-            let mut blocks = Vec::new();
-            for line in text.lines() {
-                if line.trim().ends_with(":") {
-                    if !current_block.is_empty() {
-                        blocks.push(current_block.clone());
-                    }
-                    current_block.clear();
-                }
-                current_block.push_str(line);
-                current_block.push('\n');
-            }
-            blocks.push(current_block);
-            for b in blocks {
-                if b.to_lowercase().contains(&iface_name.to_lowercase()) || b.contains(ip) {
-                    for l in b.lines() {
-                        let ll = l.to_lowercase();
-                        if ll.contains("physical address") || ll.contains("物理地址") {
-                            if let Some(pos) = l.find(":") {
-                                return l[pos + 1..].trim().replace("-", ":");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        String::new()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-        let out = Command::new("ifconfig").arg(iface_name).output();
-        if let Ok(o) = out {
-            let text = String::from_utf8_lossy(&o.stdout);
-            for l in text.lines() {
-                if l.trim().starts_with("ether ") {
-                    return l.trim()[6..].trim().to_string();
-                }
-            }
-        }
-        String::new()
-    }
-}
-
 // 按平台解析默认网关，并仅在与传入 IP 匹配的接口返回
 fn get_default_gateway_for_ip(_ip: &str) -> String {
-    #[cfg(target_os = "linux")]
-    {
-        // 解析 /proc/net/route 获取十六进制网关，按小端转换
-        if let Ok(s) = std::fs::read_to_string("/proc/net/route") {
-            for line in s.lines().skip(1) {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 3 && parts[1] == "00000000" {
-                    // 默认路由
-                    let gw_hex = parts[2];
-                    if let Some(gw) = hex_to_ip_le(gw_hex) {
-                        return gw;
-                    }
-                }
-            }
-        }
-        String::new()
+    if let Ok(gw) = default_net::get_default_gateway() {
+        return gw.ip_addr.to_string();
     }
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        // 使用 PowerShell 读取默认网关
-        let out = Command::new("powershell").creation_flags(CREATE_NO_WINDOW).args(["-NoProfile","-WindowStyle","Hidden","-Command","Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop"]).output();
-        if let Ok(o) = out {
-            let gw = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if gw.contains('.') {
-                return gw;
-            }
-        }
-        String::new()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-        let out = Command::new("route")
-            .args(["-n", "get", "default"])
-            .output();
-        if let Ok(o) = out {
-            let text = String::from_utf8_lossy(&o.stdout);
-            for l in text.lines() {
-                if l.trim().starts_with("gateway:") {
-                    return l.split(':').nth(1).unwrap_or("").trim().to_string();
-                }
-            }
-        }
-        String::new()
-    }
-}
-
-// Linux: 将小端十六进制 IP 转为点分十进制
-#[cfg(target_os = "linux")]
-fn hex_to_ip_le(hex_ip: &str) -> Option<String> {
-    if hex_ip.len() != 8 {
-        return None;
-    }
-    let bytes = (0..4)
-        .map(|i| u8::from_str_radix(&hex_ip[i * 2..i * 2 + 2], 16).ok())
-        .collect::<Option<Vec<_>>>()?;
-    Some(format!(
-        "{}.{}.{}.{}",
-        bytes[3], bytes[2], bytes[1], bytes[0]
-    ))
+    String::new()
 }
 fn arch_to_machine_type(arch: &str) -> String {
     match arch {
