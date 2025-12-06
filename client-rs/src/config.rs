@@ -7,6 +7,7 @@ pub struct Config {
     pub udp_port: u16,
     pub tcp_port: u16,
     pub collect_interval: u64,
+    pub autostart: bool,
 }
 
 impl Default for Config {
@@ -16,6 +17,7 @@ impl Default for Config {
             udp_port: 12345,
             tcp_port: 12346,
             collect_interval: 10,
+            autostart: true,
         }
     }
 }
@@ -44,6 +46,9 @@ pub fn load_config() -> Config {
             }
             if let Some(c) = v.get("collect_interval").and_then(|x| x.as_u64()) {
                 cfg.collect_interval = c;
+            }
+            if let Some(a) = v.get("autostart").and_then(|x| x.as_bool()) {
+                cfg.autostart = a;
             }
         }
     }

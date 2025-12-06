@@ -2,12 +2,23 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
     pub client_id: Option<String>,
     pub udp_port: Option<u16>,
     pub tcp_port: Option<u16>,
     pub collect_interval: Option<u64>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            client_id: None,
+            udp_port: Some(12345),
+            tcp_port: Some(12346),
+            collect_interval: Some(10),
+        }
+    }
 }
 
 pub fn app_dir() -> PathBuf {
@@ -38,7 +49,13 @@ pub fn save_state(st: &State) -> std::io::Result<()> {
     if let Some(parent) = p.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let s = serde_json::to_string_pretty(st).unwrap_or_else(|_| "{}".to_string());
+    let normalized = State {
+        client_id: st.client_id.clone(),
+        udp_port: st.udp_port.or(Some(12345)),
+        tcp_port: st.tcp_port.or(Some(12346)),
+        collect_interval: st.collect_interval.or(Some(10)),
+    };
+    let s = serde_json::to_string_pretty(&normalized).unwrap_or_else(|_| "{}".to_string());
     fs::write(p, s)
 }
 
