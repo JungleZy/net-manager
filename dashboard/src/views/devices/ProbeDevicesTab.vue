@@ -252,24 +252,7 @@
       @cancel="closeProcessesModal"
     />
 
-    <!-- 网口详情模态框 -->
-    <a-modal
-      v-model:open="showNetworksModal"
-      :title="`网口详情 - ${currentDeviceName}`"
-      @cancel="closeNetworksModal"
-      width="80%"
-    >
-      <a-table
-        :dataSource="networksList"
-        :columns="networkColumns"
-        :pagination="false"
-        bordered
-        size="small"
-      />
-      <template #footer>
-        <a-button @click="closeNetworksModal">关闭</a-button>
-      </template>
-    </a-modal>
+    <!-- 网口详情 Popover 气泡卡片：已在列渲染中实现 -->
 
     <ProcessModal v-model:open="processVisible" />
   </div>
@@ -293,7 +276,7 @@ import {
   AlertOutlined
 } from '@ant-design/icons-vue'
 import { formatMachineType } from '@/common/utils/Utils.js'
-import { message, Tooltip } from 'ant-design-vue'
+import { message, Tooltip, Popover, Table, Empty, Spin } from 'ant-design-vue'
 import DeviceAddModal from '@/components/devices/DeviceAddModal.vue'
 import ServiceDetailModal from '@/components/devices/ServiceDetailModal.vue'
 import ProcessDetailModal from '@/components/devices/ProcessDetailModal.vue'
@@ -396,8 +379,10 @@ const showProcessesModal = ref(false)
 const showNetworksModal = ref(false)
 const servicesList = shallowRef([])
 const processesList = shallowRef([])
-const networksList = shallowRef([])
 const currentDeviceName = ref('')
+const networksById = shallowRef({})
+const networksPopoverOpen = shallowRef({})
+const networksLoadingById = shallowRef({})
 
 // 定时器管理 - 用于清理
 const animationTimers = new Map()
@@ -412,7 +397,8 @@ const networkColumns = [
   {
     title: 'IP地址',
     dataIndex: 'ip_address',
-    key: 'ip_address'
+    key: 'ip_address',
+    width: 110
   },
   {
     title: 'MAC地址',
@@ -426,6 +412,7 @@ const networkColumns = [
     title: '网关',
     dataIndex: 'gateway',
     key: 'gateway',
+    width: 110,
     customRender: ({ text }) => {
       return text || '无'
     }
@@ -434,6 +421,7 @@ const networkColumns = [
     title: '子网掩码',
     dataIndex: 'netmask',
     key: 'netmask',
+    width: 120,
     customRender: ({ text }) => {
       return text || '无'
     }
@@ -442,12 +430,14 @@ const networkColumns = [
     title: '上传速率',
     dataIndex: 'upload_rate',
     key: 'upload_rate',
+    width: 80,
     customRender: ({ text }) => formatNetworkRate(text)
   },
   {
     title: '下载速率',
     dataIndex: 'download_rate',
     key: 'download_rate',
+    width: 80,
     customRender: ({ text }) => formatNetworkRate(text)
   }
 ]
@@ -686,26 +676,75 @@ const columns = [
         key: 'networks_count',
         width: 70,
         customRender: ({ text, record }) => {
-          return h(
+          const clickable = record.networks_count > 0 && record.online
+          const link = h(
             'a',
             {
-              onClick: () => {
-                if (record.networks_count > 0 && record.online) {
-                  handleShowNetworks(record)
-                }
-              },
               style: {
-                color:
-                  record.networks_count > 0 && record.online
-                    ? '#1890ff'
-                    : '#00000040',
-                cursor:
-                  record.networks_count > 0 && record.online
-                    ? 'pointer'
-                    : 'not-allowed'
+                color: clickable ? '#1890ff' : '#00000040',
+                cursor: clickable ? 'pointer' : 'not-allowed'
               }
             },
-            record.networks_count > 0 && record.online ? text : 0
+            clickable ? text : 0
+          )
+          return h(
+            Popover,
+            {
+              open: !!networksPopoverOpen.value[record.id],
+              placement: 'topRight',
+              trigger: 'click',
+              onOpenChange: async (open) => {
+                if (!clickable) return
+                networksPopoverOpen.value = {
+                  ...networksPopoverOpen.value,
+                  [record.id]: open
+                }
+                if (open) {
+                  await handleShowNetworksPopover(record)
+                }
+              }
+            },
+            {
+              default: () => link,
+              content: () => {
+                const rows = networksById.value[record.id] || []
+                const loading = !!networksLoadingById.value[record.id]
+                return h(
+                  'div',
+                  {
+                    style: {
+                      maxHeight: '360px',
+                      overflow: 'auto',
+                      width: '754px'
+                    }
+                  },
+                  [
+                    h(
+                      'div',
+                      { style: { fontWeight: 600, marginBottom: '8px' } },
+                      `网口详情 - ${record.hostname || record.id}`
+                    ),
+                    h(
+                      Spin,
+                      { spinning: loading },
+                      {
+                        default: () =>
+                          h(Table, {
+                            dataSource: rows,
+                            columns: networkColumns,
+                            pagination: false,
+                            bordered: true,
+                            size: 'small',
+                            rowKey: 'name',
+                            scroll: { y: 320 },
+                            locale: { emptyText: '暂无网口数据' }
+                          })
+                      }
+                    )
+                  ]
+                )
+              }
+            }
           )
         }
       }
@@ -969,23 +1008,27 @@ const closeProcessesModal = () => {
 }
 
 // 显示网口详情
-const handleShowNetworks = async (record) => {
+const handleShowNetworksPopover = async (record) => {
   try {
-    const response = await DeviceApi.getDeviceInfo(record.id)
-    if (response?.data?.networks) {
-      networksList.value = response.data.networks
-      currentDeviceName.value = record.hostname || record.id
-      showNetworksModal.value = true
+    networksLoadingById.value = {
+      ...networksLoadingById.value,
+      [record.id]: true
     }
+    const response = await DeviceApi.getDeviceInfo(record.id)
+    networksById.value = {
+      ...networksById.value,
+      [record.id]: response?.data?.networks || []
+    }
+    currentDeviceName.value = record.hostname || record.id
   } catch (error) {
     console.error('获取网口详情失败:', error)
     message.error('获取网口详情失败')
+  } finally {
+    networksLoadingById.value = {
+      ...networksLoadingById.value,
+      [record.id]: false
+    }
   }
-}
-
-// 关闭网口详情模态框
-const closeNetworksModal = () => {
-  showNetworksModal.value = false
 }
 
 // 关闭模态框
@@ -1066,7 +1109,7 @@ const getFieldValue = (device, key) => {
 }
 
 // 处理设备信息更新
-const handleDeviceInfoUpdate = (deviceInfo) => {
+const handleDeviceInfoUpdate = async (deviceInfo) => {
   const index = devices.value.findIndex((dev) => dev.id === deviceInfo.id)
   if (index === -1) return
 
@@ -1095,6 +1138,48 @@ const handleDeviceInfoUpdate = (deviceInfo) => {
   updatedDevices[index] = { ...oldDevice, ...deviceInfo }
   devices.value = updatedDevices
   changedTimestamps.value = newChangedTimestamps
+
+  // 若该设备的网口 Popover 处于打开状态，则同步更新其内容
+  if (networksPopoverOpen.value[deviceInfo.id]) {
+    try {
+      networksLoadingById.value = {
+        ...networksLoadingById.value,
+        [deviceInfo.id]: true
+      }
+      const response = await DeviceApi.getDeviceInfo(deviceInfo.id)
+      const rows = response?.data?.networks
+      if (Array.isArray(rows)) {
+        const prev = networksById.value[deviceInfo.id] || []
+        const sameLen = prev.length === rows.length
+        const same =
+          sameLen &&
+          prev.every((p, i) => {
+            const r = rows[i]
+            return (
+              p.name === r.name &&
+              p.ip_address === r.ip_address &&
+              p.mac_address === r.mac_address &&
+              p.gateway === r.gateway &&
+              p.netmask === r.netmask &&
+              p.upload_rate === r.upload_rate &&
+              p.download_rate === r.download_rate
+            )
+          })
+        if (!same) {
+          networksById.value = {
+            ...networksById.value,
+            [deviceInfo.id]: rows
+          }
+        }
+      }
+    } catch (error) {
+    } finally {
+      networksLoadingById.value = {
+        ...networksLoadingById.value,
+        [deviceInfo.id]: false
+      }
+    }
+  }
 }
 
 // 处理设备状态更新
