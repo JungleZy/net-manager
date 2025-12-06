@@ -2,6 +2,8 @@
 
 > 📚 **文档导航**: [完整文档目录](docs/00-文档目录.md) | [快速参考](docs/QUICK_REFERENCE.md) | [发布指南](docs/RELEASE-GUIDE.md)
 
+> 🌐 English Docs: [Index](docs/00-Document-Index.en.md) | [Overview](docs/README.en.md) | [API](docs/API_DOCUMENTATION.en.md)
+
 Net Manager 是一个全栈网络设备管理系统，集成了客户端探测、服务端管理和 Web 控制面板三大核心模块，支持设备自动发现、网络拓扑可视化、SNMP 设备监控等功能。
 
 ## 核心特性
@@ -21,32 +23,52 @@ Net Manager 是一个全栈网络设备管理系统，集成了客户端探测�
 
 ```
 net-manager/
-├── client/                    # 客户端程序
-│   ├── src/                   # 客户端源代码
-│   └── requirements.txt       # 客户端依赖
-├── server/                    # 服务器程序
-│   ├── src/                   # 服务器源代码
-│   │   ├── core/              # 核心模块
-│   │   ├── database/          # 数据库模块
-│   │   ├── models/            # 数据模型
-│   │   ├── network/           # 网络通信模块
-│   │   ├── snmp/              # SNMP监控模块
-│   │   └── utils/             # 工具模块
-│   ├── static/                # 前端静态文件（构建时生成）
-│   ├── tests/                 # 测试代码
-│   └── requirements.txt       # 服务器依赖
-├── dashboard/                 # 前端控制面板
-│   ├── src/                   # 前端源代码
-│   ├── dist/                  # 构建产物（构建后生成）
-│   └── package.json           # 前端依赖
-├── dist/                      # 最终打包产物
-│   ├── server/                # 服务端可执行文件
-│   └── client/                # 客户端可执行文件
-├── docs/                      # 文档
-├── .github/workflows/         # GitHub Actions 工作流
-├── build.py                   # 构建脚本
-├── BUILD.md                   # 构建说明
-└── README.md                  # 项目说明
+├── agent/                      # 预构建的客户端二进制包（供前端下载）
+│   ├── net-manager-client-win-x64.exe
+│   ├── net-manager-client-win-x86.exe
+│   ├── net-manager-client-linux-*
+│   └── net-manager-client-aarch64
+├── client/                     # 客户端程序
+│   ├── src/
+│   │   ├── config_module/      # 配置加载模块
+│   │   ├── core/               # 应用控制器、状态管理
+│   │   ├── exceptions/         # 异常定义
+│   │   ├── network/            # TCP/UDP 客户端
+│   │   ├── system/             # 开机自启与系统信息采集
+│   │   └── utils/              # 日志、平台工具、单例、ID
+│   ├── tests/                  # 客户端测试（覆盖率高）
+│   ├── main.py                 # 客户端入口
+│   └── README.md               # 客户端说明
+├── server/                     # 服务端程序
+│   ├── src/
+│   │   ├── core/               # 配置、日志、状态、单例
+│   │   ├── database/           # 连接池、管理器、异常
+│   │   ├── models/             # 设备/交换机/拓扑模型
+│   │   ├── network/
+│   │   │   ├── api/            # Tornado HTTP API 与 WebSocket
+│   │   │   ├── tcp/            # TCP 服务器
+│   │   │   └── udp/            # UDP 广播与服务
+│   │   ├── monitor/            # 服务器性能监控
+│   │   ├── snmp/               # SNMP 管理与统一轮询
+│   │   └── utils/              # 平台工具
+│   ├── migrations/             # 数据库迁移脚本
+│   ├── tests/                  # 服务端测试
+│   └── main.py                 # 服务端入口
+├── dashboard/                  # 前端控制面板（Vue3 + Vite + Ant Design Vue）
+│   ├── src/                    # 源码（组件、视图、拓扑、API封装等）
+│   ├── public/docs/            # 前端文档（面向用户）
+│   ├── package.json            # 前端依赖
+│   └── vite.config.js          # 开发端口 8001
+├── docs/                       # 项目文档
+│   ├── 00-文档目录.md          # 文档索引
+│   ├── BUILD.md                # 构建说明
+│   ├── PROJECT_STRUCTURE.md    # 项目结构说明（已更新）
+│   └── ...                     # 其余专题文档与归档
+├── .github/workflows/          # GitHub Actions 工作流
+├── build.py                    # 打包脚本（自动集成前端产物）
+├── requirements.txt            # Python 统一依赖
+├── pyproject.toml              # 项目配置
+└── README.md                   # 项目说明
 ```
 
 ## 功能特性
@@ -92,17 +114,16 @@ net-manager/
 **开发环境：**
 
 ```bash
-# 安装Python依赖
-cd server
+# 安装Python依赖（项目根目录）
 pip install -r requirements.txt
 
 # 启动服务器
 python main.py
 
-# 另开终端，启动前端开发服务器
+# 启动前端开发服务器
 cd dashboard
-npm install  # 或 pnpm install / yarn install
-npm run dev
+npm install  # 或 pnpm / yarn
+npm run dev  # 默认端口 8001
 ```
 
 访问：
@@ -129,8 +150,8 @@ net-manager-server.exe  # Windows
 **开发环境：**
 
 ```bash
-cd client
 pip install -r requirements.txt
+cd client
 python main.py
 ```
 
@@ -224,7 +245,7 @@ python build.py --server # 仅打包服务端（自动构建前端）
 
 2. 复制前端产物
 
-   - 将 `dashboard/dist` 复制到 `server/static`
+   - 将 `dashboard/dist` 复制到 `server/static`（由 `build.py` 自动完成）
 
 3. 打包服务端
    - 使用 Nuitka 打包 server
