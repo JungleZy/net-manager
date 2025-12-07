@@ -9,7 +9,7 @@ mod network;
 mod state;
 mod system;
 
-#[tokio::main]
+#[tokio::main(worker_threads = 2)]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let cfg = config::load_config();

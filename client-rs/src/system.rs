@@ -94,6 +94,8 @@ pub struct SystemSnapshot {
 // 全局网络速率缓存：记录上次采集的字节数与时间戳
 static NET_CACHE: Lazy<Mutex<HashMap<String, (u64, u64, Instant)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static DISK_CACHE: Lazy<Mutex<Option<(DiskInfo, Instant)>>> = Lazy::new(|| Mutex::new(None));
+static SRV_CACHE: Lazy<Mutex<Option<(Vec<ServiceInfo>, Instant)>>> = Lazy::new(|| Mutex::new(None));
 
 pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
     let mut sys = SYS.lock().unwrap();
@@ -181,12 +183,35 @@ pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
     } else {
         0
     };
-    let disk_info = DiskInfo {
-        partitions,
-        total: total_disk,
-        used: used_disk,
-        free: total_disk.saturating_sub(used_disk),
-        percentage: disk_pct,
+    let disk_info = {
+        let ttl = std::time::Duration::from_secs(90);
+        let mut cache = DISK_CACHE.lock().unwrap();
+        let now = Instant::now();
+        if let Some((info, ts)) = &*cache {
+            if now.duration_since(*ts) < ttl {
+                info.clone()
+            } else {
+                let info = DiskInfo {
+                    partitions,
+                    total: total_disk,
+                    used: used_disk,
+                    free: total_disk.saturating_sub(used_disk),
+                    percentage: disk_pct,
+                };
+                *cache = Some((info.clone(), now));
+                info
+            }
+        } else {
+            let info = DiskInfo {
+                partitions,
+                total: total_disk,
+                used: used_disk,
+                free: total_disk.saturating_sub(used_disk),
+                percentage: disk_pct,
+            };
+            *cache = Some((info.clone(), now));
+            info
+        }
     };
 
     let mut procs = sys
@@ -213,7 +238,24 @@ pub async fn collect_system_info(client_id: String) -> SystemSnapshot {
         pid_name.insert(p.pid().as_u32() as i32, p.name().to_string_lossy().into());
     }
 
-    let services = collect_services_lib(&pid_name);
+    let services = {
+        let ttl = std::time::Duration::from_secs(120);
+        let mut cache = SRV_CACHE.lock().unwrap();
+        let now = Instant::now();
+        if let Some((info, ts)) = &*cache {
+            if now.duration_since(*ts) < ttl {
+                info.clone()
+            } else {
+                let info = collect_services_lib(&pid_name);
+                *cache = Some((info.clone(), now));
+                info
+            }
+        } else {
+            let info = collect_services_lib(&pid_name);
+            *cache = Some((info.clone(), now));
+            info
+        }
+    };
 
     drop(sys);
     let networks = collect_interfaces().await;
