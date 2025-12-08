@@ -59,7 +59,7 @@
         size="small"
         row-key="id"
         bordered
-        :scroll="{ y: height - 176 + 'px' }"
+        :scroll="{ y: height - 180 + 'px' }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record, index }">

@@ -1,3 +1,5 @@
+import 'core-js/stable'
+import './polyfills/resize-observer'
 import './styles/tailwind.css'
 import './styles/style.less'
 import 'ant-design-vue/dist/reset.css'

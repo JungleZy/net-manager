@@ -65,6 +65,7 @@
         title="确定清空所有SNMP历史记录吗？此操作不可恢复"
         ok-text="确定"
         cancel-text="取消"
+        placement="topRight"
         @confirm="clearAllSnmpHistory"
       >
         <a-button type="primary" danger>清空历史</a-button>

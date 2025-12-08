@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import tailwindcss from '@tailwindcss/vite'
+import legacy from '@vitejs/plugin-legacy'
+import babel from '@rollup/plugin-babel'
 import { fileURLToPath, URL } from 'node:url'
 
 // 创建一个插件，在构建时将index.html中的bindType从'dev'修改为'prod'
@@ -25,7 +26,26 @@ function transformBindType() {
 export default defineConfig({
   plugins: [
     vue(),
-    tailwindcss(),
+    legacy({
+      targets: [
+        'chrome >= 84',
+        'firefox >= 78',
+        'safari >= 13'
+      ],
+      modernPolyfills: true
+    }),
+    babel({
+      babelHelpers: 'bundled',
+      presets: [
+        ['@babel/preset-env', { targets: { chrome: '84' }, bugfixes: true, modules: false }]
+      ],
+      plugins: [
+        '@babel/plugin-transform-logical-assignment-operators'
+      ],
+      extensions: ['.js'],
+      include: [/node_modules\/.*\.js$/, /src\/.*\.js$/],
+      exclude: [/core-js/, /regenerator-runtime/]
+    }),
     transformBindType(),
   ],
   // 设置基础路径为 /，应用部署在根路径
@@ -55,6 +75,9 @@ export default defineConfig({
   },
   // 优化构建配置
   build: {
+    target: 'chrome84',
+    cssTarget: 'chrome49',
+    minify: 'esbuild',
     // 增加chunk大小警告限制
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
