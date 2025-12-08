@@ -604,6 +604,97 @@ jobs:
           name: net-manager-server-linux-${{ matrix.architecture }}
           path: dist/${{ steps.build_server_linux.outputs.serverTar }}
 
+  build-rs-windows:
+    name: Build client-rs for Windows
+    needs: [test-summary]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-latest
+          - architecture: x86
+            runner: windows-latest
+          - architecture: arm64
+            runner: windows-11-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        shell: pwsh
+        run: |
+          rustup update stable
+          rustup default stable
+          if ("${{ matrix.architecture }}" -eq "x86") { rustup target add i686-pc-windows-msvc } elseif ("${{ matrix.architecture }}" -eq "arm64") { rustup target add aarch64-pc-windows-msvc } else { rustup target add x86_64-pc-windows-msvc }
+
+      - name: Build client-rs (Windows ${{ matrix.architecture }})
+        id: build_rs_win
+        shell: pwsh
+        run: |
+          cd client-rs
+          if ("${{ matrix.architecture }}" -eq "x86") { $target = "i686-pc-windows-msvc"; $out = "net-manager-client-rs-win-x86.exe" }
+          elseif ("${{ matrix.architecture }}" -eq "arm64") { $target = "aarch64-pc-windows-msvc"; $out = "net-manager-client-rs-win-aarch64.exe" }
+          else { $target = "x86_64-pc-windows-msvc"; $out = "net-manager-client-rs-win-x64.exe" }
+          cargo build --release --target $target
+          Copy-Item -Force "target/$target/release/client-rs.exe" "$out"
+          echo "outputName=$out" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifacts (client-rs Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-client-rs-windows-${{ matrix.architecture }}
+          path: client-rs/${{ steps.build_rs_win.outputs.outputName }}
+
+  build-rs-linux:
+    name: Build client-rs for Linux
+    needs: [test-summary]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: ubuntu-latest
+          - architecture: x86
+            runner: ubuntu-latest
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux x86)
+        if: matrix.architecture == 'x86'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib
+
+      - name: Setup Rust toolchain
+        run: |
+          rustup update stable
+          rustup default stable
+          if [ "${{ matrix.architecture }}" = "x86" ]; then rustup target add i686-unknown-linux-gnu; fi
+          if [ "${{ matrix.architecture }}" = "x64" ]; then rustup target add x86_64-unknown-linux-gnu; fi
+          if [ "${{ matrix.architecture }}" = "arm64" ]; then rustup target add aarch64-unknown-linux-gnu; fi
+
+      - name: Build client-rs (Linux ${{ matrix.architecture }})
+        id: build_rs_linux
+        run: |
+          cd client-rs
+          if [ "${{ matrix.architecture }}" = "x86" ]; then target=i686-unknown-linux-gnu; out=net-manager-client-rs-linux-x86; fi
+          if [ "${{ matrix.architecture }}" = "x64" ]; then target=x86_64-unknown-linux-gnu; out=net-manager-client-rs-linux-x64; fi
+          if [ "${{ matrix.architecture }}" = "arm64" ]; then target=aarch64-unknown-linux-gnu; out=net-manager-client-rs-linux-aarch64; fi
+          cargo build --release --target "$target"
+          cp -f "target/$target/release/client-rs" "$out"
+          echo "outputName=$out" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts (client-rs Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-manager-client-rs-linux-${{ matrix.architecture }}
+          path: client-rs/${{ steps.build_rs_linux.outputs.outputName }}
+
   package-server-windows:
     name: Package Server (Windows) with all clients
     needs: [build-windows, build-linux]
@@ -777,6 +868,12 @@ jobs:
             dist/net-manager-client-linux-x64/net-manager-client-linux-x64
             dist/net-manager-client-linux-x86/net-manager-client-linux-x86
             dist/net-manager-client-linux-aarch64/net-manager-client-linux-aarch64
+            dist/net-manager-client-rs-windows-x86/net-manager-client-rs-win-x86.exe
+            dist/net-manager-client-rs-windows-x64/net-manager-client-rs-win-x64.exe
+            dist/net-manager-client-rs-windows-aarch64/net-manager-client-rs-win-aarch64.exe
+            dist/net-manager-client-rs-linux-x64/net-manager-client-rs-linux-x64
+            dist/net-manager-client-rs-linux-x86/net-manager-client-rs-linux-x86
+            dist/net-manager-client-rs-linux-aarch64/net-manager-client-rs-linux-aarch64
             dist/net-manager-server-windows-x86-allclients/*.zip
             dist/net-manager-server-windows-x64-allclients/*.zip
             dist/net-manager-server-windows-arm64-allclients/*.zip
