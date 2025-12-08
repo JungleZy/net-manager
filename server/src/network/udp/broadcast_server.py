@@ -49,6 +49,13 @@ def broadcast_server():
         sock.bind(bind_address)
         sock.settimeout(1.0)
 
+        # Windows: 忽略 ICMP Port Unreachable 导致的 WSAECONNRESET(10054)
+        try:
+            SIO_UDP_CONNRESET = 0x9800000C
+            sock.ioctl(SIO_UDP_CONNRESET, struct.pack('I', 0))
+        except Exception:
+            pass
+
         logger.info(f"UDP广播服务端启动，监听 {UDP_HOST}:{UDP_PORT}")
 
         while _broadcast_running:

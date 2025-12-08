@@ -65,6 +65,13 @@ def udp_server():
 
         listen_socket.settimeout(1.0)
 
+        # Windows: 忽略 ICMP Port Unreachable 导致的 WSAECONNRESET(10054)
+        try:
+            SIO_UDP_CONNRESET = 0x9800000C
+            listen_socket.ioctl(SIO_UDP_CONNRESET, struct.pack('I', 0))
+        except Exception:
+            pass
+
         logger.info(f"UDP多播服务端启动，多播组 {MULTICAST_GROUP}:{MULTICAST_PORT}")
 
         while _udp_running:
