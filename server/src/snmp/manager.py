@@ -726,6 +726,13 @@ class SNMPManager:
         self._interface_poller = None
         logger.info("所有SNMP轮询器已停止")
 
+    def clear_traffic_cache(self):
+        """清空接口速率计算缓存，释放内存"""
+        try:
+            self._last_traffic.clear()
+        except Exception:
+            pass
+
     def get_poller_statistics(self) -> Dict[str, Any]:
         """
         获取轮询器统计信息

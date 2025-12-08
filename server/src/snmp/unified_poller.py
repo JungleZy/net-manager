@@ -609,7 +609,54 @@ class SNMPPoller:
                 task = asyncio.create_task(self._worker(i))
                 self._worker_tasks.append(task)
             logger.info(f"工作协程数增加: {current} -> {target_workers}")
+        elif target_workers < current:
+            # 取消多余的协程任务
+            surplus = current - target_workers
+            to_cancel = []
+            # 优先取消列表末尾的任务
+            for _ in range(surplus):
+                if not self._worker_tasks:
+                    break
+                t = self._worker_tasks.pop()
+                if not t.done():
+                    to_cancel.append(t)
+            for t in to_cancel:
+                t.cancel()
+            if to_cancel:
+                await asyncio.gather(*to_cancel, return_exceptions=True)
+            logger.info(f"工作协程数减少: {current} -> {target_workers}")
         self.current_workers = target_workers
+
+    def set_concurrency(self, target_workers: int):
+        """在轮询器事件循环中异步调整并发数量"""
+        if self._loop and not self._loop.is_closed():
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    self._adjust_worker_pool(max(self.min_workers, min(self.max_workers, int(target_workers)))),
+                    self._loop,
+                )
+            except Exception:
+                pass
+
+    def clear_cache(self):
+        """清空缓存，释放内存"""
+        with self._cache_lock:
+            self._cache.clear()
+
+    def trim_cache(self, max_entries: int):
+        """按最大条目限制裁剪缓存"""
+        if max_entries <= 0:
+            self.clear_cache()
+            return
+        with self._cache_lock:
+            if len(self._cache) <= max_entries:
+                return
+            # 根据缓存时间删除最早的条目
+            items = sorted(self._cache.items(), key=lambda kv: kv[1][1])
+            to_remove = len(items) - max_entries
+            for i in range(to_remove):
+                ip, _ = items[i]
+                self._cache.pop(ip, None)
 
     async def _cleanup_tasks(self):
         """清理所有异步任务"""
