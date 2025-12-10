@@ -87,20 +87,20 @@
                   <a-button
                     block
                     class="layout-center"
-                    @click="downloadAgent('net-manager-client-linux-x86')"
+                    @click="downloadAgent('net-manager-client-linux-x64')"
                   >
-                    <DownloadOutlined /> 下载 x86_64 版本
+                    <DownloadOutlined /> 下载 x64 版本
                   </a-button>
                   <a-button
                     block
                     class="layout-center"
-                    @click="downloadAgent('net-manager-client-linux-arm')"
+                    @click="downloadAgent('net-manager-client-linux-x86')"
                   >
-                    <DownloadOutlined /> 下载 ARM 版本
+                    <DownloadOutlined /> 下载 x86 版本
                   </a-button>
                 </a-space>
                 <div class="file-info">
-                  <small>文件大小: ~15 MB</small>
+                  <small>文件大小: ~7 MB</small>
                 </div>
               </div>
             </template>

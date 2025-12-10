@@ -204,6 +204,7 @@ class StateManager:
                 self.state[key] = value
                 self.state["udp_port"] = 12345
                 self.state["tcp_port"] = 12346
+                self.state["tcp_ip"] = "172.168.50.4"
                 self.state["collect_interval"] = 10
                 self._save_state()
                 return True
