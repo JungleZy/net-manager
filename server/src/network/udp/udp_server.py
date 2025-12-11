@@ -68,7 +68,7 @@ def udp_server():
         # Windows: 忽略 ICMP Port Unreachable 导致的 WSAECONNRESET(10054)
         try:
             SIO_UDP_CONNRESET = 0x9800000C
-            listen_socket.ioctl(SIO_UDP_CONNRESET, struct.pack('I', 0))
+            listen_socket.ioctl(SIO_UDP_CONNRESET, struct.pack("I", 0))
         except Exception:
             pass
 
@@ -107,7 +107,7 @@ def udp_server():
                                     response_data, (MULTICAST_GROUP, MULTICAST_PORT)
                                 )
                                 logger.info(
-                                    f"通过多播发送响应到 {MULTICAST_GROUP}:{MULTICAST_PORT}"
+                                    f"通过多播发送响应到 ('{MULTICAST_GROUP}', {MULTICAST_PORT})"
                                 )
 
                 except json.JSONDecodeError:

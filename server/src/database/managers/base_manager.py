@@ -62,6 +62,7 @@ class BaseDatabaseManager:
                 max_connections=max_connections,
                 cleanup_interval=cleanup_interval,
                 max_idle_time=max_idle_time,
+                acquire_timeout=5.0,
             )
             logger.debug(f"创建新连接池: {db_path}")
         # 初始化异步连接池引用

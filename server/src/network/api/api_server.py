@@ -75,7 +75,9 @@ class APIServer:
         self.port = port
         self.host = host
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
-        self.db_manager = db_manager if db_manager else DatabaseManager()
+        self.db_manager = (
+            db_manager if db_manager else DatabaseManager()
+        )
         try:
             self.db_manager.init_async_pool()
         except Exception:

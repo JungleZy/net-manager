@@ -38,6 +38,7 @@ class DatabaseManager:
         max_connections: int = 10,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
+        acquire_timeout: float = 5.0,
     ):
         """
         初始化统一数据库管理器
@@ -60,6 +61,7 @@ class DatabaseManager:
                 max_connections=max_connections,
                 cleanup_interval=cleanup_interval,
                 max_idle_time=max_idle_time,
+                acquire_timeout=acquire_timeout,
             )
             logger.info(f"创建共享连接池：最大连接数={max_connections}")
 

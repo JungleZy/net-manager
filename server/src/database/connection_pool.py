@@ -31,6 +31,7 @@ class ConnectionPool:
         min_connections: int = 2,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
+        acquire_timeout: float = 5.0,
     ):
         """
         初始化连接池
@@ -47,6 +48,7 @@ class ConnectionPool:
         self.min_connections = min_connections
         self.cleanup_interval = cleanup_interval
         self.max_idle_time = max_idle_time
+        self.acquire_timeout = acquire_timeout
         self.connections = queue.Queue(maxsize=max_connections)
         self.lock = threading.RLock()
         self.active_connections = 0
@@ -128,7 +130,7 @@ class ConnectionPool:
                 else:
                     # 达到最大连接数，等待可用连接
                     try:
-                        conn = self.connections.get(timeout=30.0)
+                        conn = self.connections.get(timeout=self.acquire_timeout)
                         logger.debug("等待并获取到连接")
                     except queue.Empty:
                         raise DatabaseConnectionError("获取数据库连接超时")
@@ -322,6 +324,7 @@ class AsyncConnectionPool:
         min_connections: int = 2,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
+        acquire_timeout: float = 5.0,
     ):
         """
         初始化异步连接池
@@ -338,6 +341,7 @@ class AsyncConnectionPool:
         self.min_connections = min_connections
         self.cleanup_interval = cleanup_interval
         self.max_idle_time = max_idle_time
+        self.acquire_timeout = acquire_timeout
         self.connections = asyncio.Queue(maxsize=max_connections)
         self.active_connections = 0
         self.is_closed = False
@@ -417,7 +421,7 @@ class AsyncConnectionPool:
                     # 达到最大连接数，等待可用连接
                     try:
                         conn = await asyncio.wait_for(
-                            self.connections.get(), timeout=30.0
+                            self.connections.get(), timeout=self.acquire_timeout
                         )
                         logger.debug("等待并获取到异步连接")
                     except asyncio.TimeoutError:

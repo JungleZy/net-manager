@@ -8,6 +8,7 @@ TCP服务端 - 用于与Net Manager客户端建立长连接并接收数据
 import socket
 import json
 import threading
+import time
 import sys
 import os
 from datetime import datetime
@@ -18,7 +19,11 @@ from concurrent.futures import ThreadPoolExecutor
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from src.core.config import TCP_PORT, TCP_THREADPOOL_WORKERS
+from src.core.config import (
+    TCP_PORT,
+    TCP_THREADPOOL_WORKERS,
+    TCP_RECV_TIMEOUT,
+)
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.models.device_info import DeviceInfo
@@ -35,7 +40,11 @@ class TCPServer:
         self.clients_lock = threading.Lock()  # 保护clients集合的锁
         self.running = False
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
-        self.db_manager = db_manager if db_manager else DatabaseManager()
+        self.db_manager = (
+            db_manager
+            if db_manager
+            else DatabaseManager(max_connections=TCP_THREADPOOL_WORKERS + 20)
+        )
         # 使用线程池来处理客户端连接，避免为每个客户端创建新线程
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -52,15 +61,16 @@ class TCPServer:
             # 首先接收握手消息（带长度前缀）
             import struct
 
-            # 接收数据长度（4字节）
-            raw_length = self._recv_all(client_socket, 4)
-            if raw_length:
+            raw_length, timed_out = self._recv_all_status(client_socket, 4)
+            if raw_length and not timed_out:
                 # 解析数据长度
                 message_length = struct.unpack("!I", raw_length)[0]
 
                 # 接收指定长度的数据
-                handshake_data = self._recv_all(client_socket, message_length)
-                if handshake_data:
+                handshake_data, data_timed_out = self._recv_all_status(
+                    client_socket, message_length
+                )
+                if handshake_data and not data_timed_out:
                     try:
                         handshake_info = json.loads(handshake_data.decode("utf-8"))
                         if handshake_info.get("type") == "handshake":
@@ -87,16 +97,22 @@ class TCPServer:
                         logger.warning(f"客户端 {address} 发送的握手消息无法解析")
 
             while self.running:
-                # 接收数据长度（4字节）
-                raw_length = self._recv_all(client_socket, 4)
+                raw_length, timed_out = self._recv_all_status(client_socket, 4)
+                if timed_out:
+                    time.sleep(0.05)
+                    continue
                 if not raw_length:
                     break
 
                 # 解析数据长度
                 message_length = struct.unpack("!I", raw_length)[0]
 
-                # 接收指定长度的数据
-                data = self._recv_all(client_socket, message_length)
+                data, data_timed_out = self._recv_all_status(
+                    client_socket, message_length
+                )
+                if data_timed_out:
+                    time.sleep(0.05)
+                    continue
                 if not data:
                     break
 
@@ -151,12 +167,15 @@ class TCPServer:
             # 检查是否提供了client_id
             client_id = info.get("client_id")
             if client_id:
-                # 根据client_id查询设备信息
-                existing_device = (
-                    self.db_manager.device_manager.get_device_info_by_client_id(
-                        client_id
+                existing_device = None
+                try:
+                    existing_device = (
+                        self.db_manager.device_manager.get_device_info_by_client_id(
+                            client_id
+                        )
                     )
-                )
+                except Exception:
+                    existing_device = None
                 if existing_device:
                     # 如果存在，则使用现有设备的ID进行更新
                     info["id"] = existing_device["id"]
@@ -179,12 +198,19 @@ class TCPServer:
             device_info = self._create_device_info_with_id(info)
 
             # 保存到数据库
-            self.db_manager.device_manager.save_device_info(device_info)
+            try:
+                self.db_manager.device_manager.save_device_info(device_info)
+            except Exception:
+                return
 
             # 从数据库获取保存后的设备信息（字典格式），用于WebSocket广播
-            saved_device_info = self.db_manager.device_manager.get_device_info_by_id(
-                device_info.id
-            )
+            saved_device_info = None
+            try:
+                saved_device_info = (
+                    self.db_manager.device_manager.get_device_info_by_id(device_info.id)
+                )
+            except Exception:
+                saved_device_info = None
             if saved_device_info:
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": saved_device_info}
@@ -311,6 +337,18 @@ class TCPServer:
             data += packet
         return data
 
+    def _recv_all_status(self, sock, length):
+        data = b""
+        while len(data) < length:
+            try:
+                packet = sock.recv(length - len(data))
+            except socket.timeout:
+                return None, True
+            if not packet:
+                return None, False
+            data += packet
+        return data, False
+
     def start(self):
         """启动TCP服务端"""
         # 创建TCP套接字
@@ -326,7 +364,7 @@ class TCPServer:
         try:
             server_socket.bind(server_address)
             # 增加监听队列大小，以处理更多并发连接
-            server_socket.listen(128)
+            server_socket.listen(512)
             self.running = True
 
             while self.running:
@@ -334,7 +372,7 @@ class TCPServer:
                     # 设置accept超时，以便能够响应Ctrl+C
                     server_socket.settimeout(1.0)
                     client_socket, address = server_socket.accept()
-                    client_socket.settimeout(None)  # 重置客户端套接字为阻塞模式
+                    client_socket.settimeout(TCP_RECV_TIMEOUT)
 
                     # 为每个客户端提交到线程池处理
                     # 在提交前检查服务器是否仍在运行
