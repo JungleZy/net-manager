@@ -228,3 +228,20 @@ class SNMPHistoryManager(BaseDatabaseManager):
         except Exception as e:
             logger.error(f"清空SNMP历史记录失败: {e}")
             raise DatabaseQueryError(f"清空SNMP历史记录失败: {e}") from e
+
+    def purge_older_than_days(self, days: int) -> Tuple[int, str]:
+        try:
+            if days <= 0:
+                return 0, "保留天数无效"
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM snmp_history WHERE created_at < datetime('now','localtime', ?)",
+                    (f"-{int(days)} days",),
+                )
+                affected = cursor.rowcount if cursor.rowcount is not None else 0
+                conn.commit()
+                return affected, "过期清理成功"
+        except Exception as e:
+            logger.error(f"清理过期SNMP历史记录失败: {e}")
+            raise DatabaseQueryError(f"清理过期SNMP历史记录失败: {e}") from e

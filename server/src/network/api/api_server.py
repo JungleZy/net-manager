@@ -12,7 +12,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-from src.core.config import API_PORT, API_HOST, METRICS_ENABLED, METRICS_ROUTE
+from src.core.config import API_PORT, API_HOST, METRICS_ENABLED, METRICS_ROUTE, SNMP_HISTORY_RETENTION_DAYS, SNMP_HISTORY_PURGE_INTERVAL_MIN
 from src.core.logger import logger
 from src.database import DatabaseManager
 from src.database.managers.topology_manager import TopologyManager
@@ -87,6 +87,7 @@ class APIServer:
         self.tcp_server = None
         self.app = self.make_app()
         self.server = None
+        self._history_purge_callback = None
 
     def set_tcp_server(self, tcp_server):
         """设置TCP服务器引用，用于获取在线状态"""
@@ -333,6 +334,26 @@ class APIServer:
             from src.core.state_manager import state_manager
 
             state_manager.set_main_ioloop(tornado.ioloop.IOLoop.current())
+            try:
+                self.db_manager.snmp_history_manager.purge_older_than_days(
+                    SNMP_HISTORY_RETENTION_DAYS
+                )
+            except Exception:
+                pass
+            try:
+                interval_ms = int(SNMP_HISTORY_PURGE_INTERVAL_MIN) * 60 * 1000
+                def _purge():
+                    try:
+                        self.db_manager.snmp_history_manager.purge_older_than_days(
+                            SNMP_HISTORY_RETENTION_DAYS
+                        )
+                    except Exception:
+                        pass
+                import tornado.ioloop as _ioloop
+                self._history_purge_callback = _ioloop.PeriodicCallback(_purge, interval_ms)
+                self._history_purge_callback.start()
+            except Exception:
+                pass
         except OSError as e:
             logger.error(f"无法绑定到端口 {self.host}: {str(e)}")
             return False, f"无法绑定到端口 {self.host}: {str(e)}"
