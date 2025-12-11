@@ -76,47 +76,41 @@ def udp_server():
 
         while _udp_running:
             try:
-                # 接收数据
                 data, address = listen_socket.recvfrom(1024)
                 try:
                     message = data.decode("utf-8")
                     logger.debug(f"收到查询: {message} 来自 {address}")
 
-                    # 如果是服务发现请求
                     if data.startswith(b"DISCOVER"):
-                        # 解析发现请求
                         parts = message.split("|")
-
                         if len(parts) >= 2:
                             requested_type = parts[1]
-
-                            # 检查服务类型是否匹配（ANY表示所有类型）
                             if requested_type.upper() == "ANY":
-                                # 发送服务端信息作为响应
                                 response = {
                                     "type": "discovery_response",
-                                    "tcp_port": int(TCP_PORT),  # 确保tcp_port是整数类型
+                                    "tcp_port": int(TCP_PORT),
                                     "timestamp": datetime.now().strftime(
                                         "%Y-%m-%d %H:%M:%S"
                                     ),
                                 }
                                 response_data = json.dumps(response).encode("utf-8")
-
-                                # 通过多播发送响应
-                                send_socket.sendto(
-                                    response_data, (MULTICAST_GROUP, MULTICAST_PORT)
-                                )
+                                try:
+                                    send_socket.sendto(
+                                        response_data, (MULTICAST_GROUP, MULTICAST_PORT)
+                                    )
+                                except OSError:
+                                    pass
                                 logger.info(
                                     f"通过多播发送响应到 ('{MULTICAST_GROUP}', {MULTICAST_PORT})"
                                 )
-
                 except json.JSONDecodeError:
                     pass
                 except Exception as e:
                     logger.error(f"处理发现请求时出错: {e}")
             except socket.timeout:
-                # 超时继续循环，检查_udp_running状态
                 continue
+            except OSError:
+                break
             except Exception as e:
                 if _udp_running:
                     logger.error(f"UDP服务发现运行出错: {e}")

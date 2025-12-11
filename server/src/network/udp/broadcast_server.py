@@ -60,32 +60,30 @@ def broadcast_server():
 
         while _broadcast_running:
             try:
-                # 接收数据
                 data, address = sock.recvfrom(1024)
                 try:
                     message = json.loads(data.decode("utf-8"))
                     logger.debug(f"收到广播查询: {message} 来自 {address}")
-
-                    # 如果是服务发现请求
                     if message.get("type") == "discovery":
-                        # 发送服务端信息作为响应（直接单播回客户端）
                         response = {
                             "type": "discovery_response",
                             "tcp_port": int(TCP_PORT),
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         }
                         response_data = json.dumps(response).encode("utf-8")
-
-                        # 直接发送给客户端地址
-                        sock.sendto(response_data, address)
+                        try:
+                            sock.sendto(response_data, address)
+                        except OSError:
+                            pass
                         logger.info(f"通过广播发送响应到 {address}")
-
                 except json.JSONDecodeError:
                     pass
                 except Exception as e:
                     logger.error(f"处理广播发现请求时出错: {e}")
             except socket.timeout:
                 continue
+            except OSError:
+                break
             except Exception as e:
                 if _broadcast_running:
                     logger.error(f"UDP广播服务发现运行出错: {e}")

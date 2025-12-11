@@ -153,9 +153,10 @@ class ConnectionPool:
             with self.lock:
                 self.active_connections += 1
 
-        # 记录连接获取时间
+        # 获取连接时不记录时间戳（时间戳用于标记空闲开始时间）
         with self.lock:
-            self.connection_timestamps[id(conn)] = time.time()
+            if id(conn) in self.connection_timestamps:
+                del self.connection_timestamps[id(conn)]
 
         return conn
 
@@ -196,10 +197,9 @@ class ConnectionPool:
             except:
                 pass
         else:
-            # 成功放回连接池，清理时间戳记录
+            # 成功放回连接池，记录空闲开始时间戳
             with self.lock:
-                if id(conn) in self.connection_timestamps:
-                    del self.connection_timestamps[id(conn)]
+                self.connection_timestamps[id(conn)] = time.time()
 
     @contextmanager
     def get_connection_context(self):
@@ -452,9 +452,10 @@ class AsyncConnectionPool:
             async with self.lock:
                 self.active_connections += 1
 
-        # 记录连接获取时间
+        # 获取连接时不记录时间戳（时间戳用于标记空闲开始时间）
         async with self.lock:
-            self.connection_timestamps[id(conn)] = time.time()
+            if id(conn) in self.connection_timestamps:
+                del self.connection_timestamps[id(conn)]
 
         return conn
 
@@ -465,11 +466,10 @@ class AsyncConnectionPool:
         Args:
             conn: 要归还的数据库连接
         """
-        # 清理连接时间戳
+        # 记录空闲开始时间戳
         conn_id = id(conn)
         async with self.lock:
-            if conn_id in self.connection_timestamps:
-                del self.connection_timestamps[conn_id]
+            self.connection_timestamps[conn_id] = time.time()
 
         if self.is_closed:
             try:
