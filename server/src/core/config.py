@@ -28,7 +28,7 @@ LOG_FILE = Path(__file__).parent.parent.parent / "logs" / "net_manager_server"
 SERVER_MONITOR_INTERVAL = 10  # 服务器性能数据采集间隔（秒）
 
 # TCP 接收控制
-TCP_MAX_MESSAGE_SIZE = 1024 * 1024 * 1024  # 单消息最大长度（字节）
+TCP_MAX_MESSAGE_SIZE = 16 * 1024 * 1024  # 单消息最大长度（字节）
 TCP_RECV_TIMEOUT = 5  # 接收超时（秒）
 
 # SNMP 轮询队列控制
@@ -38,6 +38,7 @@ SNMP_QUEUE_PUT_TIMEOUT = 1  # backpressure模式下入队等待超时（秒）
 
 # 阶段3：并发与配置（默认值，仅作展示，不强制覆盖构造参数）
 TCP_THREADPOOL_WORKERS = 120
+TCP_MAX_PENDING_TASKS = 500
 
 POLLERS_DEVICE_MIN_WORKERS = 5
 POLLERS_DEVICE_MAX_WORKERS = 20

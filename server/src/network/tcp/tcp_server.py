@@ -23,6 +23,8 @@ from src.core.config import (
     TCP_PORT,
     TCP_THREADPOOL_WORKERS,
     TCP_RECV_TIMEOUT,
+    TCP_MAX_MESSAGE_SIZE,
+    TCP_MAX_PENDING_TASKS,
 )
 from src.core.logger import logger
 from src.database import DatabaseManager
@@ -63,8 +65,12 @@ class TCPServer:
 
             raw_length, timed_out = self._recv_all_status(client_socket, 4)
             if raw_length and not timed_out:
-                # 解析数据长度
                 message_length = struct.unpack("!I", raw_length)[0]
+                if message_length > TCP_MAX_MESSAGE_SIZE:
+                    logger.warning(
+                        f"客户端 {address} 握手消息长度超限: {message_length}"
+                    )
+                    return
 
                 # 接收指定长度的数据
                 handshake_data, data_timed_out = self._recv_all_status(
@@ -82,15 +88,18 @@ class TCPServer:
                             with self.clients_lock:
                                 self.client_id_map[client_id] = address
                             # 发送设备在线状态
-                            state_manager.broadcast_message(
-                                {
-                                    "type": "deviceStatus",
-                                    "data": {
-                                        "client_id": client_id,
-                                        "status": "online",
-                                    },
-                                }
-                            )
+                            try:
+                                state_manager.broadcast_message(
+                                    {
+                                        "type": "deviceStatus",
+                                        "data": {
+                                            "client_id": client_id,
+                                            "status": "online",
+                                        },
+                                    }
+                                )
+                            except Exception:
+                                pass
                         else:
                             logger.warning(f"客户端 {address} 发送的不是握手消息")
                     except json.JSONDecodeError:
@@ -104,8 +113,10 @@ class TCPServer:
                 if not raw_length:
                     break
 
-                # 解析数据长度
                 message_length = struct.unpack("!I", raw_length)[0]
+                if message_length > TCP_MAX_MESSAGE_SIZE:
+                    logger.warning(f"客户端 {address} 消息长度超限: {message_length}")
+                    break
 
                 data, data_timed_out = self._recv_all_status(
                     client_socket, message_length
@@ -119,6 +130,14 @@ class TCPServer:
                 # 异步处理客户端数据，避免阻塞
                 # 在提交任务前检查executor是否已关闭
                 try:
+                    try:
+                        qsize = getattr(self.executor, "_work_queue", None)
+                        pending = qsize.qsize() if qsize is not None else 0
+                    except Exception:
+                        pending = 0
+                    if pending > TCP_MAX_PENDING_TASKS:
+                        logger.warning(f"服务器队列拥塞，丢弃来自 {address} 的数据")
+                        continue
                     self.executor.submit(
                         self._process_client_data, data, address, client_id
                     )
@@ -135,12 +154,15 @@ class TCPServer:
             logger.exception(f"处理客户端 {address} 数据时出错: {e}")
         finally:
             # 发送设备离线状态
-            state_manager.broadcast_message(
-                {
-                    "type": "deviceStatus",
-                    "data": {"client_id": client_id, "status": "offline"},
-                }
-            )
+            try:
+                state_manager.broadcast_message(
+                    {
+                        "type": "deviceStatus",
+                        "data": {"client_id": client_id, "status": "offline"},
+                    }
+                )
+            except Exception:
+                pass
             self._cleanup_client_connection(client_socket, address, client_id)
 
     def _process_client_data(self, data, address, client_id=None):
