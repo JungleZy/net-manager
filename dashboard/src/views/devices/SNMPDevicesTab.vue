@@ -555,7 +555,7 @@ const switchColumns = [
     dataIndex: 'index',
     align: 'center',
     key: 'index',
-    width: 44,
+    width: 50,
     customRender: ({ text, index }) => {
       return index + 1
     }
@@ -606,7 +606,7 @@ const switchColumns = [
     dataIndex: 'if_count',
     align: 'center',
     key: 'if_count',
-    width: 70
+    width: 76
   },
   {
     title: '运行时长',

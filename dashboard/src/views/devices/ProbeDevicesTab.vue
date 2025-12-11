@@ -449,7 +449,7 @@ const columns = [
     dataIndex: 'index',
     align: 'center',
     key: 'index',
-    width: 44,
+    width: 50,
     customRender: ({ text, index }) => {
       return index + 1
     }
