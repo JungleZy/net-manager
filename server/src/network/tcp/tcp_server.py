@@ -37,15 +37,14 @@ class TCPServer:
 
     def __init__(self, db_manager=None, max_workers=TCP_THREADPOOL_WORKERS):
         self.tcp_port = TCP_PORT
-        self.clients = set()  # 使用set存储连接的客户端，提高查找效率
-        self.client_id_map = {}  # 存储client_id到地址的映射关系
+        self.clients = set()
+        self.client_id_map = {}
+        self.client_device_id_map = {}
         self.clients_lock = threading.Lock()  # 保护clients集合的锁
         self.running = False
         # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
         self.db_manager = (
-            db_manager
-            if db_manager
-            else DatabaseManager(max_connections=TCP_THREADPOOL_WORKERS + 20)
+            db_manager if db_manager else DatabaseManager()
         )
         # 使用线程池来处理客户端连接，避免为每个客户端创建新线程
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -186,29 +185,35 @@ class TCPServer:
 
             info = json.loads(json_str)
 
-            # 检查是否提供了client_id
             client_id = info.get("client_id")
             if client_id:
-                existing_device = None
+                cached_id = None
                 try:
-                    existing_device = (
-                        self.db_manager.device_manager.get_device_info_by_client_id(
-                            client_id
-                        )
-                    )
+                    cached_id = self.client_device_id_map.get(client_id)
                 except Exception:
-                    existing_device = None
-                if existing_device:
-                    # 如果存在，则使用现有设备的ID进行更新
-                    info["id"] = existing_device["id"]
-                    logger.debug(f"使用现有设备ID更新: {info['id']}")
+                    cached_id = None
+                if cached_id:
+                    info["id"] = cached_id
                 else:
-                    # 如果不存在，则生成新的ID、类型
-                    import uuid
-
-                    info["id"] = str(uuid.uuid4())
-                    info["type"] = "台式机"
-                    logger.debug(f"为新设备生成ID: {info['id']}")
+                    existing_device = None
+                    try:
+                        existing_device = (
+                            self.db_manager.device_manager.get_device_info_by_client_id(
+                                client_id
+                            )
+                        )
+                    except Exception:
+                        existing_device = None
+                    if existing_device:
+                        info["id"] = existing_device["id"]
+                    else:
+                        import uuid
+                        info["id"] = str(uuid.uuid4())
+                        info["type"] = "台式机"
+                try:
+                    self.client_device_id_map[client_id] = info["id"]
+                except Exception:
+                    pass
             else:
                 # 如果没有提供client_id，则忽略
                 logger.warning(
@@ -233,6 +238,10 @@ class TCPServer:
                 )
             except Exception:
                 saved_device_info = None
+            try:
+                self.client_device_id_map[client_id] = device_info.id
+            except Exception:
+                pass
             if saved_device_info:
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": saved_device_info}
@@ -354,6 +363,8 @@ class TCPServer:
             except socket.timeout:
                 logger.warning("接收数据超时")
                 return None
+            except OSError:
+                return None
             if not packet:
                 return None
             data += packet
@@ -366,6 +377,8 @@ class TCPServer:
                 packet = sock.recv(length - len(data))
             except socket.timeout:
                 return None, True
+            except OSError:
+                return None, False
             if not packet:
                 return None, False
             data += packet

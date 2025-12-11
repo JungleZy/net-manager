@@ -133,6 +133,13 @@ class ConnectionPool:
                         conn = self.connections.get(timeout=self.acquire_timeout)
                         logger.debug("等待并获取到连接")
                     except queue.Empty:
+                        try:
+                            qsize = self.connections.qsize()
+                        except Exception:
+                            qsize = 0
+                        logger.error(
+                            f"获取数据库连接超时: active={self.active_connections}, in_queue={qsize}, max={self.max_connections}"
+                        )
                         raise DatabaseConnectionError("获取数据库连接超时")
 
         # 检查连接是否有效
@@ -425,6 +432,13 @@ class AsyncConnectionPool:
                         )
                         logger.debug("等待并获取到异步连接")
                     except asyncio.TimeoutError:
+                        try:
+                            qsize = self.connections.qsize()
+                        except Exception:
+                            qsize = 0
+                        logger.error(
+                            f"获取异步数据库连接超时: active={self.active_connections}, in_queue={qsize}, max={self.max_connections}"
+                        )
                         raise DatabaseConnectionError("获取异步数据库连接超时")
 
         # 检查连接是否有效

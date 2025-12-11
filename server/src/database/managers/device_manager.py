@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
 
 from src.core.logger import logger
+from src.core.config import DB_ACQUIRE_TIMEOUT
 from src.models.device_info import DeviceInfo
 from src.database.connection_pool import AsyncConnectionPool
 from src.database.db_exceptions import (
@@ -104,6 +105,7 @@ class DeviceManager(BaseDatabaseManager):
                 min_connections=min_connections,
                 cleanup_interval=cleanup_interval,
                 max_idle_time=max_idle_time,
+                acquire_timeout=DB_ACQUIRE_TIMEOUT,
             )
 
     def init_tables(self) -> None:

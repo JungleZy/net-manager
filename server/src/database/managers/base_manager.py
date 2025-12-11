@@ -12,6 +12,7 @@ from contextlib import contextmanager, asynccontextmanager
 from typing import Any, Optional
 
 from src.core.logger import logger
+from src.core.config import DB_ACQUIRE_TIMEOUT
 from src.database.connection_pool import ConnectionPool, AsyncConnectionPool
 from src.database.db_exceptions import (
     DatabaseError,
@@ -35,6 +36,7 @@ class BaseDatabaseManager:
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
         shared_pool: Optional[ConnectionPool] = None,
+        acquire_timeout: float = DB_ACQUIRE_TIMEOUT,
     ):
         """
         初始化基础数据库管理器
@@ -62,7 +64,7 @@ class BaseDatabaseManager:
                 max_connections=max_connections,
                 cleanup_interval=cleanup_interval,
                 max_idle_time=max_idle_time,
-                acquire_timeout=5.0,
+                acquire_timeout=acquire_timeout,
             )
             logger.debug(f"创建新连接池: {db_path}")
         # 初始化异步连接池引用
@@ -95,6 +97,7 @@ class BaseDatabaseManager:
                 min_connections=min_connections,
                 cleanup_interval=cleanup_interval,
                 max_idle_time=max_idle_time,
+                acquire_timeout=DB_ACQUIRE_TIMEOUT,
             )
 
     @asynccontextmanager

@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager, asynccontextmanager
 
 from src.core.logger import logger
+from src.core.config import DB_MAX_CONNECTIONS, DB_ACQUIRE_TIMEOUT
 from src.models.device_info import DeviceInfo
 from src.models.switch_info import SwitchInfo
 from src.database.db_exceptions import (
@@ -35,10 +36,10 @@ class DatabaseManager:
     def __init__(
         self,
         db_path: str = "net_manager_server.db",
-        max_connections: int = 10,
+        max_connections: int = DB_MAX_CONNECTIONS,
         cleanup_interval: int = 60,
         max_idle_time: int = 300,
-        acquire_timeout: float = 5.0,
+        acquire_timeout: float = DB_ACQUIRE_TIMEOUT,
     ):
         """
         初始化统一数据库管理器
@@ -72,6 +73,7 @@ class DatabaseManager:
                 cleanup_interval,
                 max_idle_time,
                 shared_pool=self.shared_pool,
+                acquire_timeout=acquire_timeout,
             )
 
             # 创建 device_manager，使用共享连接池
@@ -176,6 +178,7 @@ class DatabaseManager:
                     min_connections=min_connections,
                     cleanup_interval=cleanup_interval,
                     max_idle_time=max_idle_time,
+                    acquire_timeout=DB_ACQUIRE_TIMEOUT,
                 )
             # 为DeviceManager和SwitchManager初始化异步连接池引用
             self.device_manager.init_async_pool(self.async_pool)
