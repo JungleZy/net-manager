@@ -14,7 +14,25 @@ from typing import Optional
 
 
 class SingletonManager:
-    """单例管理器，确保应用程序只能运行一个实例"""
+    """单例管理器，确保应用程序只能运行一个实例
+    
+    根据不同操作系统提供不同的单例实现：
+    - Windows：使用命名互斥体
+    - Linux/Unix：使用文件锁机制
+    
+    提供获取锁和释放锁的方法，确保应用程序安全退出时释放资源。
+    
+    使用示例：
+        singleton = SingletonManager("MyApp")
+        if singleton.acquire_lock():
+            # 应用程序主逻辑
+            try:
+                run_app()
+            finally:
+                singleton.release_lock()
+        else:
+            print("应用程序已在运行中")
+    """
 
     def __init__(self, app_name: str):
         """

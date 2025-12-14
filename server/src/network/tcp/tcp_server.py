@@ -14,11 +14,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-
-# 添加项目根目录到Python路径
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
-
 from src.core.config import (
     TCP_PORT,
     TCP_THREADPOOL_WORKERS,
@@ -32,111 +27,156 @@ from src.models.device_info import DeviceInfo
 from src.core.state_manager import state_manager
 
 
+# 添加项目根目录到Python路径
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
+
+
+
+
 class TCPServer:
-    """TCP服务端，用于与客户端建立长连接"""
+    """TCP服务端，用于与Net Manager客户端建立长连接并处理设备数据
+    
+    主要功能：
+    - 接收客户端连接并进行握手认证
+    - 处理客户端发送的设备信息数据
+    - 将设备数据保存到数据库
+    - 通过WebSocket广播设备状态变化
+    - 管理客户端连接生命周期
+    """
 
     def __init__(self, db_manager=None, max_workers=TCP_THREADPOOL_WORKERS):
-        self.tcp_port = TCP_PORT
-        self.clients = set()
-        self.client_id_map = {}
-        self.client_device_id_map = {}
-        self.clients_lock = threading.Lock()  # 保护clients集合的锁
-        self.running = False
-        # 如果传入了数据库管理器实例，则使用它；否则创建新的实例
-        self.db_manager = (
-            db_manager if db_manager else DatabaseManager()
-        )
-        # 使用线程池来处理客户端连接，避免为每个客户端创建新线程
+        """初始化TCP服务器
+        
+        Args:
+            db_manager: 数据库管理器实例，用于数据存储
+            max_workers: 线程池最大工作线程数
+        """
+        self.tcp_port = TCP_PORT  # TCP服务监听端口
+        self.clients = set()  # 存储当前连接的客户端（socket, address）元组集合
+        self.client_id_map = {}  # 映射client_id到客户端地址
+        self.client_device_id_map = {}  # 映射client_id到设备ID
+        self.clients_lock = threading.Lock()  # 保护客户端集合和映射的线程锁
+        self.running = False  # 服务器运行状态标志
+        
+        # 复用或创建数据库管理器实例
+        self.db_manager = db_manager if db_manager else DatabaseManager()
+        
+        # 使用线程池处理客户端连接，提高并发性能
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
     def handle_client(self, client_socket, address):
-        """处理客户端连接"""
+        """处理单个客户端连接的完整生命周期
+        
+        包括：
+        1. 客户端连接建立
+        2. 握手认证
+        3. 数据接收与处理
+        4. 连接异常处理
+        5. 连接关闭清理
+        
+        Args:
+            client_socket: 客户端套接字对象
+            address: 客户端地址元组 (ip, port)
+        """
         logger.debug(f"客户端 {address} 已连接")
 
-        # 将客户端添加到集合
+        # 将客户端添加到连接集合
         with self.clients_lock:
             self.clients.add((client_socket, address))
 
         client_id = None
         try:
-            # 首先接收握手消息（带长度前缀）
+            # 1. 接收客户端握手消息（带4字节长度前缀）
             import struct
 
+            # 接收4字节长度前缀
             raw_length, timed_out = self._recv_all_status(client_socket, 4)
             if raw_length and not timed_out:
+                # 解析消息长度（大端序）
                 message_length = struct.unpack("!I", raw_length)[0]
+                
+                # 检查消息长度是否超限
                 if message_length > TCP_MAX_MESSAGE_SIZE:
-                    logger.warning(
-                        f"客户端 {address} 握手消息长度超限: {message_length}"
-                    )
+                    logger.warning(f"客户端 {address} 握手消息长度超限: {message_length}")
                     return
 
-                # 接收指定长度的数据
+                # 接收完整的握手数据
                 handshake_data, data_timed_out = self._recv_all_status(
                     client_socket, message_length
                 )
+                
                 if handshake_data and not data_timed_out:
                     try:
+                        # 解析握手JSON数据
                         handshake_info = json.loads(handshake_data.decode("utf-8"))
+                        
                         if handshake_info.get("type") == "handshake":
+                            # 握手成功，获取client_id
                             client_id = handshake_info.get("client_id", "unknown")
-                            logger.info(
-                                f"客户端 {address} 握手成功，client_id: {client_id}"
-                            )
-                            # 存储client_id与客户端地址的映射关系
+                            logger.info(f"客户端 {address} 握手成功，client_id: {client_id}")
+                            
+                            # 存储client_id与客户端地址的映射
                             with self.clients_lock:
                                 self.client_id_map[client_id] = address
-                            # 发送设备在线状态
+                            
+                            # 广播设备在线状态
                             try:
-                                state_manager.broadcast_message(
-                                    {
-                                        "type": "deviceStatus",
-                                        "data": {
-                                            "client_id": client_id,
-                                            "status": "online",
-                                        },
-                                    }
-                                )
+                                state_manager.broadcast_message({
+                                    "type": "deviceStatus",
+                                    "data": {
+                                        "client_id": client_id,
+                                        "status": "online",
+                                    },
+                                })
                             except Exception:
-                                pass
+                                logger.debug(f"无法广播客户端 {client_id} 在线状态")
                         else:
                             logger.warning(f"客户端 {address} 发送的不是握手消息")
                     except json.JSONDecodeError:
                         logger.warning(f"客户端 {address} 发送的握手消息无法解析")
 
+            # 2. 持续接收客户端数据
             while self.running:
+                # 接收消息长度前缀
                 raw_length, timed_out = self._recv_all_status(client_socket, 4)
                 if timed_out:
-                    time.sleep(0.05)
+                    time.sleep(0.05)  # 接收超时，短暂休眠后继续
                     continue
                 if not raw_length:
-                    break
+                    break  # 连接关闭
 
+                # 解析消息长度
                 message_length = struct.unpack("!I", raw_length)[0]
                 if message_length > TCP_MAX_MESSAGE_SIZE:
                     logger.warning(f"客户端 {address} 消息长度超限: {message_length}")
                     break
 
+                # 接收完整消息数据
                 data, data_timed_out = self._recv_all_status(
                     client_socket, message_length
                 )
                 if data_timed_out:
-                    time.sleep(0.05)
+                    time.sleep(0.05)  # 接收超时，短暂休眠后继续
                     continue
                 if not data:
-                    break
+                    break  # 连接关闭
 
-                # 异步处理客户端数据，避免阻塞
-                # 在提交任务前检查executor是否已关闭
+                # 3. 异步处理客户端数据，避免阻塞主线程
                 try:
+                    # 检查线程池队列长度，防止队列溢出
                     try:
                         qsize = getattr(self.executor, "_work_queue", None)
                         pending = qsize.qsize() if qsize is not None else 0
                     except Exception:
                         pending = 0
+                    
+                    # 队列拥塞时丢弃数据
                     if pending > TCP_MAX_PENDING_TASKS:
                         logger.warning(f"服务器队列拥塞，丢弃来自 {address} 的数据")
                         continue
+                    
+                    # 提交数据处理任务到线程池
                     self.executor.submit(
                         self._process_client_data, data, address, client_id
                     )
@@ -152,20 +192,35 @@ class TCPServer:
         except Exception as e:
             logger.exception(f"处理客户端 {address} 数据时出错: {e}")
         finally:
-            # 发送设备离线状态
+            # 4. 连接关闭清理
+            # 广播设备离线状态
             try:
-                state_manager.broadcast_message(
-                    {
-                        "type": "deviceStatus",
-                        "data": {"client_id": client_id, "status": "offline"},
-                    }
-                )
+                state_manager.broadcast_message({
+                    "type": "deviceStatus",
+                    "data": {"client_id": client_id, "status": "offline"},
+                })
             except Exception:
-                pass
+                logger.debug(f"无法广播客户端 {client_id} 离线状态")
+            
+            # 清理客户端连接资源
             self._cleanup_client_connection(client_socket, address, client_id)
 
     def _process_client_data(self, data, address, client_id=None):
-        """处理来自客户端的数据"""
+        """异步处理来自客户端的设备数据
+        
+        主要流程：
+        1. 数据有效性检查
+        2. JSON数据解析
+        3. 设备ID管理（新建/复用）
+        4. 创建设备信息对象
+        5. 数据保存到数据库
+        6. WebSocket广播设备信息
+        
+        Args:
+            data: 原始二进制数据
+            address: 客户端地址
+            client_id: 客户端标识符
+        """
         # 检查数据是否为空
         if not data:
             logger.debug(f"收到来自 {address} 的空数据包，忽略")
@@ -173,116 +228,131 @@ class TCPServer:
 
         logger.debug(f"收到来自 {address} 的数据，长度: {len(data)} 字节")
 
-        json_str = None  # 初始化变量，避免在异常处理中可能未绑定
+        json_str = None  # 初始化JSON字符串变量，避免异常处理中未绑定
         try:
-            # 解析JSON数据
-            json_str = data.decode("utf-8").strip()  # 去除首尾空白字符，包括换行符
+            # 1. 解码并清理数据
+            json_str = data.decode("utf-8").strip()  # 去除首尾空白字符
 
-            # 检查解码后的字符串是否为空
             if not json_str:
                 logger.warning(f"收到来自 {address} 的空JSON字符串，忽略")
                 return
 
+            # 2. 解析JSON数据
             info = json.loads(json_str)
 
+            # 3. 处理设备ID
             client_id = info.get("client_id")
             if client_id:
+                # 尝试从缓存获取设备ID
                 cached_id = None
                 try:
                     cached_id = self.client_device_id_map.get(client_id)
                 except Exception:
                     cached_id = None
+                
                 if cached_id:
+                    # 使用缓存的设备ID
                     info["id"] = cached_id
                 else:
+                    # 尝试从数据库获取现有设备
                     existing_device = None
                     try:
-                        existing_device = (
-                            self.db_manager.device_manager.get_device_info_by_client_id(
-                                client_id
-                            )
-                        )
+                        existing_device = self.db_manager.device_manager.get_device_info_by_client_id(client_id)
                     except Exception:
                         existing_device = None
+                    
                     if existing_device:
+                        # 使用现有设备ID
                         info["id"] = existing_device["id"]
                     else:
+                        # 创建新设备ID和默认类型
                         import uuid
                         info["id"] = str(uuid.uuid4())
-                        info["type"] = "台式机"
+                        info["type"] = "台式机"  # 默认设备类型
+                
+                # 更新设备ID映射
                 try:
                     self.client_device_id_map[client_id] = info["id"]
                 except Exception:
-                    pass
+                    logger.debug(f"无法更新客户端 {client_id} 的设备ID映射")
             else:
-                # 如果没有提供client_id，则忽略
-                logger.warning(
-                    f"收到来自 {address} 的信息，设备信息缺少 client_id，忽略"
-                )
+                # 缺少client_id，忽略数据
+                logger.warning(f"收到来自 {address} 的信息，设备信息缺少 client_id，忽略")
                 return
 
-            # 创建DeviceInfo对象用于保存到数据库
+            # 4. 创建设备信息对象
             device_info = self._create_device_info_with_id(info)
 
-            # 保存到数据库
+            # 5. 保存设备信息到数据库
             try:
                 self.db_manager.device_manager.save_device_info(device_info)
             except Exception:
+                logger.debug(f"无法保存设备 {client_id} 的信息到数据库")
                 return
 
-            # 从数据库获取保存后的设备信息（字典格式），用于WebSocket广播
+            # 6. 获取保存后的数据并广播
             saved_device_info = None
             try:
-                saved_device_info = (
-                    self.db_manager.device_manager.get_device_info_by_id(device_info.id)
-                )
+                saved_device_info = self.db_manager.device_manager.get_device_info_by_id(device_info.id)
             except Exception:
                 saved_device_info = None
+            
+            # 确保设备ID映射正确
             try:
                 self.client_device_id_map[client_id] = device_info.id
             except Exception:
                 pass
+            
+            # 通过WebSocket广播设备信息
             if saved_device_info:
-                state_manager.broadcast_message(
-                    {"type": "deviceInfo", "data": saved_device_info}
-                )
+                state_manager.broadcast_message({
+                    "type": "deviceInfo", 
+                    "data": saved_device_info
+                })
                 logger.debug("设备信息已保存到数据库并通过WebSocket广播")
             else:
                 logger.warning("设备信息保存成功，但无法获取保存后的数据进行广播")
-            logger.debug("设备信息已保存到数据库")
+            
+            logger.debug(f"设备 {client_id} 的信息已处理完成")
 
         except json.JSONDecodeError as e:
-            # 记录更详细的错误信息，包括有问题的数据片段
-            error_msg = f"  无法解析的JSON数据: {e}"
-            # 记录数据的前200个字符用于调试（避免日志过大）
+            # 记录JSON解析错误详情
+            error_msg = f"无法解析的JSON数据: {e}"
             if json_str:
+                # 记录数据预览（前200字符）
                 data_preview = json_str[:200] + ("..." if len(json_str) > 200 else "")
                 logger.warning(f"{error_msg}。数据预览: {data_preview}")
             else:
                 logger.warning(f"{error_msg}。无法解码数据")
-            logger.debug(f"  JSON解析错误详情: {str(e)}")
-            # 记录原始数据的十六进制表示，有助于诊断编码问题
+            
+            # 记录原始数据的十六进制表示，便于调试编码问题
             hex_data = data.hex()[:200] + ("..." if len(data.hex()) > 200 else "")
             logger.debug(f"原始数据(十六进制): {hex_data}")
         except Exception as e:
-            logger.exception(f"  处理数据时出错: {e}")
+            logger.exception(f"处理客户端 {address} 数据时出错: {e}")
 
     def _create_device_info(self, info):
-        """创建设备信息对象"""
-
+        """创建新的设备信息对象（自动生成ID）
+        
+        Args:
+            info: 设备信息字典
+            
+        Returns:
+            DeviceInfo: 设备信息对象
+        """
         import uuid
 
         return DeviceInfo(
-            id=str(uuid.uuid4()),  # 生成唯一ID
-            client_id=info.get("client_id", ""),  # 客户端唯一标识符
+            id=str(uuid.uuid4()),  # 生成新的唯一设备ID
+            client_id=info.get("client_id", ""),  # 客户端标识符
             hostname=info.get("hostname", "N/A"),  # 主机名
             os_name=info.get("os_name", "N/A"),  # 操作系统名称
             os_version=info.get("os_version", "N/A"),  # 操作系统版本
             os_architecture=info.get("os_architecture", "N/A"),  # 操作系统架构
             machine_type=info.get("machine_type", "N/A"),  # 机器类型
-            services=info.get("services", "[]"),  # 服务信息
-            processes=info.get("processes", "[]"),  # 进程信息
-            networks=info.get("networks", "[]"),  # 网络信息
+            services=info.get("services", "[]"),  # 服务信息（JSON字符串）
+            processes=info.get("processes", "[]"),  # 进程信息（JSON字符串）
+            networks=info.get("networks", "[]"),  # 网络信息（JSON字符串）
             timestamp=info.get("timestamp", "N/A"),  # 时间戳
             cpu_info=info.get("cpu_info", ""),  # CPU信息
             memory_info=info.get("memory_info", ""),  # 内存信息
@@ -290,31 +360,42 @@ class TCPServer:
         )
 
     def _create_device_info_with_id(self, info):
-        """创建带有指定ID的设备信息对象"""
+        """创建带有指定ID的设备信息对象
+        
+        Args:
+            info: 设备信息字典，必须包含id字段
+            
+        Returns:
+            DeviceInfo: 设备信息对象
+        """
         return DeviceInfo(
-            id=info["id"],  # 使用指定的ID
-            client_id=info.get("client_id", ""),  # 客户端唯一标识符
+            id=info["id"],  # 使用指定的设备ID
+            client_id=info.get("client_id", ""),  # 客户端标识符
             hostname=info.get("hostname", "N/A"),  # 主机名
             os_name=info.get("os_name", "N/A"),  # 操作系统名称
             os_version=info.get("os_version", "N/A"),  # 操作系统版本
             os_architecture=info.get("os_architecture", "N/A"),  # 操作系统架构
             machine_type=info.get("machine_type", "N/A"),  # 机器类型
-            services=info.get("services", "[]"),  # 服务信息
-            processes=info.get("processes", "[]"),  # 进程信息
-            networks=info.get("networks", "[]"),  # 网络信息
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 时间戳
+            services=info.get("services", "[]"),  # 服务信息（JSON字符串）
+            processes=info.get("processes", "[]"),  # 进程信息（JSON字符串）
+            networks=info.get("networks", "[]"),  # 网络信息（JSON字符串）
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 当前时间戳
             cpu_info=info.get("cpu_info", ""),  # CPU信息
             memory_info=info.get("memory_info", ""),  # 内存信息
             disk_info=info.get("disk_info", ""),  # 磁盘信息
-            type="",  # 显式设置type字段为空，确保通过TCP不更新type字段
+            type="",  # 显式设置type为空，避免通过TCP更新设备类型
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 创建时间
         )
 
     def _process_services_info(self, info):
-        """处理服务信息"""
+        """处理设备服务信息
+        
+        Args:
+            info: 包含服务信息的设备数据字典
+        """
         services_data = info.get("services", "[]")
         try:
-            # 如果services_data是字符串，则解析它；否则直接使用
+            # 兼容字符串和字典类型的服务数据
             if isinstance(services_data, str):
                 services = json.loads(services_data)
             else:
@@ -325,10 +406,14 @@ class TCPServer:
             logger.warning(f"  服务信息无法解析: {services_data}")
 
     def _process_processes_info(self, info):
-        """处理进程信息"""
+        """处理设备进程信息
+        
+        Args:
+            info: 包含进程信息的设备数据字典
+        """
         processes_data = info.get("processes", "[]")
         try:
-            # 如果processes_data是字符串，则解析它；否则直接使用
+            # 兼容字符串和字典类型的进程数据
             if isinstance(processes_data, str):
                 processes = json.loads(processes_data)
             else:
@@ -339,85 +424,137 @@ class TCPServer:
             logger.warning(f"  进程信息无法解析: {processes_data}")
 
     def get_client_address(self, client_id):
-        """根据client_id获取客户端地址"""
+        """根据client_id获取客户端地址
+        
+        Args:
+            client_id: 客户端标识符
+            
+        Returns:
+            tuple: 客户端地址 (ip, port) 或 None
+        """
         with self.clients_lock:
             return self.client_id_map.get(client_id)
 
     def _cleanup_client_connection(self, client_socket, address, client_id=None):
-        """清理客户端连接"""
-        # 移除客户端
+        """清理客户端连接资源
+        
+        Args:
+            client_socket: 客户端套接字
+            address: 客户端地址
+            client_id: 客户端标识符
+        """
+        # 移除客户端连接记录
         with self.clients_lock:
             self.clients.discard((client_socket, address))
-            # 如果有client_id，也从映射中移除
+            # 移除client_id映射
             if client_id and client_id in self.client_id_map:
                 del self.client_id_map[client_id]
+        
+        # 关闭套接字
         client_socket.close()
         logger.info(f"客户端 {address} 连接已关闭")
 
     def _recv_all(self, sock, length):
-        """确保接收指定长度的数据"""
+        """确保接收指定长度的数据
+        
+        Args:
+            sock: 套接字对象
+            length: 需要接收的数据长度
+            
+        Returns:
+            bytes: 完整的数据或None（超时/错误）
+        """
         data = b""
         while len(data) < length:
             try:
+                # 接收剩余长度的数据
                 packet = sock.recv(length - len(data))
             except socket.timeout:
                 logger.warning("接收数据超时")
                 return None
             except OSError:
                 return None
+            
+            # 连接关闭
             if not packet:
                 return None
+            
             data += packet
         return data
 
     def _recv_all_status(self, sock, length):
+        """确保接收指定长度的数据，并返回超时状态
+        
+        Args:
+            sock: 套接字对象
+            length: 需要接收的数据长度
+            
+        Returns:
+            tuple: (data, timed_out)
+                data: 完整的数据或None
+                timed_out: 布尔值，表示是否超时
+        """
         data = b""
         while len(data) < length:
             try:
                 packet = sock.recv(length - len(data))
             except socket.timeout:
-                return None, True
+                return None, True  # 超时，返回True
             except OSError:
-                return None, False
+                return None, False  # 其他错误，返回False
+            
             if not packet:
-                return None, False
+                return None, False  # 连接关闭，返回False
+            
             data += packet
-        return data, False
+        return data, False  # 成功接收，返回False
 
     def start(self):
-        """启动TCP服务端"""
-        # 创建TCP套接字
+        """启动TCP服务器
+        
+        主要流程：
+        1. 创建并配置TCP套接字
+        2. 绑定地址和端口
+        3. 开始监听连接
+        4. 接受客户端连接并提交到线程池处理
+        5. 优雅处理关闭信号
+        6. 清理资源
+        """
+        # 创建TCP套接字（IPv4, TCP）
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # 设置SO_REUSEADDR选项，允许地址重用
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # 设置TCP_NODELAY选项，禁用Nagle算法，减少延迟
-        server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        
+        # 设置套接字选项
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 允许地址重用
+        server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # 禁用Nagle算法，减少延迟
 
-        server_address = ("0.0.0.0", self.tcp_port)
+        server_address = ("0.0.0.0", self.tcp_port)  # 监听所有网络接口
         logger.info(f"TCP服务端启动，监听端口 {self.tcp_port}")
 
         try:
+            # 绑定地址和端口
             server_socket.bind(server_address)
-            # 增加监听队列大小，以处理更多并发连接
+            
+            # 设置监听队列大小，处理并发连接
             server_socket.listen(512)
             self.running = True
 
+            # 主循环，接受客户端连接
             while self.running:
                 try:
-                    # 设置accept超时，以便能够响应Ctrl+C
+                    # 设置accept超时，以便能够响应关闭信号
                     server_socket.settimeout(1.0)
+                    
+                    # 接受客户端连接
                     client_socket, address = server_socket.accept()
-                    client_socket.settimeout(TCP_RECV_TIMEOUT)
+                    client_socket.settimeout(TCP_RECV_TIMEOUT)  # 设置客户端套接字超时
 
-                    # 为每个客户端提交到线程池处理
-                    # 在提交前检查服务器是否仍在运行
+                    # 将客户端连接提交到线程池处理
                     if self.running:
                         try:
-                            self.executor.submit(
-                                self.handle_client, client_socket, address
-                            )
+                            self.executor.submit(self.handle_client, client_socket, address)
                         except RuntimeError as e:
                             if "cannot schedule new futures after shutdown" in str(e):
+                                # 服务器正在关闭，不再接受新连接
                                 logger.debug("服务器正在关闭，不再接受新连接")
                                 client_socket.close()
                                 break
@@ -425,7 +562,7 @@ class TCPServer:
                                 raise
 
                 except socket.timeout:
-                    # accept超时，继续循环
+                    # accept超时，继续循环检查running状态
                     continue
                 except Exception as e:
                     if self.running:
@@ -436,7 +573,9 @@ class TCPServer:
         except Exception as e:
             logger.exception(f"服务端运行出错: {e}")
         finally:
+            # 清理资源
             self.running = False
+            
             # 关闭所有客户端连接
             with self.clients_lock:
                 for client_socket, address in self.clients:
@@ -444,10 +583,13 @@ class TCPServer:
                         client_socket.close()
                     except Exception as e:
                         logger.warning(f"关闭客户端连接时出错: {e}")
-                self.clients.clear()
-                # 清空client_id映射
-                self.client_id_map.clear()
+                self.clients.clear()  # 清空客户端集合
+                self.client_id_map.clear()  # 清空client_id映射
+            
+            # 关闭服务器套接字
             server_socket.close()
+            
             # 关闭线程池
             self.executor.shutdown(wait=True)
+            
             logger.info("TCP服务端已停止")
