@@ -19,7 +19,7 @@ import json
 import threading
 import time
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set
 
 # 内部模块导入
 from src.core.logger import logger
@@ -168,7 +168,7 @@ class StateManager:
 
             # 异常情况检测
             if len(disconnected_clients) > client_count * 0.5:
-                logger.warning(f"消息广播异常: 超过50%的客户端连接已断开")
+                logger.warning("消息广播异常: 超过50%的客户端连接已断开")
 
         except Exception as e:
             # 记录序列化或发送过程中的错误

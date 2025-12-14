@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-跨平台单例管理器
-使用命名互斥体确保应用程序只能运行一个实例
-兼容Windows和Linux平台
-"""
-
 import os
 import sys
 import platform
@@ -122,8 +116,7 @@ class SingletonManager:
             bool: 获取锁成功返回True，否则返回False
         """
         try:
-            # 使用文件锁机制
-            # 获取应用程序路径
+            # 使用文件锁机制，获取应用程序路径
             is_frozen = getattr(sys, "frozen", False)
             is_nuitka = "__compiled__" in globals()
 

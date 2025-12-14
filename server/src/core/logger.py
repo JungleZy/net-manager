@@ -15,7 +15,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 # 修复导入路径问题，确保可以正确导入配置
@@ -24,8 +23,7 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-# 导入配置中的日志设置
-# 优先尝试绝对导入，失败则使用相对导入（用于直接运行此文件时）
+# 导入配置中的日志设置，优先尝试绝对导入，失败则使用相对导入（用于直接运行此文件时）
 try:
     from config import LOG_LEVEL, LOG_FILE
 except ImportError:

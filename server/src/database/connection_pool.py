@@ -10,7 +10,6 @@ import threading
 import time
 import queue
 from contextlib import contextmanager, asynccontextmanager
-from typing import Optional
 import asyncio
 
 from src.core.logger import logger

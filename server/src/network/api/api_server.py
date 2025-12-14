@@ -19,7 +19,6 @@ from src.database.managers.topology_manager import TopologyManager
 from src.database.managers.resident_process_manager import ResidentProcessManager
 
 # 导入拆分后的handlers
-from src.network.api.handlers.main_handler import MainHandler
 from src.network.api.handlers.devices_handlers import (
     DeviceCreateHandler,
     DeviceUpdateHandler,
