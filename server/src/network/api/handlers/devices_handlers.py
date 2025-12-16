@@ -283,3 +283,91 @@ class DevicesHandler(BaseHandler):
         except Exception as e:
             self.set_status(500)
             self.write({"status": "error", "message": f"内部服务器错误: {str(e)}"})
+
+
+class DevicesPageHandler(BaseHandler):
+    def initialize(self, db_manager, get_tcp_server_func=None):
+        self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
+
+    def get_online_status(self, client_id):
+        if not self.get_tcp_server_func:
+            return False
+        tcp_server = self.get_tcp_server_func()
+        if not tcp_server:
+            return False
+        with tcp_server.clients_lock:
+            return client_id in tcp_server.client_id_map
+
+    def get(self):
+        try:
+            try:
+                limit = int(self.get_query_argument("limit", "20"))
+            except Exception:
+                limit = 20
+            try:
+                offset = int(self.get_query_argument("offset", "0"))
+            except Exception:
+                offset = 0
+            if limit <= 0:
+                limit = 20
+            if limit > 200:
+                limit = 200
+            if offset < 0:
+                offset = 0
+
+            total = self.db_manager.device_manager.get_device_count()
+            devices = self.db_manager.device_manager.get_device_info_paginated(
+                limit, offset
+            )
+
+            processed_devices = []
+            for device in devices:
+                networks = device["networks"] if device["networks"] else []
+                ips = []
+                for network in networks:
+                    if isinstance(network, dict) and "ip_address" in network:
+                        ip = network["ip_address"]
+                        if ip:
+                            ips.append(f"{network['name']}: {ip}")
+                processed_device = {
+                    "id": device["id"],
+                    "alias": device["alias"],
+                    "hostname": device["hostname"],
+                    "services_count": len(device["services"]),
+                    "processes_count": len(device["processes"]),
+                    "services": device["services"],
+                    "processes": device["processes"],
+                    "networks_count": len(networks),
+                    "ips": ips,
+                    "cpu_info": device["cpu_info"],
+                    "memory_info": device["memory_info"],
+                    "disk_info": device["disk_info"],
+                    "networks": networks,
+                    "online": self.get_online_status(device["client_id"]),
+                    "os_name": device["os_name"],
+                    "os_version": device["os_version"],
+                    "os_architecture": device["os_architecture"],
+                    "machine_type": device["machine_type"],
+                    "type": device["type"],
+                    "client_id": device["client_id"],
+                    "timestamp": device["timestamp"],
+                    "created_at": device["created_at"],
+                }
+                processed_devices.append(processed_device)
+
+            has_more = offset + len(processed_devices) < total
+            self.write(
+                {
+                    "status": "success",
+                    "data": processed_devices,
+                    "count": len(processed_devices),
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": has_more,
+                }
+            )
+        except Exception as e:
+            self.set_status(500)
+            self.write({"status": "error", "message": f"内部服务器错误: {str(e)}"})

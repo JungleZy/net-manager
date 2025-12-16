@@ -26,6 +26,7 @@ from src.network.api.handlers.devices_handlers import (
     DeviceHandler,
     DeviceTypeHandler,
     DevicesHandler,
+    DevicesPageHandler,
 )
 from src.network.api.handlers.switches_handlers import (
     SwitchCreateHandler,
@@ -167,6 +168,11 @@ class APIServer:
             (
                 r"/api/devices",
                 DevicesHandler,
+                dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server),
+            ),
+            (
+                r"/api/devices/page",
+                DevicesPageHandler,
                 dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server),
             ),
             # 设备类型管理API

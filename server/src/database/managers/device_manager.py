@@ -398,6 +398,86 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"查询所有系统信息失败: {e}")
             raise DatabaseQueryError(f"查询所有系统信息失败: {e}") from e
 
+    def get_device_info_paginated(self, limit: int, offset: int) -> List[Dict[str, Any]]:
+        """
+        分页获取设备信息
+        """
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    """
+                    SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type,
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at
+                    FROM device_info
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (int(limit), int(offset)),
+                )
+
+                rows = cursor.fetchall()
+
+                result = []
+                for row in rows:
+                    try:
+                        services = json.loads(row[7]) if row[7] else []
+                    except (json.JSONDecodeError, TypeError):
+                        services = []
+
+                    try:
+                        processes = json.loads(row[8]) if row[8] else []
+                    except (json.JSONDecodeError, TypeError):
+                        processes = []
+
+                    try:
+                        networks = json.loads(row[9]) if row[9] else []
+                    except (json.JSONDecodeError, TypeError):
+                        networks = []
+
+                    try:
+                        cpu_info = json.loads(row[10]) if row[10] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        cpu_info = {}
+
+                    try:
+                        memory_info = json.loads(row[11]) if row[11] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        memory_info = {}
+
+                    try:
+                        disk_info = json.loads(row[12]) if row[12] else {}
+                    except (json.JSONDecodeError, TypeError):
+                        disk_info = {}
+
+                    result.append(
+                        {
+                            "id": row[0],
+                            "client_id": row[1],
+                            "hostname": row[2],
+                            "os_name": row[3],
+                            "os_version": row[4],
+                            "os_architecture": row[5],
+                            "machine_type": row[6],
+                            "services": services,
+                            "processes": processes,
+                            "networks": networks,
+                            "cpu_info": cpu_info,
+                            "memory_info": memory_info,
+                            "disk_info": disk_info,
+                            "type": row[13],
+                            "alias": row[14],
+                            "timestamp": row[15],
+                            "created_at": row[16],
+                        }
+                    )
+
+                return result
+        except Exception as e:
+            logger.error(f"分页查询系统信息失败: {e}")
+            raise DatabaseQueryError(f"分页查询系统信息失败: {e}") from e
+
     def get_device_info_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
         根据设备ID获取设备信息

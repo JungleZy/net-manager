@@ -45,6 +45,13 @@ const DeviceApi = {
       url: '/api/devices'
     })
   },
+  getDevicesPage: (limit, offset) => {
+    return axios({
+      method: 'get',
+      url: '/api/devices/page',
+      data: { limit, offset }
+    })
+  },
   getDeviceInfo: (deviceId) => {
     return axios({
       method: 'get',

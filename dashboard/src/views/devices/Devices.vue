@@ -36,7 +36,7 @@ const activeKey = ref(savedActiveKey)
 
 // 表格分页和加载状态
 const pagination = {
-  pageSize: 30
+  pageSize: 20
 }
 const loading = ref(false)
 

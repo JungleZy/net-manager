@@ -54,8 +54,8 @@
       <a-table
         :columns="columns"
         :data-source="filteredDevices"
-        :pagination="pagination"
-        :loading="loading"
+        :pagination="tablePagination"
+        :loading="tableLoading"
         size="small"
         row-key="id"
         bordered
@@ -367,6 +367,17 @@ const emit = defineEmits([
 ])
 // 设备数据使用 shallowRef 优化大数组性能
 const devices = shallowRef([])
+const current = ref(1)
+const pageSize = ref((props.pagination && props.pagination.pageSize) || 20)
+const total = ref(0)
+const innerLoading = ref(false)
+const tableLoading = computed(() => props.loading || innerLoading.value)
+const tablePagination = computed(() => ({
+  current: current.value,
+  pageSize: pageSize.value,
+  total: total.value,
+  showSizeChanger: true
+}))
 
 // 模态框相关
 const showModal = ref(false)
@@ -852,11 +863,18 @@ watch(filterIP, (val) => {
 
 const fetchDevices = async () => {
   try {
-    const response = await DeviceApi.getDevicesList()
+    innerLoading.value = true
+    const response = await DeviceApi.getDevicesPage(
+      pageSize.value,
+      (current.value - 1) * pageSize.value
+    )
     devices.value = response?.data || []
+    total.value = response?.total || 0
   } catch (error) {
     console.error('获取设备列表失败:', error)
     message.error('获取设备列表失败')
+  } finally {
+    innerLoading.value = false
   }
 }
 
@@ -954,6 +972,11 @@ const deleteDevice = async (id) => {
 
 // 处理表格变化事件
 const handleTableChange = (pag, filters, sorter) => {
+  if (pag) {
+    current.value = pag.current || 1
+    pageSize.value = pag.pageSize || pageSize.value
+    fetchDevices()
+  }
   emit('handleTableChange', pag, filters, sorter)
 }
 
