@@ -291,6 +291,7 @@ const containerRef = useTemplateRef('containerRef')
 const networkWrapperRef = useTemplateRef('networkWrapperRef')
 const networkContainerRef = useTemplateRef('networkContainerRef')
 const searchInputRef = useTemplateRef('searchInputRef')
+const pubsubTokens = []
 const devices = ref([])
 const switches = ref([])
 // 使用 ref 确保响应式更新能够正确触发
@@ -1865,16 +1866,16 @@ const handleDeviceInfoUpdate = (data) => {
 const initPubSubSubscriptions = () => {
   try {
     // 订阅设备状态更新
-    PubSub.subscribe(wsCode.DEVICE_STATUS, handleDeviceStatusUpdate)
+    pubsubTokens.push(PubSub.subscribe(wsCode.DEVICE_STATUS, handleDeviceStatusUpdate))
 
     // 订阅SNMP设备更新
-    PubSub.subscribe(wsCode.SNMP_DEVICE_UPDATE, handleSnmpDeviceUpdate)
+    pubsubTokens.push(PubSub.subscribe(wsCode.SNMP_DEVICE_UPDATE, handleSnmpDeviceUpdate))
 
     // 订阅客户端设备信息更新（按在线状态更新边）
-    PubSub.subscribe(wsCode.DEVICE_INFO, handleDeviceInfoUpdate)
+    pubsubTokens.push(PubSub.subscribe(wsCode.DEVICE_INFO, handleDeviceInfoUpdate))
 
     // 订阅SNMP设备信息更新（按在线状态更新边）
-    PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleSnmpInterfaceUpdate)
+    pubsubTokens.push(PubSub.subscribe(wsCode.SNMP_INTERFACE_UPDATE, handleSnmpInterfaceUpdate))
 
     console.log('Network.vue: PubSub订阅已初始化')
   } catch (error) {
@@ -1956,9 +1957,12 @@ const cleanup = () => {
   }
 
   // 移除全局点击事件监听
-  PubSub.unsubscribe(wsCode.DEVICE_STATUS)
-  PubSub.unsubscribe(wsCode.DEVICE_INFO)
-  PubSub.unsubscribe(wsCode.SNMP_DEVICE_UPDATE)
+  if (pubsubTokens.length) {
+    for (const t of pubsubTokens) {
+      PubSub.unsubscribe(t)
+    }
+    pubsubTokens.length = 0
+  }
   // 移除 ResizeObserver
   if (resizeObserver) {
     resizeObserver.disconnect()

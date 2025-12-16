@@ -21,6 +21,7 @@ export class Ws {
       this.flag = true;
       this.url = wsUrl;
       this.socket = null;
+      this._reconnectTimer = null;
       // 记录上一次设备更新的时间戳（用于计算实时推送频率）
       this.lastDeviceUpdateTime = null;
       this.lastInterfaceUpdateTime = null;
@@ -39,6 +40,10 @@ export class Ws {
     this.socket = new WebSocket(this.url);
     this.socket.onopen = (e) => {
       this.flag = true;
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
       notification.success({
         key,
         message: `恭喜`,
@@ -95,6 +100,9 @@ export class Ws {
   reconnect() {
     const that = this;
     if (this.flag) {
+      if (this._reconnectTimer) {
+        return;
+      }
       notification.error({
         key,
         message: `请检查`,
@@ -102,7 +110,8 @@ export class Ws {
         description:
           '正在重连后端服务器！'
       });
-      setTimeout(() => {
+      this._reconnectTimer = setTimeout(() => {
+        this._reconnectTimer = null;
         that.run().then();
       }, 5000)
     }

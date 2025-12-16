@@ -12,7 +12,7 @@ import psutil
 from typing import Dict, Any, List, Optional
 from src.core.logger import logger
 from src.core.state_manager import state_manager
-from src.core.config import SERVER_MONITOR_INTERVAL
+from src.core.config import SERVER_MONITOR_INTERVAL, SERVER_MONITOR_FD_BACKOFF_SEC
 
 
 class ServerMonitor:
@@ -33,6 +33,7 @@ class ServerMonitor:
         # 用于计算网络速率的上次采集数据
         self._last_net_io = None
         self._last_net_time = None
+        self._fd_backoff_until = 0
 
     def start(self):
         """启动监控线程"""
@@ -56,8 +57,8 @@ class ServerMonitor:
         """监控循环"""
         while self.running:
             try:
-                # 收集性能数据
-                performance_data = self._collect_performance_data()
+                safe_mode = time.time() < self._fd_backoff_until
+                performance_data = self._collect_performance_data(safe_mode=safe_mode)
 
                 # 通过WebSocket广播到前端
                 state_manager.broadcast_message(
@@ -71,12 +72,21 @@ class ServerMonitor:
                 )
 
             except Exception as e:
-                self.logger.error(f"收集服务器性能数据时出错: {e}", exc_info=True)
+                msg = str(e)
+                if (
+                    hasattr(e, "errno")
+                    and e.errno == 24
+                    or "Too many open files" in msg
+                ):
+                    self._fd_backoff_until = time.time() + SERVER_MONITOR_FD_BACKOFF_SEC
+                    self.logger.error("文件描述符耗尽，进入监控降级模式", exc_info=True)
+                else:
+                    self.logger.error(f"收集服务器性能数据时出错: {e}", exc_info=True)
 
             # 等待下一次采集
             time.sleep(self.interval)
 
-    def _collect_performance_data(self) -> Dict[str, Any]:
+    def _collect_performance_data(self, safe_mode: bool = False) -> Dict[str, Any]:
         """
         收集服务器性能数据
 
@@ -87,8 +97,8 @@ class ServerMonitor:
             "timestamp": time.time(),
             "cpu": self._get_cpu_info(),
             "memory": self._get_memory_info(),
-            "disk": self._get_disk_info(),
-            "network": self._get_network_info(),
+            "disk": self._get_disk_info(safe_mode=safe_mode),
+            "network": self._get_network_info(safe_mode=safe_mode),
         }
 
     def _get_cpu_info(self) -> Dict[str, Any]:
@@ -205,7 +215,7 @@ class ServerMonitor:
             self.logger.error(f"获取内存信息失败: {e}")
             return {"total": 0, "used": 0, "usage_percent": 0}
 
-    def _get_disk_info(self) -> Dict[str, Any]:
+    def _get_disk_info(self, safe_mode: bool = False) -> Dict[str, Any]:
         """
         获取磁盘使用信息
 
@@ -221,7 +231,26 @@ class ServerMonitor:
                 "usage_percent": 0,
             }
 
-            # 获取所有磁盘分区
+            if safe_mode:
+                disk_info = {
+                    "partitions": [],
+                    "total": 0,
+                    "used": 0,
+                    "free": 0,
+                    "usage_percent": 0,
+                }
+                try:
+                    disk_io = psutil.disk_io_counters()
+                    if disk_io:
+                        disk_info["io"] = {
+                            "read_bytes": disk_io.read_bytes,
+                            "write_bytes": disk_io.write_bytes,
+                            "read_count": disk_io.read_count,
+                            "write_count": disk_io.write_count,
+                        }
+                except Exception:
+                    pass
+                return disk_info
             partitions = psutil.disk_partitions(all=False)
             total_space = 0
             used_space = 0
@@ -271,7 +300,7 @@ class ServerMonitor:
             self.logger.error(f"获取磁盘信息失败: {e}")
             return {"total": 0, "used": 0, "usage_percent": 0, "partitions": []}
 
-    def _get_network_info(self) -> List[Dict[str, Any]]:
+    def _get_network_info(self, safe_mode: bool = False) -> List[Dict[str, Any]]:
         """
         获取网络接口信息，包括上传/下载速率
 
@@ -281,7 +310,8 @@ class ServerMonitor:
         try:
             network_interfaces = []
 
-            # 获取当前网络IO统计
+            if safe_mode:
+                return []
             current_net_io = psutil.net_io_counters(pernic=True)
             current_time = time.time()
 

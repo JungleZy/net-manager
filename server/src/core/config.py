@@ -26,6 +26,7 @@ LOG_FILE = Path(__file__).parent.parent.parent / "logs" / "net_manager_server"
 
 # 服务器性能监控配置
 SERVER_MONITOR_INTERVAL = 10  # 服务器性能数据采集间隔（秒）
+SERVER_MONITOR_FD_BACKOFF_SEC = int(os.getenv("SERVER_MONITOR_FD_BACKOFF_SEC", 60))
 
 # TCP 接收控制
 TCP_MAX_MESSAGE_SIZE = 16 * 1024 * 1024  # 单消息最大长度（字节）
@@ -36,8 +37,15 @@ SNMP_QUEUE_MAXSIZE = 200  # 队列最大长度
 SNMP_QUEUE_STRATEGY = "drop_new"  # 可选：drop_new / drop_oldest / backpressure
 SNMP_QUEUE_PUT_TIMEOUT = 1  # backpressure模式下入队等待超时（秒）
 
-# 阶段3：并发与配置（默认值，仅作展示，不强制覆盖构造参数）
-TCP_THREADPOOL_WORKERS = 120
+# 阶段3：并发与配置（默认值可通过环境变量覆盖）
+try:
+    import multiprocessing as _mp
+
+    _cpu = max(1, _mp.cpu_count())
+    _default_workers = max(8, min(64, _cpu * 2))
+except Exception:
+    _default_workers = 32
+TCP_THREADPOOL_WORKERS = int(os.getenv("TCP_THREADPOOL_WORKERS", _default_workers))
 TCP_MAX_PENDING_TASKS = 500
 
 POLLERS_DEVICE_MIN_WORKERS = 5
@@ -62,3 +70,11 @@ SNMP_HISTORY_PURGE_INTERVAL_MIN = 60
 
 DB_MAX_CONNECTIONS = int(os.getenv("DB_MAX_CONNECTIONS", TCP_THREADPOOL_WORKERS + 20))
 DB_ACQUIRE_TIMEOUT = float(os.getenv("DB_ACQUIRE_TIMEOUT", 15.0))
+DEVICE_PERSIST_QUEUE_MAXSIZE = int(os.getenv("DEVICE_PERSIST_QUEUE_MAXSIZE", 1000))
+DEVICE_PERSIST_FLUSH_INTERVAL_MS = int(
+    os.getenv("DEVICE_PERSIST_FLUSH_INTERVAL_MS", 200)
+)
+DEVICE_PERSIST_BATCH_SIZE = int(os.getenv("DEVICE_PERSIST_BATCH_SIZE", 100))
+TCP_MAX_CLIENTS = int(os.getenv("TCP_MAX_CLIENTS", 400))
+TCP_ACCEPT_EMFILE_BACKOFF_MS = int(os.getenv("TCP_ACCEPT_EMFILE_BACKOFF_MS", 1000))
+TCP_EMFILE_DROP_COUNT = int(os.getenv("TCP_EMFILE_DROP_COUNT", 50))
