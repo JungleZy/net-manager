@@ -14,8 +14,9 @@ from src.network.api.handlers.base_handler import BaseHandler
 class DeviceCreateHandler(BaseHandler):
     """设备创建处理器 - 新增设备"""
 
-    def initialize(self, db_manager):
+    def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
 
     def post(self):
         try:
@@ -36,6 +37,17 @@ class DeviceCreateHandler(BaseHandler):
             success, message = self.db_manager.device_manager.create_device(data)
 
             if success:
+                # 更新设备缓存
+                client_id = data.get("client_id")
+                if client_id and self.get_tcp_server_func:
+                    tcp_server = self.get_tcp_server_func()
+                    if tcp_server:
+                        with tcp_server.clients_lock:
+                            tcp_server.client_device_map[client_id] = {
+                                "id": data["id"],
+                                "alias": data.get("alias", ""),
+                                "type": data.get("type", "")
+                            }
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)
@@ -51,8 +63,9 @@ class DeviceCreateHandler(BaseHandler):
 class DeviceUpdateHandler(BaseHandler):
     """设备更新处理器 - 修改设备"""
 
-    def initialize(self, db_manager):
+    def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
 
     def post(self):
         try:
@@ -76,6 +89,21 @@ class DeviceUpdateHandler(BaseHandler):
             success, message = self.db_manager.device_manager.update_device(data)
 
             if success:
+                # 更新设备缓存
+                if self.get_tcp_server_func:
+                    # 获取设备信息，包括client_id
+                    device = self.db_manager.device_manager.get_device_info_by_id(data["id"])
+                    if device:
+                        client_id = device.get("client_id")
+                        if client_id:
+                            tcp_server = self.get_tcp_server_func()
+                            if tcp_server:
+                                with tcp_server.clients_lock:
+                                    tcp_server.client_device_map[client_id] = {
+                                        "id": device["id"],
+                                        "alias": device.get("alias", ""),
+                                        "type": device.get("type", "")
+                                    }
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)
@@ -91,8 +119,9 @@ class DeviceUpdateHandler(BaseHandler):
 class DeviceDeleteHandler(BaseHandler):
     """设备删除处理器 - 删除设备"""
 
-    def initialize(self, db_manager):
+    def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
 
     def post(self):
         try:
@@ -106,10 +135,23 @@ class DeviceDeleteHandler(BaseHandler):
                 self.write({"status": "error", "message": "缺少必需的字段: id"})
                 return
 
+            # 删除设备前先获取设备信息，用于后续清理缓存
+            device = self.db_manager.device_manager.get_device_info_by_id(device_id)
+            client_id = None
+            if device:
+                client_id = device.get("client_id")
+
             # 删除设备
             success, message = self.db_manager.device_manager.delete_device(device_id)
 
             if success:
+                # 更新设备缓存
+                if client_id and self.get_tcp_server_func:
+                    tcp_server = self.get_tcp_server_func()
+                    if tcp_server:
+                        with tcp_server.clients_lock:
+                            if client_id in tcp_server.client_device_map:
+                                del tcp_server.client_device_map[client_id]
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)

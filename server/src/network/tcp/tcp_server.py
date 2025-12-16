@@ -5,6 +5,7 @@
 TCP服务端 - 用于与Net Manager客户端建立长连接并接收数据
 """
 
+from math import log
 import socket
 import json
 import threading
@@ -59,7 +60,7 @@ class TCPServer:
         self.tcp_port = TCP_PORT  # TCP服务监听端口
         self.clients = set()  # 存储当前连接的客户端（socket, address）元组集合
         self.client_id_map = {}  # 映射client_id到客户端地址
-        self.client_device_id_map = {}  # 映射client_id到设备ID
+        self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias、type字段）
         self.clients_lock = threading.Lock()  # 保护客户端集合和映射的线程锁
         self.running = False  # 服务器运行状态标志
         self._client_last_active = {}
@@ -267,16 +268,16 @@ class TCPServer:
             # 3. 处理设备ID
             client_id = info.get("client_id")
             if client_id:
-                # 尝试从缓存获取设备ID
-                cached_id = None
+                # 尝试从缓存获取设备信息
+                cached_device = None
                 try:
-                    cached_id = self.client_device_id_map.get(client_id)
+                    cached_device = self.client_device_map.get(client_id)
                 except Exception:
-                    cached_id = None
+                    cached_device = None
 
-                if cached_id:
+                if cached_device:
                     # 使用缓存的设备ID
-                    info["id"] = cached_id
+                    info["id"] = cached_device['id']
                 else:
                     # 尝试从数据库获取现有设备
                     existing_device = None
@@ -292,28 +293,34 @@ class TCPServer:
                     if existing_device:
                         # 使用现有设备ID
                         info["id"] = existing_device["id"]
+                        # 更新缓存
+                        with self.clients_lock:
+                            self.client_device_map[client_id] = {
+                                'id': existing_device["id"],
+                                'alias': existing_device.get('alias', ''),
+                                'type': existing_device.get('type', '')
+                            }
                     else:
                         # 创建新设备ID和默认类型
                         import uuid
 
                         info["id"] = str(uuid.uuid4())
                         info["type"] = "台式机"  # 默认设备类型
-
-                # 更新设备ID映射
-                try:
-                    self.client_device_id_map[client_id] = info["id"]
-                except Exception:
-                    logger.debug(f"无法更新客户端 {client_id} 的设备ID映射")
+                        # 更新缓存
+                        with self.clients_lock:
+                            self.client_device_map[client_id] = {
+                                'id': info["id"],
+                                'alias': '',
+                                'type': info["type"]
+                            }
             else:
                 # 缺少client_id，忽略数据
                 logger.warning(
                     f"收到来自 {address} 的信息，设备信息缺少 client_id，忽略"
                 )
                 return
-
             # 4. 创建设备信息对象
             device_info = self._create_device_info_with_id(info)
-
             try:
                 self.persist_queue.enqueue(device_info)
             except Exception:
@@ -321,10 +328,20 @@ class TCPServer:
 
             # 确保设备ID映射正确
             try:
-                self.client_device_id_map[client_id] = device_info.id
+                with self.clients_lock:
+                    # 更新缓存的设备ID
+                    if client_id in self.client_device_map:
+                        self.client_device_map[client_id]['id'] = device_info.id
+                    else:
+                        self.client_device_map[client_id] = {
+                            'id': device_info.id,
+                            'alias': '',
+                            'type': ''
+                        }
             except Exception:
                 pass
-
+            device_info.alias = self.client_device_map[client_id]['alias']
+            device_info.type = self.client_device_map[client_id]['type']
             state_manager.broadcast_message(
                 {"type": "deviceInfo", "data": device_info.to_dict()}
             )
@@ -400,6 +417,7 @@ class TCPServer:
             memory_info=info.get("memory_info", ""),  # 内存信息
             disk_info=info.get("disk_info", ""),  # 磁盘信息
             type="",  # 显式设置type为空，避免通过TCP更新设备类型
+            alias="",  # 设备别名
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 创建时间
         )
 
@@ -439,6 +457,32 @@ class TCPServer:
         except json.JSONDecodeError:
             logger.warning(f"  进程信息无法解析: {processes_data}")
 
+    def load_device_cache(self):
+        """从数据库加载所有设备信息到缓存
+        
+        缓存结构: self.client_device_map[client_id] = {
+            'id': 设备ID,
+            'alias': 设备别名,
+            'type': 设备类型
+        }
+        """
+        try:
+            # 获取所有设备信息
+            devices = self.db_manager.device_manager.get_all_device_info()
+            if devices:
+                with self.clients_lock:
+                    for device in devices:
+                        client_id = device.get('client_id')
+                        if client_id:
+                            self.client_device_map[client_id] = {
+                                'id': device.get('id'),
+                                'alias': device.get('alias', ''),
+                                'type': device.get('type', '')
+                            }
+                logger.info(f"设备缓存加载完成，共 {len(devices)} 个设备")
+        except Exception as e:
+            logger.exception(f"加载设备缓存时出错: {e}")
+
     def get_client_address(self, client_id):
         """根据client_id获取客户端地址
 
@@ -465,6 +509,7 @@ class TCPServer:
             # 移除client_id映射
             if client_id and client_id in self.client_id_map:
                 del self.client_id_map[client_id]
+            # 注意：client_device_map缓存不应被清理，因为设备信息需要在客户端离线后依然保留
             self._client_last_active.pop(client_socket, None)
 
         # 关闭套接字
@@ -562,6 +607,9 @@ class TCPServer:
                 self.persist_queue.start()
             except Exception:
                 pass
+
+            # 加载设备缓存
+            self.load_device_cache()
 
             # 主循环，接受客户端连接
             while self.running:

@@ -185,17 +185,17 @@ class APIServer:
             (
                 r"/api/devices/create",
                 DeviceCreateHandler,
-                dict(db_manager=self.db_manager),
+                dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server),
             ),
             (
                 r"/api/devices/update",
                 DeviceUpdateHandler,
-                dict(db_manager=self.db_manager),
+                dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server),
             ),
             (
                 r"/api/devices/delete",
                 DeviceDeleteHandler,
-                dict(db_manager=self.db_manager),
+                dict(db_manager=self.db_manager, get_tcp_server_func=self.get_tcp_server),
             ),
             (
                 r"/api/devices/(?P<device_id>[^/]+)",
