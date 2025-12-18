@@ -15,9 +15,10 @@ import atexit
 parent_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, parent_dir)
 
+import asyncio
 from src.network.udp.udp_server import udp_server
 from src.network.udp.broadcast_server import broadcast_server
-from src.network.tcp.tcp_server import TCPServer
+from src.network.tcp.async_tcp_server import AsyncTCPServer
 from src.network.api.api_server import APIServer
 from src.database import DatabaseManager
 from src.core.logger import logger
@@ -84,10 +85,13 @@ def cleanup_on_exit():
     # 停止TCP服务器
     if "tcp_server" in globals() and tcp_server is not None:
         try:
-            logger.info("停止TCP服务器...")
+            logger.info("停止异步TCP服务器...")
+            # 设置running为False
             tcp_server.running = False
+            # 调用异步stop方法
+            asyncio.run(tcp_server.stop())
         except Exception as e:
-            logger.exception(f"停止TCP服务器时出错: {e}")
+            logger.exception(f"停止异步TCP服务器时出错: {e}")
 
     # 停止API服务器
     if "api_server" in globals() and api_server is not None:
@@ -138,11 +142,12 @@ def signal_handler(sig, frame):
 
 
 def start_tcp_server(tcp_server_instance):
-    """启动TCP服务器"""
+    """启动异步TCP服务器"""
     try:
-        tcp_server_instance.start()
+        # 运行异步TCP服务器
+        asyncio.run(tcp_server_instance.start())
     except Exception as e:
-        logger.exception(f"TCP服务端运行出错: {e}")
+        logger.exception(f"异步TCP服务端运行出错: {e}")
 
 
 def start_api_server(api_server_instance):
@@ -181,8 +186,8 @@ def main():
         logger.info("数据库初始化...")
         db_manager = DatabaseManager(max_connections=TCP_THREADPOOL_WORKERS + 20)
 
-        # 2. 创建TCP服务器实例
-        tcp_server = TCPServer(db_manager)
+        # 2. 创建TCP服务器实例 - 使用异步TCP服务器
+        tcp_server = AsyncTCPServer(db_manager)
 
         # 3. 创建API服务器实例
         api_server = APIServer(db_manager)

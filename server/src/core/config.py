@@ -42,9 +42,9 @@ try:
     import multiprocessing as _mp
 
     _cpu = max(1, _mp.cpu_count())
-    _default_workers = max(8, min(64, _cpu * 2))
+    _default_workers = max(100, min(200, _cpu * 10))
 except Exception:
-    _default_workers = 32
+    _default_workers = 100
 TCP_THREADPOOL_WORKERS = int(os.getenv("TCP_THREADPOOL_WORKERS", _default_workers))
 TCP_MAX_PENDING_TASKS = 500
 
@@ -70,11 +70,11 @@ SNMP_HISTORY_PURGE_INTERVAL_MIN = 60
 
 DB_MAX_CONNECTIONS = int(os.getenv("DB_MAX_CONNECTIONS", TCP_THREADPOOL_WORKERS + 20))
 DB_ACQUIRE_TIMEOUT = float(os.getenv("DB_ACQUIRE_TIMEOUT", 15.0))
-DEVICE_PERSIST_QUEUE_MAXSIZE = int(os.getenv("DEVICE_PERSIST_QUEUE_MAXSIZE", 1000))
+DEVICE_PERSIST_QUEUE_MAXSIZE = int(os.getenv("DEVICE_PERSIST_QUEUE_MAXSIZE", 2000))
 DEVICE_PERSIST_FLUSH_INTERVAL_MS = int(
-    os.getenv("DEVICE_PERSIST_FLUSH_INTERVAL_MS", 200)
+    os.getenv("DEVICE_PERSIST_FLUSH_INTERVAL_MS", 100)
 )
-DEVICE_PERSIST_BATCH_SIZE = int(os.getenv("DEVICE_PERSIST_BATCH_SIZE", 100))
-TCP_MAX_CLIENTS = int(os.getenv("TCP_MAX_CLIENTS", 400))
+DEVICE_PERSIST_BATCH_SIZE = int(os.getenv("DEVICE_PERSIST_BATCH_SIZE", 200))
+TCP_MAX_CLIENTS = 500
 TCP_ACCEPT_EMFILE_BACKOFF_MS = int(os.getenv("TCP_ACCEPT_EMFILE_BACKOFF_MS", 1000))
 TCP_EMFILE_DROP_COUNT = int(os.getenv("TCP_EMFILE_DROP_COUNT", 50))

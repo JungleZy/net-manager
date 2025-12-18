@@ -8,7 +8,7 @@ including UDP, TCP, and API servers.
 
 # Import network components for easier access
 from .udp.udp_server import udp_server, stop_udp_server
-from .tcp.tcp_server import TCPServer
+from .tcp.async_tcp_server import AsyncTCPServer as TCPServer
 from .api.api_server import APIServer
 
 __all__ = ["udp_server", "stop_udp_server", "TCPServer", "APIServer"]

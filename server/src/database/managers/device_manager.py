@@ -227,82 +227,102 @@ class DeviceManager(BaseDatabaseManager):
         Raises:
             DatabaseQueryError: 数据库操作失败时抛出
         """
+        self.save_device_info_batch([device_info])
+
+    def save_device_info_batch(self, device_infos: List[DeviceInfo]) -> None:
+        """
+        批量保存设备信息到数据库
+
+        使用id作为主键进行更新或插入操作。
+        注意：通过TCP更新数据时不更新type和alias字段，这些字段只能通过API手动设置。
+
+        Args:
+            device_infos: DeviceInfo对象列表
+
+        Raises:
+            DatabaseQueryError: 数据库操作失败时抛出
+        """
+        if not device_infos:
+            return
+
         try:
             with self.db_lock:  # 使用锁保护数据库访问
                 with self.transaction() as conn:
                     cursor = conn.cursor()
 
-                    # 将复杂数据结构转换为JSON字符串
-                    services_json = (
-                        json.dumps(device_info.services, ensure_ascii=False)
-                        if device_info.services
-                        else "[]"
-                    )
-                    processes_json = (
-                        json.dumps(device_info.processes, ensure_ascii=False)
-                        if device_info.processes
-                        else "[]"
-                    )
-                    networks_json = (
-                        json.dumps(device_info.networks, ensure_ascii=False)
-                        if device_info.networks
-                        else "[]"
-                    )
-                    cpu_info_json = (
-                        json.dumps(device_info.cpu_info, ensure_ascii=False)
-                        if device_info.cpu_info
-                        else "{}"
-                    )
-                    memory_info_json = (
-                        json.dumps(device_info.memory_info, ensure_ascii=False)
-                        if device_info.memory_info
-                        else "{}"
-                    )
-                    disk_info_json = (
-                        json.dumps(device_info.disk_info, ensure_ascii=False)
-                        if device_info.disk_info
-                        else "{}"
-                    )
+                    # 批量处理所有设备信息
+                    for device_info in device_infos:
+                        # 将复杂数据结构转换为JSON字符串
+                        services_json = (
+                            json.dumps(device_info.services, ensure_ascii=False)
+                            if device_info.services
+                            else "[]"
+                        )
+                        processes_json = (
+                            json.dumps(device_info.processes, ensure_ascii=False)
+                            if device_info.processes
+                            else "[]"
+                        )
+                        networks_json = (
+                            json.dumps(device_info.networks, ensure_ascii=False)
+                            if device_info.networks
+                            else "[]"
+                        )
+                        cpu_info_json = (
+                            json.dumps(device_info.cpu_info, ensure_ascii=False)
+                            if device_info.cpu_info
+                            else "{}"
+                        )
+                        memory_info_json = (
+                            json.dumps(device_info.memory_info, ensure_ascii=False)
+                            if device_info.memory_info
+                            else "{}"
+                        )
+                        disk_info_json = (
+                            json.dumps(device_info.disk_info, ensure_ascii=False)
+                            if device_info.disk_info
+                            else "{}"
+                        )
 
-                    # 使用INSERT OR REPLACE语句，如果id已存在则更新，否则插入新记录
-                    # 注意：通过TCP更新数据时不更新type和alias字段，这些字段只能通过API手动设置，同时确保created_at字段在创建后不会被更新
-                    cursor.execute(
-                        """
-                        INSERT OR REPLACE INTO device_info 
-                        (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                        services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                            COALESCE((SELECT type FROM device_info WHERE client_id = ?), ''), 
-                            COALESCE((SELECT alias FROM device_info WHERE client_id = ?), ''),
-                            ?, COALESCE((SELECT created_at FROM device_info WHERE client_id = ?), ?))
-                    """,
-                        (
-                            device_info.id,
-                            device_info.client_id,
-                            device_info.hostname,
-                            device_info.os_name,
-                            device_info.os_version,
-                            device_info.os_architecture,
-                            device_info.machine_type,
-                            services_json,
-                            processes_json,
-                            networks_json,
-                            cpu_info_json,
-                            memory_info_json,
-                            disk_info_json,
-                            device_info.client_id,  # 用于COALESCE子查询的参数（type）
-                            device_info.client_id,  # 用于COALESCE子查询的参数（alias）
-                            device_info.timestamp,
-                            device_info.client_id,  # 用于created_at COALESCE子查询的参数
-                            device_info.created_at,
-                        ),
-                    )
+                        # 使用INSERT OR REPLACE语句，如果id已存在则更新，否则插入新记录
+                        # 注意：通过TCP更新数据时不更新type和alias字段，这些字段只能通过API手动设置，同时确保created_at字段在创建后不会被更新
+                        cursor.execute(
+                            """
+                            INSERT OR REPLACE INTO device_info 
+                            (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
+                            services, processes, networks, cpu_info, memory_info, disk_info, type, alias, timestamp, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+                                COALESCE((SELECT type FROM device_info WHERE client_id = ?), ''), 
+                                COALESCE((SELECT alias FROM device_info WHERE client_id = ?), ''),
+                                ?, COALESCE((SELECT created_at FROM device_info WHERE client_id = ?), ?))
+                        """,
+                            (
+                                device_info.id,
+                                device_info.client_id,
+                                device_info.hostname,
+                                device_info.os_name,
+                                device_info.os_version,
+                                device_info.os_architecture,
+                                device_info.machine_type,
+                                services_json,
+                                processes_json,
+                                networks_json,
+                                cpu_info_json,
+                                memory_info_json,
+                                disk_info_json,
+                                device_info.client_id,  # 用于COALESCE子查询的参数（type）
+                                device_info.client_id,  # 用于COALESCE子查询的参数（alias）
+                                device_info.timestamp,
+                                device_info.client_id,  # 用于created_at COALESCE子查询的参数
+                                device_info.created_at,
+                            ),
+                        )
 
                     # 事务会在退出时自动提交
-                    # logger.info(f"设备信息保存成功，ID: {device_info.id}")
+                    # logger.info(f"批量保存设备信息成功，共 {len(device_infos)} 条")
         except Exception as e:
-            logger.error(f"保存设备信息失败: {e}")
-            raise DatabaseQueryError(f"保存设备信息失败: {e}") from e
+            logger.error(f"批量保存设备信息失败: {e}")
+            raise DatabaseQueryError(f"批量保存设备信息失败: {e}") from e
 
     def get_all_device_info(self) -> List[Dict[str, Any]]:
         """

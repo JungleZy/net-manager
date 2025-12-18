@@ -52,10 +52,10 @@ class DevicePersistQueue:
                 items = self._drain_batch()
                 if not items:
                     continue
-                for info in items:
-                    try:
-                        self.db_manager.device_manager.save_device_info(info)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                try:
+                    # 使用批量保存方法优化性能
+                    self.db_manager.device_manager.save_device_info_batch(items)
+                except Exception as e:
+                    logger.exception(f"批量保存设备信息失败: {e}")
+            except Exception as e:
+                logger.exception(f"设备持久化队列运行出错: {e}")
