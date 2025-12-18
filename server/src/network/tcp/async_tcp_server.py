@@ -53,9 +53,14 @@ class AsyncTCPServer:
         self.clients = set()  # 存储当前连接的客户端（reader, writer, address）元组集合
         self.client_id_map = {}  # 映射client_id到客户端地址
         self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias和type字段）
-        self.clients_lock = threading.Lock()  # 保护客户端集合和映射的线程锁
-        self.running = False  # 服务器运行状态标志
         self._client_last_active = {}  # 客户端最后活跃时间
+        
+        # 细粒度锁，替代原来的单个clients_lock，减少锁竞争
+        self.clients_lock = threading.RLock()  # 保护clients集合和client_id_map的锁
+        self.device_map_lock = threading.RLock()  # 保护client_device_map的锁
+        self.active_time_lock = threading.RLock()  # 保护_client_last_active的锁
+        
+        self.running = False  # 服务器运行状态标志
         self.server = None  # 异步服务器实例
 
         # 复用或创建数据库管理器实例
@@ -126,6 +131,14 @@ class AsyncTCPServer:
                     logger.warning(f"关闭客户端 {address} 连接时出错: {e}")
             self.clients.clear()
             self.client_id_map.clear()
+        
+        # 清理客户端活跃时间记录
+        with self.active_time_lock:
+            self._client_last_active.clear()
+        
+        # 清理设备映射缓存
+        with self.device_map_lock:
+            self.client_device_map.clear()
 
         # 关闭线程池
         self.executor.shutdown(wait=True)
@@ -147,7 +160,7 @@ class AsyncTCPServer:
                 self.db_manager.device_manager.get_all_device_info
             )
             if devices:
-                with self.clients_lock:
+                with self.device_map_lock:
                     for device in devices:
                         client_id = device.get('client_id')
                         if client_id:
@@ -182,6 +195,7 @@ class AsyncTCPServer:
         # 将客户端添加到连接集合
         with self.clients_lock:
             self.clients.add((reader, writer, address))
+        with self.active_time_lock:
             self._client_last_active[(reader, writer)] = time.time()
 
         client_id = None
@@ -228,6 +242,7 @@ class AsyncTCPServer:
                 # 存储client_id与客户端地址的映射
                 with self.clients_lock:
                     self.client_id_map[client_id] = address
+                with self.active_time_lock:
                     self._client_last_active[(reader, writer)] = time.time()
 
                 # 广播设备在线状态
@@ -257,7 +272,7 @@ class AsyncTCPServer:
                     )
                 except asyncio.TimeoutError:
                     # 接收超时，更新活跃时间后继续
-                    with self.clients_lock:
+                    with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
                     continue
 
@@ -278,7 +293,7 @@ class AsyncTCPServer:
                     )
                 except asyncio.TimeoutError:
                     # 接收超时，更新活跃时间后继续
-                    with self.clients_lock:
+                    with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
                     continue
 
@@ -286,7 +301,7 @@ class AsyncTCPServer:
                     break  # 连接关闭
 
                 # 更新客户端最后活跃时间
-                with self.clients_lock:
+                with self.active_time_lock:
                     self._client_last_active[(reader, writer)] = time.time()
 
                 # 3. 异步处理客户端数据，避免阻塞事件循环
@@ -342,7 +357,7 @@ class AsyncTCPServer:
             if client_id:
                 # 尝试从缓存获取设备信息
                 cached_device = None
-                with self.clients_lock:
+                with self.device_map_lock:
                     cached_device = self.client_device_map.get(client_id)
 
                 if cached_device:
@@ -365,7 +380,7 @@ class AsyncTCPServer:
                         # 使用现有设备ID
                         info["id"] = existing_device["id"]
                         # 更新缓存
-                        with self.clients_lock:
+                        with self.device_map_lock:
                             self.client_device_map[client_id] = {
                                 'id': existing_device["id"],
                                 'alias': existing_device.get('alias', ''),
@@ -376,7 +391,7 @@ class AsyncTCPServer:
                         info["id"] = str(uuid.uuid4())
                         info["type"] = "台式机"  # 默认设备类型
                         # 更新缓存
-                        with self.clients_lock:
+                        with self.device_map_lock:
                             self.client_device_map[client_id] = {
                                 'id': info["id"],
                                 'alias': '',
@@ -400,7 +415,7 @@ class AsyncTCPServer:
 
             # 6. 确保设备ID映射正确
             try:
-                with self.clients_lock:
+                with self.device_map_lock:
                     # 更新缓存的设备ID
                     if client_id in self.client_device_map:
                         self.client_device_map[client_id]['id'] = device_info.id
@@ -415,8 +430,9 @@ class AsyncTCPServer:
 
             # 7. 广播设备信息
             try:
-                device_info.alias = self.client_device_map[client_id]['alias']
-                device_info.type = self.client_device_map[client_id]['type']
+                with self.device_map_lock:
+                    device_info.alias = self.client_device_map[client_id]['alias']
+                    device_info.type = self.client_device_map[client_id]['type']
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": device_info.to_dict()}
                 )
@@ -439,12 +455,14 @@ class AsyncTCPServer:
 
     async def _cleanup_client_connection(self, reader, writer, address, client_id=None):
         """清理客户端连接资源"""
-        # 移除客户端连接记录
+        # 移除客户端连接记录和client_id映射
         with self.clients_lock:
             self.clients.discard((reader, writer, address))
             # 移除client_id映射
             if client_id and client_id in self.client_id_map:
                 del self.client_id_map[client_id]
+        # 移除客户端活跃时间记录
+        with self.active_time_lock:
             self._client_last_active.pop((reader, writer), None)
 
         # 关闭连接
