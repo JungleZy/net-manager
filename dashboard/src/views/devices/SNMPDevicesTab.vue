@@ -348,6 +348,8 @@ const filters = ref({
   deviceType: undefined,
   status: undefined
 })
+// 加载状态
+const loading = ref(false)
 
 // SNMP设备状态数据 - 使用 shallowRef 优化大对象性能（以switch_id为key）
 const snmpDevicesStatus = shallowRef({})
@@ -459,6 +461,12 @@ const emit = defineEmits([
   'deleteSwitch',
   'handleTableChange'
 ])
+
+// 分页设置
+const pagination = computed(() => props.pagination || {
+  pageSize: 20,
+  showSizeChanger: true
+})
 
 // 接口表格列定义
 const interfaceColumns = [
@@ -651,11 +659,14 @@ const switchColumns = [
 // 获取交换机列表
 const fetchSwitches = async () => {
   try {
+    loading.value = true
     const response = await SwitchApi.getSwitchesList()
     switches.value = response.data || []
   } catch (error) {
     console.error('获取交换机列表失败:', error)
     message.error('获取交换机列表失败: ' + error.message)
+  } finally {
+    loading.value = false
   }
 }
 // 打开发现交换机模态框
@@ -791,6 +802,7 @@ const getInterfaceList = (deviceId) => {
 // 加载SNMP设备状态 - 使用新的buildStatusMap方法
 const loadSNMPDevicesStatus = async () => {
   try {
+    loading.value = true
     const statusMap = await SNMPStorage.buildStatusMap()
     if (statusMap && typeof statusMap === 'object') {
       snmpDevicesStatus.value = statusMap
@@ -802,6 +814,8 @@ const loadSNMPDevicesStatus = async () => {
   } catch (error) {
     console.error('加载SNMP设备状态失败:', error)
     // 失败时保持原有数据，不清空
+  } finally {
+    loading.value = false
   }
 }
 

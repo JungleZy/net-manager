@@ -8,6 +8,10 @@
       class="size-full rounded-lg shadow p-[6px] relative network-container"
       ref="networkContainerRef"
     >
+      <!-- 加载动画覆盖层 -->
+      <div v-if="isGlobalLoading" class="loading-overlay layout-center">
+        <a-spin size="large" />
+      </div>
       <!-- 拓扑图容器 -->
       <div class="w-full h-full" ref="containerRef"></div>
 
@@ -297,6 +301,7 @@ const switches = ref([])
 // 使用 ref 确保响应式更新能够正确触发
 let lf = null
 const loading = ref(false)
+const isGlobalLoading = ref(false)
 const topologyData = shallowRef({ nodes: [], edges: [] })
 const deviceStatusMap = reactive(new Map()) // 存储设备状态 {device_id: 'online'|'offline'}
 const edgeDataMap = shallowRef(new Map()) // 存储边的数据传输状态 {edgeId: hasData}
@@ -1041,23 +1046,25 @@ const initLogicFlow = () => {
   lf.on('node:click', ({ data, e }) => {
     handleNodeClick(data, e)
   })
+  
   Promise.all([fetchDevices(), fetchSwitches()])
     .then(() => {
       console.log('设备列表和交换机列表初始化完成')
       // 初始化PubSub订阅
       initPubSubSubscriptions()
       // 加载最新的拓扑图数据并渲染
-      Promise.all([loadLatestTopology()])
-        .then(() => {
-          // 数据加载完成后居中显示
-          handleCenterView(lf)
-        })
-        .catch((error) => {
-          console.error('初始化数据加载失败:', error)
-        })
+      return loadLatestTopology()
+    })
+    .then(() => {
+      // 数据加载完成后居中显示
+      handleCenterView(lf)
     })
     .catch((error) => {
       console.error('初始化数据加载失败:', error)
+    })
+    .finally(() => {
+      // 所有请求完成后取消全局加载状态
+      isGlobalLoading.value = false
     })
 }
 
@@ -1220,8 +1227,15 @@ const updateEdgesDataStatus = () => {
 
 // 刷新拓扑图
 const handleRefresh = async () => {
-  await loadLatestTopology()
-  message.success('刷新成功')
+  // 设置全局加载状态
+  isGlobalLoading.value = true
+  try {
+    await loadLatestTopology()
+    message.success('刷新成功')
+  } finally {
+    // 无论成功失败，都取消加载状态
+    isGlobalLoading.value = false
+  }
 }
 
 // 居中显示（供控制按钮调用）
@@ -2007,7 +2021,9 @@ const fetchSwitches = async () => {
 // 生命周期
 onMounted(() => {
   nextTick(() => {
+    // 设置全局加载状态
     isComponentMounted.value = true
+    isGlobalLoading.value = true
 
     // 加载主题设置
     loadThemeSettings()

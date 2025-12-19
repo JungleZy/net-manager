@@ -636,3 +636,34 @@
     }
   }
 }
+
+// 加载动画覆盖层样式
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  transition: all 0.3s ease;
+
+  &.layout-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // 暗黑模式样式
+  .dark-mode & {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+
+// 布局居中类
+.layout-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

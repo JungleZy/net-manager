@@ -530,6 +530,7 @@ const columns = [
         dataIndex: 'ips',
         align: 'center',
         key: 'ips',
+        sorter: true,
         customRender: ({ text }) => {
           if (!text || !Array.isArray(text) || text.length === 0) {
             return '无'
@@ -995,7 +996,8 @@ const handleTableChange = (pag, filters, sorter) => {
   
   // 处理排序
   if (sorter && sorter.field) {
-    sortBy.value = sorter.field
+    // 当排序字段是'ips'时，转换为'networks'，因为后端使用networks字段进行IP排序
+    sortBy.value = sorter.field === 'ips' ? 'networks' : sorter.field
     sortOrder.value = sorter.order === 'ascend' ? 'asc' : 'desc'
     isSortChange = true
   }

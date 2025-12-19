@@ -521,10 +521,16 @@ class DeviceManager(BaseDatabaseManager):
                     params.append(grouping)
                 
                 # 构建排序子句
-                allowed_sort_fields = ['alias', 'grouping', 'created_at', 'uptime']
+                allowed_sort_fields = ['alias', 'grouping', 'created_at', 'uptime', 'networks']
                 sort_field = sort_by if sort_by in allowed_sort_fields else 'created_at'
                 sort_direction = 'ASC' if sort_order and sort_order.lower() == 'asc' else 'DESC'
-                order_clause = f"ORDER BY {sort_field} {sort_direction}"
+                
+                # 特殊处理networks字段排序，提取第一个IP地址进行排序
+                if sort_field == 'networks':
+                    # 使用SQLite JSON函数提取第一个元素的ip_address
+                    order_clause = f"ORDER BY json_extract(networks, '$[0].ip_address') {sort_direction}"
+                else:
+                    order_clause = f"ORDER BY {sort_field} {sort_direction}"
                 
                 # 构建完整SQL查询
                 base_query = """

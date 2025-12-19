@@ -1,6 +1,10 @@
 <template>
   <div class="p-[12px] size-full topology-area">
     <div class="size-full bg-white rounded-lg shadow p-[6px] relative">
+      <!-- 加载动画覆盖层 -->
+      <div v-if="isLoading" class="loading-overlay layout-center">
+        <a-spin size="large" />
+      </div>
       <div class="w-full h-full project-grid" ref="container"></div>
 
       <!-- 左侧菜单空状态提示 -->
@@ -258,6 +262,8 @@ const currentTopologyId = ref(null)
 const isSaving = ref(false)
 const leftMenus = shallowRef([])
 const isComponentMounted = ref(false)
+// 全局加载状态
+const isLoading = ref(false)
 
 // 调试面板相关状态
 const showDebugPanel = ref(false)
@@ -316,6 +322,7 @@ let data = {}
 
 onMounted(() => {
   nextTick(() => {
+    isLoading.value = true
     isComponentMounted.value = true
     initTopology()
   })
@@ -573,15 +580,16 @@ const initTopology = async () => {
     }
   })
 
-  // 获取设备和交换机数据并设置拖拽面板项
-  Promise.all([fetchDevices(), fetchSwitches()])
-    .then(() => {
-      // 设备和交换机数据加载完成后，再加载拓扑图数据
-      loadLatestTopology()
-    })
-    .catch((error) => {
-      console.error('初始化数据加载失败:', error)
-    })
+  try {
+    // 获取设备和交换机数据并设置拖拽面板项
+    await Promise.all([fetchDevices(), fetchSwitches()])
+    // 设备和交换机数据加载完成后，再加载拓扑图数据
+    await loadLatestTopology()
+  } catch (error) {
+    console.error('初始化数据加载失败:', error)
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // 加载最新的拓扑图
@@ -1488,6 +1496,20 @@ const handleGroupEditCancel = () => {
   color: #999;
 }
 .topology-area {
+  // 加载动画样式
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
   // 左侧菜单空状态样式
   .left-menu-empty {
     background: hsla(0, 0%, 100%, 0.8);
