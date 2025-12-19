@@ -555,7 +555,7 @@ const switchColumns = [
     dataIndex: 'index',
     align: 'center',
     key: 'index',
-    width: 50,
+    width: 44,
     customRender: ({ text, index }) => {
       return index + 1
     }

@@ -459,7 +459,7 @@ const columns = [
     dataIndex: 'index',
     align: 'center',
     key: 'index',
-    width: 50,
+    width: 44,
     customRender: ({ text, index }) => {
       return index + 1
     }
@@ -472,7 +472,7 @@ const columns = [
         dataIndex: 'type',
         align: 'center',
         key: 'type',
-        width: 60
+        width: 44
       },
       {
         title: '设备名称',
