@@ -8,6 +8,14 @@
           placeholder="请输入IP地址"
           style="width: 200px; margin-right: 12px"
         />
+        <span class="mr-2 font-medium">设备分组:</span>
+        <a-select
+          v-model:value="filterGrouping"
+          style="width: 100px; margin-right: 12px"
+        >
+          <a-select-option value="">全部分组</a-select-option>
+          <a-select-option v-for="g in groupings" :key="g" :value="g">{{ g }}</a-select-option>
+        </a-select>
         <span class="mr-2 font-medium">设备类型:</span>
         <a-select
           v-model:value="filterType"
@@ -40,6 +48,7 @@
           <a-select-option value="online">在线</a-select-option>
           <a-select-option value="offline">离线</a-select-option>
         </a-select>
+        <a-button class="mr-2" type="primary" @click="onFilter">筛选</a-button>
         <a-button @click="clearFilter">重置</a-button>
       </div>
       <a-button class="layout-center" type="primary" @click="openProcessModal">
@@ -53,7 +62,7 @@
     <div class="w-full h-[calc(100%-44px)] overflow-auto">
       <a-table
         :columns="columns"
-        :data-source="filteredDevices"
+        :data-source="devices"
         :pagination="tablePagination"
         :loading="tableLoading"
         size="small"
@@ -88,7 +97,7 @@
                 ></div>
               </a-tooltip>
               <span style="height: 28px" class="layout-center" v-else>{{
-                record.type || '未设置'
+                record.type || '无'
               }}</span>
             </div>
           </template>
@@ -264,7 +273,6 @@ import {
   onMounted,
   onUnmounted,
   shallowRef,
-  watch,
   h,
   useTemplateRef
 } from 'vue'
@@ -366,6 +374,7 @@ const emit = defineEmits([
 ])
 // 设备数据使用 shallowRef 优化大数组性能
 const devices = shallowRef([])
+const groupings = shallowRef([])
 const current = ref(1)
 const pageSize = ref((props.pagination && props.pagination.pageSize) || 20)
 const total = ref(0)
@@ -858,29 +867,31 @@ const createTextAnimationRenderer = (displayValue, fieldKey, deviceId) => {
 }
 
 // 筛选状态
+const filterGrouping = ref('')
 const filterType = ref('')
 const filterIP = ref('')
 const filterOS = ref('')
 const filterStatus = ref('')
-
-const debouncedFilterIP = ref('')
-let ipDebounceTimer = null
-watch(filterIP, (val) => {
-  if (ipDebounceTimer) clearTimeout(ipDebounceTimer)
-  ipDebounceTimer = setTimeout(() => {
-    debouncedFilterIP.value = val
-  }, 200)
-})
 
 const fetchDevices = async () => {
   try {
     innerLoading.value = true
     const response = await DeviceApi.getDevicesPage(
       pageSize.value,
-      (current.value - 1) * pageSize.value
+      (current.value - 1) * pageSize.value,
+      filterIP.value,
+      filterType.value,
+      filterOS.value,
+      filterStatus.value,
+      filterGrouping.value
     )
     devices.value = response?.data || []
     total.value = response?.total || 0
+    // 加载设备分组列表
+    const groupingsResponse = await DeviceApi.getDevicesGroupings()
+    groupings.value = groupingsResponse?.data || []
+    console.log('设备分组列表:', groupings.value);
+    
   } catch (error) {
     console.error('获取设备列表失败:', error)
     message.error('获取设备列表失败')
@@ -889,54 +900,6 @@ const fetchDevices = async () => {
   }
 }
 
-const filteredDevices = computed(() => {
-  const ft = filterType.value
-  const fi = debouncedFilterIP.value
-  const fo = filterOS.value
-  const fs = filterStatus.value
-  const out = []
-  for (let i = 0; i < devices.value.length; i++) {
-    const d = devices.value[i]
-    if (ft) {
-      if (ft === '__unset__') {
-        if (d.type) continue
-      } else {
-        if (d.type !== ft) continue
-      }
-    }
-    if (fi) {
-      const ips = d.ips
-      if (!ips || !Array.isArray(ips)) continue
-      let matched = false
-      for (let j = 0; j < ips.length; j++) {
-        const ip = ips[j]
-        const ipAddress = ip.split(': ')[1] || ip
-        if (ipAddress && ipAddress.includes(fi)) {
-          matched = true
-          break
-        }
-      }
-      if (!matched) continue
-    }
-    if (fo) {
-      if (fo === '__unset__') {
-        if (d.os_name && d.os_name !== 'N/A' && d.os_name !== '未知') continue
-      } else {
-        if (!d.os_name || !d.os_name.toLowerCase().includes(fo.toLowerCase()))
-          continue
-      }
-    }
-    if (fs) {
-      if (fs === 'online') {
-        if (d.online !== true) continue
-      } else if (fs === 'offline') {
-        if (d.online !== false) continue
-      }
-    }
-    out.push(d)
-  }
-  return out
-})
 
 // 清除筛选
 const clearFilter = () => {
@@ -944,14 +907,12 @@ const clearFilter = () => {
   filterIP.value = ''
   filterOS.value = ''
   filterStatus.value = ''
-  emit('clearFilter')
+  fetchDevices()
 }
 
-// 打开创建设备模态框
-const openCreateModal = () => {
-  isEditing.value = false
-  currentDevice.value = null
-  showModal.value = true
+// 应用筛选
+const onFilter = () => {
+  fetchDevices()
 }
 
 // 打开编辑设备模态框

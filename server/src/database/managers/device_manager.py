@@ -470,24 +470,66 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"查询所有系统信息失败: {e}")
             raise DatabaseQueryError(f"查询所有系统信息失败: {e}") from e
 
-    def get_device_info_paginated(self, limit: int, offset: int) -> List[Dict[str, Any]]:
+    def get_device_info_paginated(self, limit: int, offset: int, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None) -> List[Dict[str, Any]]:
         """
-        分页获取设备信息
+        分页获取设备信息，支持筛选条件
+        
+        Args:
+            limit: 每页数量
+            offset: 偏移量
+            ip_filter: IP地址模糊查询
+            device_type: 设备类型精确匹配
+            os_name: 操作系统名称精确匹配
+            grouping: 设备分组精确匹配
+            
+        Returns:
+            设备信息列表
         """
         try:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
-
-                cursor.execute(
-                    """
+                
+                # 构建查询条件
+                conditions = []
+                params = []
+                
+                # IP模糊查询（networks字段是JSON数组，包含ip_address字段）
+                if ip_filter:
+                    conditions.append("networks LIKE ?")
+                    params.append(f"%{ip_filter}%")
+                
+                # 设备类型精确匹配
+                if device_type:
+                    conditions.append("type = ?")
+                    params.append(device_type)
+                
+                # 操作系统名称精确匹配
+                if os_name:
+                    conditions.append("os_name = ?")
+                    params.append(os_name)
+                
+                # 设备分组精确匹配
+                if grouping:
+                    conditions.append("grouping = ?")
+                    params.append(grouping)
+                
+                # 构建完整SQL查询
+                base_query = """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type,
                            services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
                     FROM device_info
-                    ORDER BY created_at DESC
-                    LIMIT ? OFFSET ?
-                    """,
-                    (int(limit), int(offset)),
-                )
+                """
+                
+                if conditions:
+                    where_clause = "WHERE " + " AND ".join(conditions)
+                    query = f"{base_query} {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                else:
+                    query = f"{base_query} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                
+                # 添加分页参数
+                params.extend([int(limit), int(offset)])
+                logger.info(f"执行查询: {query} with params {params}")
+                cursor.execute(query, params)
 
                 rows = cursor.fetchall()
 
@@ -954,12 +996,18 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"删除设备失败: {e}")
             raise DatabaseQueryError(f"删除设备失败: {e}") from e
 
-    def get_device_count(self) -> int:
+    def get_device_count(self, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None) -> int:
         """
-        获取设备总数
+        获取设备总数，支持筛选条件
+        
+        Args:
+            ip_filter: IP地址模糊查询
+            device_type: 设备类型精确匹配
+            os_name: 操作系统名称精确匹配
+            grouping: 设备分组精确匹配
 
         Returns:
-            设备总数
+            符合条件的设备总数
 
         Raises:
             DatabaseQueryError: 查询失败时抛出
@@ -967,13 +1015,79 @@ class DeviceManager(BaseDatabaseManager):
         try:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
-
-                cursor.execute("SELECT COUNT(*) FROM device_info")
+                
+                # 构建查询条件
+                conditions = []
+                params = []
+                
+                # IP模糊查询
+                if ip_filter:
+                    conditions.append("networks LIKE ?")
+                    params.append(f"%{ip_filter}%")
+                
+                # 设备类型精确匹配
+                if device_type:
+                    conditions.append("type = ?")
+                    params.append(device_type)
+                
+                # 操作系统名称精确匹配
+                if os_name:
+                    conditions.append("os_name = ?")
+                    params.append(os_name)
+                
+                # 设备分组精确匹配
+                if grouping:
+                    conditions.append("grouping = ?")
+                    params.append(grouping)
+                
+                # 构建完整SQL查询
+                base_query = "SELECT COUNT(*) FROM device_info"
+                
+                if conditions:
+                    where_clause = "WHERE " + " AND ".join(conditions)
+                    query = f"{base_query} {where_clause}"
+                else:
+                    query = base_query
+                
+                cursor.execute(query, params)
                 count = cursor.fetchone()[0]
                 return count
         except Exception as e:
             logger.error(f"查询设备总数失败: {e}")
             raise DatabaseQueryError(f"查询设备总数失败: {e}") from e
+
+    def get_all_groupings(self) -> List[str]:
+        """
+        获取所有唯一的设备分组列表
+        
+        Returns:
+            List[str]: 唯一分组名称列表
+            
+        Raises:
+            DatabaseQueryError: 查询失败时抛出
+        """
+        try:
+            with self.get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 查询所有唯一的分组名称，排除空字符串
+                cursor.execute(
+                    """
+                    SELECT DISTINCT grouping 
+                    FROM device_info 
+                    WHERE grouping IS NOT NULL AND grouping != '' 
+                    ORDER BY grouping
+                    """
+                )
+                
+                rows = cursor.fetchall()
+                
+                # 转换结果为字符串列表
+                groupings = [row[0] for row in rows]
+                return groupings
+        except Exception as e:
+            logger.error(f"查询设备分组列表失败: {e}")
+            raise DatabaseQueryError(f"查询设备分组列表失败: {e}") from e
 
     async def close_async_pool(self):
         """

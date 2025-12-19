@@ -361,10 +361,22 @@ class DevicesPageHandler(BaseHandler):
                 limit = 200
             if offset < 0:
                 offset = 0
-
-            total = self.db_manager.device_manager.get_device_count()
+            
+            # 获取筛选参数
+            ip_filter = self.get_query_argument("ip", None)
+            device_type = self.get_query_argument("type", None)
+            os_name = self.get_query_argument("os_name", None)
+            status = self.get_query_argument("status", None)  # 在线状态筛选（online/offline）
+            grouping = self.get_query_argument("grouping", None)
+            
+            # 获取带筛选条件的设备总数
+            total = self.db_manager.device_manager.get_device_count(
+                ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping
+            )
+            
+            # 获取带筛选条件的设备列表
             devices = self.db_manager.device_manager.get_device_info_paginated(
-                limit, offset
+                limit, offset, ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping
             )
 
             processed_devices = []
@@ -376,6 +388,17 @@ class DevicesPageHandler(BaseHandler):
                         ip = network["ip_address"]
                         if ip:
                             ips.append(f"{network['name']}: {ip}")
+                
+                # 获取在线状态
+                online = self.get_online_status(device["client_id"])
+                
+                # 应用在线状态筛选
+                if status:
+                    if status == "online" and not online:
+                        continue
+                    if status == "offline" and online:
+                        continue
+                
                 processed_device = {
                     "id": device["id"],
                     "alias": device["alias"],
@@ -391,7 +414,7 @@ class DevicesPageHandler(BaseHandler):
                     "memory_info": device["memory_info"],
                     "disk_info": device["disk_info"],
                     "networks": networks,
-                    "online": self.get_online_status(device["client_id"]),
+                    "online": online,
                     "os_name": device["os_name"],
                     "os_version": device["os_version"],
                     "os_architecture": device["os_architecture"],
@@ -415,6 +438,29 @@ class DevicesPageHandler(BaseHandler):
                     "has_more": has_more,
                 }
             )
+        except Exception as e:
+            self.set_status(500)
+            self.write({"status": "error", "message": f"内部服务器错误: {str(e)}"})
+
+
+class DevicesGroupingsHandler(BaseHandler):
+    """设备分组列表处理器 - 获取所有唯一的设备分组"""
+    
+    def initialize(self, db_manager, get_tcp_server_func=None):
+        self.db_manager = db_manager
+        self.get_tcp_server_func = get_tcp_server_func
+    
+    def get(self):
+        try:
+            # 调用DeviceManager的get_all_groupings方法获取所有分组
+            groupings = self.db_manager.device_manager.get_all_groupings()
+            
+            # 返回分组列表
+            self.write({
+                "status": "success",
+                "data": groupings,
+                "count": len(groupings)
+            })
         except Exception as e:
             self.set_status(500)
             self.write({"status": "error", "message": f"内部服务器错误: {str(e)}"})

@@ -45,11 +45,21 @@ const DeviceApi = {
       url: '/api/devices'
     })
   },
-  getDevicesPage: (limit, offset) => {
+  /**
+   * 获取设备分组列表
+   * @returns {Promise}
+   */
+  getDevicesGroupings: () => {
+    return axios({
+      method: 'get',
+      url: '/api/devices/groupings'
+    })
+  },
+  getDevicesPage: (limit, offset, ip, type, os_name, status, grouping) => {
     return axios({
       method: 'get',
       url: '/api/devices/page',
-      data: { limit, offset }
+      data: { limit, offset, ip, type, os_name, status, grouping }
     })
   },
   getDeviceInfo: (deviceId) => {
