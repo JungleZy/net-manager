@@ -55,11 +55,11 @@ const DeviceApi = {
       url: '/api/devices/groupings'
     })
   },
-  getDevicesPage: (limit, offset, ip, type, os_name, status, grouping) => {
+  getDevicesPage: (limit, offset, ip, type, os_name, status, grouping, sort_by, sort_order) => {
     return axios({
       method: 'get',
       url: '/api/devices/page',
-      data: { limit, offset, ip, type, os_name, status, grouping }
+      data: { limit, offset, ip, type, os_name, status, grouping, sort_by, sort_order }
     })
   },
   getDeviceInfo: (deviceId) => {

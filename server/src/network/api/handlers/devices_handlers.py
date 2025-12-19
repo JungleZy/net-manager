@@ -369,6 +369,10 @@ class DevicesPageHandler(BaseHandler):
             status = self.get_query_argument("status", None)  # 在线状态筛选（online/offline）
             grouping = self.get_query_argument("grouping", None)
             
+            # 获取排序参数
+            sort_by = self.get_query_argument("sort_by", None)
+            sort_order = self.get_query_argument("sort_order", None)
+            
             # 获取带筛选条件的设备总数
             total = self.db_manager.device_manager.get_device_count(
                 ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping
@@ -376,7 +380,8 @@ class DevicesPageHandler(BaseHandler):
             
             # 获取带筛选条件的设备列表
             devices = self.db_manager.device_manager.get_device_info_paginated(
-                limit, offset, ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping
+                limit, offset, ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping,
+                sort_by=sort_by, sort_order=sort_order
             )
 
             processed_devices = []

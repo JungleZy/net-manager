@@ -475,9 +475,9 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"查询所有系统信息失败: {e}")
             raise DatabaseQueryError(f"查询所有系统信息失败: {e}") from e
 
-    def get_device_info_paginated(self, limit: int, offset: int, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None) -> List[Dict[str, Any]]:
+    def get_device_info_paginated(self, limit: int, offset: int, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None, sort_by: str = None, sort_order: str = None) -> List[Dict[str, Any]]:
         """
-        分页获取设备信息，支持筛选条件
+        分页获取设备信息，支持筛选条件和排序
         
         Args:
             limit: 每页数量
@@ -486,6 +486,8 @@ class DeviceManager(BaseDatabaseManager):
             device_type: 设备类型精确匹配
             os_name: 操作系统名称精确匹配
             grouping: 设备分组精确匹配
+            sort_by: 排序字段（支持：alias, grouping, created_at, uptime）
+            sort_order: 排序方向（asc 或 desc）
             
         Returns:
             设备信息列表
@@ -518,6 +520,12 @@ class DeviceManager(BaseDatabaseManager):
                     conditions.append("grouping = ?")
                     params.append(grouping)
                 
+                # 构建排序子句
+                allowed_sort_fields = ['alias', 'grouping', 'created_at', 'uptime']
+                sort_field = sort_by if sort_by in allowed_sort_fields else 'created_at'
+                sort_direction = 'ASC' if sort_order and sort_order.lower() == 'asc' else 'DESC'
+                order_clause = f"ORDER BY {sort_field} {sort_direction}"
+                
                 # 构建完整SQL查询
                 base_query = """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type,
@@ -527,9 +535,9 @@ class DeviceManager(BaseDatabaseManager):
                 
                 if conditions:
                     where_clause = "WHERE " + " AND ".join(conditions)
-                    query = f"{base_query} {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                    query = f"{base_query} {where_clause} {order_clause} LIMIT ? OFFSET ?"
                 else:
-                    query = f"{base_query} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                    query = f"{base_query} {order_clause} LIMIT ? OFFSET ?"
                 
                 # 添加分页参数
                 params.extend([int(limit), int(offset)])

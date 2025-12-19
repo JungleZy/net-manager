@@ -379,6 +379,9 @@ const current = ref(1)
 const pageSize = ref((props.pagination && props.pagination.pageSize) || 20)
 const total = ref(0)
 const innerLoading = ref(false)
+// 添加排序相关状态
+const sortBy = ref('')
+const sortOrder = ref('')
 const tableLoading = computed(() => props.loading || innerLoading.value)
 const tablePagination = computed(() => ({
   current: current.value,
@@ -386,6 +389,17 @@ const tablePagination = computed(() => ({
   total: total.value,
   showSizeChanger: true
 }))
+
+// 防抖函数
+let debounceTimer = null
+const debounce = (func, delay) => {
+  return () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+    }
+    debounceTimer = setTimeout(func, delay)
+  }
+}
 
 // 模态框相关
 const showModal = ref(false)
@@ -476,24 +490,22 @@ const columns = [
   {
     title: '基本信息',
     children: [
-      {
-        title: '类型',
+      { title: '类型',
         dataIndex: 'type',
         align: 'center',
         key: 'type',
         width: 44
       },
-      {
-        title: '设备名称',
+      { title: '设备名称',
         dataIndex: 'hostname',
         align: 'center',
         key: 'hostname'
       },
-      {
-        title: '设备别名',
+      { title: '设备别名',
         dataIndex: 'alias',
         align: 'center',
         key: 'alias',
+        sorter: true,
         customRender: ({ text }) => {
           if (!text || text.length === 0) {
             return '无'
@@ -501,11 +513,11 @@ const columns = [
           return text
         }
       },
-      {
-        title: '设备分组',
+      { title: '设备分组',
         dataIndex: 'grouping',
         align: 'center',
         key: 'grouping',
+        sorter: true,
         customRender: ({ text }) => {
           if (!text || text.length === 0) {
             return '无'
@@ -570,7 +582,7 @@ const columns = [
         dataIndex: 'os_name',
         align: 'center',
         key: 'os_name',
-        width: 70
+        width: 44
       },
       {
         title: '版本',
@@ -673,7 +685,7 @@ const columns = [
         dataIndex: 'services_count',
         align: 'center',
         key: 'services_count',
-        width: 70,
+        width: 60,
         customRender: ({ text, record }) => {
           return createClickableRenderer(
             record.services_count,
@@ -689,7 +701,7 @@ const columns = [
         dataIndex: 'processes_count',
         align: 'center',
         key: 'processes_count',
-        width: 70,
+        width: 60,
         customRender: ({ text, record }) => {
           return createClickableRenderer(
             record.processes_count,
@@ -705,7 +717,7 @@ const columns = [
         dataIndex: 'networks_count',
         align: 'center',
         key: 'networks_count',
-        width: 70,
+        width: 44,
         customRender: ({ text, record }) => {
           const clickable = record.networks_count > 0 && record.online
           const link = h(
@@ -797,6 +809,7 @@ const columns = [
         align: 'center',
         key: 'uptime',
         width: 140,
+        sorter: true,
         customRender: ({ text, record }) => {
           return createTextAnimationRenderer(text, 'uptime', record.id)
         }
@@ -809,6 +822,17 @@ const columns = [
         width: 140,
         customRender: ({ text, record }) => {
           return createTextAnimationRenderer(text, 'timestamp', record.id)
+        }
+      },
+      {
+        title: '创建时间',
+        dataIndex: 'created_at',
+        align: 'center',
+        key: 'created_at',
+        width: 140,
+        sorter: true,
+        customRender: ({ text, record }) => {
+          return createTextAnimationRenderer(text, 'created_at', record.id)
         }
       },
     ]
@@ -898,7 +922,9 @@ const fetchDevices = async () => {
       filterType.value,
       filterOS.value,
       filterStatus.value,
-      filterGrouping.value
+      filterGrouping.value,
+      sortBy.value,
+      sortOrder.value
     )
     devices.value = response?.data || []
     total.value = response?.total || 0
@@ -915,7 +941,8 @@ const fetchDevices = async () => {
   }
 }
 
-
+// 创建防抖版本的 fetchDevices
+const debouncedFetchDevices = debounce(fetchDevices, 300)
 // 清除筛选
 const clearFilter = () => {
   filterType.value = ''
@@ -959,11 +986,30 @@ const deleteDevice = async (id) => {
 
 // 处理表格变化事件
 const handleTableChange = (pag, filters, sorter) => {
+  let isSortChange = false
+  
   if (pag) {
     current.value = pag.current || 1
     pageSize.value = pag.pageSize || pageSize.value
+  }
+  
+  // 处理排序
+  if (sorter && sorter.field) {
+    sortBy.value = sorter.field
+    sortOrder.value = sorter.order === 'ascend' ? 'asc' : 'desc'
+    isSortChange = true
+  }
+  
+  // 立即显示加载状态，提供更好的用户体验
+  innerLoading.value = true
+  
+  // 排序变化使用防抖，分页变化直接请求
+  if (isSortChange) {
+    debouncedFetchDevices()
+  } else if (pag) {
     fetchDevices()
   }
+  
   emit('handleTableChange', pag, filters, sorter)
 }
 
@@ -1219,6 +1265,11 @@ onUnmounted(() => {
   PubSub.unsubscribe(wsCode.DEVICE_INFO)
   PubSub.unsubscribe(wsCode.DEVICE_STATUS)
   clearAllAnimationTimers() // 清理所有定时器
+  // 清理防抖定时器
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
   changedTimestamps.value = {} // 清空变化标记
 })
 </script>
