@@ -789,14 +789,29 @@ const columns = [
     width: 60
   },
   {
-    title: '上报时间',
-    dataIndex: 'timestamp',
-    align: 'center',
-    key: 'timestamp',
-    width: 140,
-    customRender: ({ text, record }) => {
-      return createTextAnimationRenderer(text, 'timestamp', record.id)
-    }
+    title: '时间信息',
+    children:[
+      {
+        title: '最近启动',
+        dataIndex: 'uptime',
+        align: 'center',
+        key: 'uptime',
+        width: 140,
+        customRender: ({ text, record }) => {
+          return createTextAnimationRenderer(text, 'uptime', record.id)
+        }
+      },
+      {
+        title: '最近上报',
+        dataIndex: 'timestamp',
+        align: 'center',
+        key: 'timestamp',
+        width: 140,
+        customRender: ({ text, record }) => {
+          return createTextAnimationRenderer(text, 'timestamp', record.id)
+        }
+      },
+    ]
   },
   {
     title: '操作',

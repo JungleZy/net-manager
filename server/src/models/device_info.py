@@ -24,6 +24,7 @@ class DeviceInfo:
         processes: Optional[str] = None,
         networks: Optional[str] = None,
         timestamp: Optional[str] = None,
+        uptime: Optional[str] = None,
         alias: Optional[str] = None,
         grouping: Optional[str] = None,
         **kwargs
@@ -43,6 +44,7 @@ class DeviceInfo:
             processes: 进程信息（JSON字符串，可选）
             networks: 网络信息（JSON字符串，可选）
             timestamp: 时间戳（可选）
+            uptime: 上线时间（可选）
             **kwargs: 其他可选参数
                 - cpu_info: CPU信息（JSON字符串）
                 - memory_info: 内存信息（JSON字符串）
@@ -66,6 +68,7 @@ class DeviceInfo:
         self.processes = processes if processes is not None else ""
         self.networks = networks if networks is not None else ""
         self.timestamp = timestamp if timestamp is not None else ""
+        self.uptime = uptime if uptime is not None else ""
         self.alias = alias if alias is not None else ""
         self.grouping = grouping if grouping is not None else ""
 
@@ -96,6 +99,7 @@ class DeviceInfo:
             "processes": self.processes,
             "networks": self.networks,
             "timestamp": self.timestamp,
+            "uptime": self.uptime,
             "cpu_info": self.cpu_info,
             "memory_info": self.memory_info,
             "disk_info": self.disk_info,
@@ -128,6 +132,7 @@ class DeviceInfo:
             processes=data.get("processes", ""),
             networks=data.get("networks", ""),
             timestamp=data.get("timestamp", ""),
+            uptime=data.get("uptime", ""),
             cpu_info=data.get("cpu_info", ""),
             memory_info=data.get("memory_info", ""),
             disk_info=data.get("disk_info", ""),

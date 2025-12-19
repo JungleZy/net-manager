@@ -422,6 +422,7 @@ class DevicesPageHandler(BaseHandler):
                     "type": device["type"],
                     "client_id": device["client_id"],
                     "timestamp": device["timestamp"],
+                    "uptime": device["uptime"],
                     "created_at": device["created_at"],
                 }
                 processed_devices.append(processed_device)

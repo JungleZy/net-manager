@@ -9,6 +9,7 @@ import json
 import sqlite3
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
+import uuid
 
 from src.core.logger import logger
 from src.core.config import DB_ACQUIRE_TIMEOUT
@@ -148,12 +149,12 @@ class DeviceManager(BaseDatabaseManager):
                         alias TEXT DEFAULT '',  -- 设备别名字段
                         grouping TEXT DEFAULT '',  -- 设备分组字段
                         timestamp DATETIME DEFAULT (datetime('now', 'localtime')),
+                        uptime DATETIME DEFAULT (datetime('now', 'localtime')),  -- 设备运行时间字段
                         created_at DATETIME DEFAULT (datetime('now', 'localtime'))
                     )
                 """)
 
-                # 检查并添加新字段（如果不存在）
-                # 获取当前表结构
+                # 检获取当前表结构，查并添加新字段（如果不存在）
                 cursor.execute("PRAGMA table_info(device_info)")
                 existing_columns = {row[1] for row in cursor.fetchall()}
                 
@@ -176,6 +177,7 @@ class DeviceManager(BaseDatabaseManager):
                     ("alias", "TEXT DEFAULT ''"),
                     ("grouping", "TEXT DEFAULT ''"),
                     ("timestamp", "DATETIME DEFAULT (datetime('now', 'localtime'))"),
+                    ("uptime", "DATETIME DEFAULT (datetime('now', 'localtime'))"),
                     ("created_at", "DATETIME DEFAULT (datetime('now', 'localtime'))")
                 ]
                 
@@ -339,11 +341,12 @@ class DeviceManager(BaseDatabaseManager):
                             """
                             INSERT OR REPLACE INTO device_info 
                             (id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                            services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at)
+                            services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                                 COALESCE((SELECT type FROM device_info WHERE client_id = ?), ''), 
                                 COALESCE((SELECT alias FROM device_info WHERE client_id = ?), ''),
                                 COALESCE((SELECT grouping FROM device_info WHERE client_id = ?), ''),
+                                ?,
                                 ?, COALESCE((SELECT created_at FROM device_info WHERE client_id = ?), ?))
                         """,
                             (
@@ -363,6 +366,7 @@ class DeviceManager(BaseDatabaseManager):
                                 device_info.client_id,  # 用于COALESCE子查询的参数（type）
                                 device_info.client_id,  # 用于COALESCE子查询的参数（alias）
                                 device_info.client_id,  # 用于COALESCE子查询的参数（grouping）
+                                device_info.uptime,  # 用于COALESCE子查询的参数（uptime）
                                 device_info.timestamp,
                                 device_info.client_id,  # 用于created_at COALESCE子查询的参数
                                 device_info.created_at,
@@ -392,7 +396,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at
                     FROM device_info
                     ORDER BY created_at DESC
                 """
@@ -460,8 +464,9 @@ class DeviceManager(BaseDatabaseManager):
                             "type": row[13],
                             "alias": row[14],
                             "grouping": row[15],
-                            "timestamp": row[16],
-                            "created_at": row[17],
+                            "uptime": row[16],
+                            "timestamp": row[17],
+                            "created_at": row[18],
                         }
                     )
 
@@ -516,7 +521,7 @@ class DeviceManager(BaseDatabaseManager):
                 # 构建完整SQL查询
                 base_query = """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type,
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at
                     FROM device_info
                 """
                 
@@ -582,8 +587,9 @@ class DeviceManager(BaseDatabaseManager):
                             "type": row[13],
                             "alias": row[14],
                             "grouping": row[15],
-                            "timestamp": row[16],
-                            "created_at": row[17],
+                            "uptime": row[16],
+                            "timestamp": row[17],
+                            "created_at": row[18],
                         }
                     )
 
@@ -612,7 +618,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at
                     FROM device_info
                     WHERE id = ?
                 """,
@@ -678,8 +684,9 @@ class DeviceManager(BaseDatabaseManager):
                         "type": row[13],
                         "alias": row[14],
                         "grouping": row[15],
-                        "timestamp": row[16],
-                        "created_at": row[17],
+                        "uptime": row[16],
+                        "timestamp": row[17],
+                        "created_at": row[18],
                     }
                 return None
         except Exception as e:
@@ -706,7 +713,7 @@ class DeviceManager(BaseDatabaseManager):
                 cursor.execute(
                     """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type, 
-                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
+                           services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at
                     FROM device_info
                     WHERE client_id = ?
                     ORDER BY timestamp DESC
@@ -774,8 +781,9 @@ class DeviceManager(BaseDatabaseManager):
                         "type": row[13],
                         "alias": row[14],
                         "grouping": row[15],
-                        "timestamp": row[16],
-                        "created_at": row[17],
+                        "uptime": row[16],
+                        "timestamp": row[17],
+                        "created_at": row[18],
                     }
                 return None
         except Exception as e:
@@ -866,7 +874,7 @@ class DeviceManager(BaseDatabaseManager):
                         id, client_id, hostname, os_name, os_version, 
                         os_architecture, machine_type, services, processes, networks,
                         cpu_info, memory_info, disk_info, type, alias, grouping, timestamp, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', datetime('now', 'localtime'), datetime('now', 'localtime'))
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', datetime('now', 'localtime'), datetime('now', 'localtime'))
                 """,
                     (
                         device_data["id"],

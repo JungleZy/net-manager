@@ -4,6 +4,7 @@
 import threading
 import time
 import queue
+from src.core.logger import logger
 
 class DevicePersistQueue:
     def __init__(self, db_manager, maxsize: int, flush_interval_ms: int, batch_size: int):

@@ -245,7 +245,8 @@ class AsyncTCPServer:
                     self.client_id_map[client_id] = address
                 with self.active_time_lock:
                     self._client_last_active[(reader, writer)] = time.time()
-
+                
+                last_uptime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 # 广播设备在线状态
                 try:
                     state_manager.broadcast_message(
@@ -307,7 +308,7 @@ class AsyncTCPServer:
 
                 # 3. 异步处理客户端数据，避免阻塞事件循环
                 asyncio.create_task(
-                    self._process_client_data(data, address, client_id)
+                    self._process_client_data(data, address, client_id, last_uptime)
                 )
 
         except ConnectionResetError:
@@ -333,7 +334,7 @@ class AsyncTCPServer:
             # 清理客户端连接资源
             await self._cleanup_client_connection(reader, writer, address, client_id)
 
-    async def _process_client_data(self, data, address, client_id=None):
+    async def _process_client_data(self, data, address, client_id=None, last_uptime=None):
         """异步处理来自客户端的设备数据"""
         if not data:
             logger.debug(f"收到来自 {address} 的空数据包，忽略")
@@ -408,7 +409,7 @@ class AsyncTCPServer:
                 return
 
             # 4. 创建设备信息对象
-            device_info = self._create_device_info_with_id(info)
+            device_info = self._create_device_info_with_id(info, last_uptime)
             
             # 5. 将设备信息放入持久化队列
             try:
@@ -438,6 +439,7 @@ class AsyncTCPServer:
                     device_info.alias = self.client_device_map[client_id]['alias']
                     device_info.grouping = self.client_device_map[client_id]['grouping']
                     device_info.type = self.client_device_map[client_id]['type']
+                    device_info.uptime = last_uptime
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": device_info.to_dict()}
                 )
@@ -479,7 +481,7 @@ class AsyncTCPServer:
         
         logger.info(f"客户端 {address} 连接已关闭")
 
-    def _create_device_info_with_id(self, info):
+    def _create_device_info_with_id(self, info, last_uptime=None):
         """创建带有指定ID的设备信息对象"""
         return DeviceInfo(
             id=info["id"],  # 使用指定的设备ID
@@ -499,6 +501,7 @@ class AsyncTCPServer:
             type="",  # 显式设置type为空，避免通过TCP更新设备类型
             alias="",  # 设备别名
             grouping="",  # 设备分组
+            uptime=last_uptime,  # 设备运行时间
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 创建时间
         )
 
