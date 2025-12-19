@@ -46,6 +46,7 @@ class DeviceCreateHandler(BaseHandler):
                             tcp_server.client_device_map[client_id] = {
                                 "id": data["id"],
                                 "alias": data.get("alias", ""),
+                                "grouping": data.get("grouping", ""),
                                 "type": data.get("type", "")
                             }
                 self.write({"status": "success", "message": message})
@@ -83,6 +84,7 @@ class DeviceUpdateHandler(BaseHandler):
                     return
 
             # alias字段可以在UpdateHandler中修改
+            # grouping字段可以在UpdateHandler中修改
             # 其他字段正常处理
 
             # 更新设备
@@ -102,6 +104,7 @@ class DeviceUpdateHandler(BaseHandler):
                                     tcp_server.client_device_map[client_id] = {
                                         "id": device["id"],
                                         "alias": device.get("alias", ""),
+                                        "grouping": device.get("grouping", ""),
                                         "type": device.get("type", "")
                                     }
                 self.write({"status": "success", "message": message})
@@ -292,6 +295,7 @@ class DevicesHandler(BaseHandler):
                 processed_device = {
                     "id": device["id"],
                     "alias": device["alias"],
+                    "grouping": device["grouping"],  # 添加分组字段
                     "hostname": device["hostname"],
                     "services_count": len(device["services"]),
                     "processes_count": len(device["processes"]),
@@ -375,6 +379,7 @@ class DevicesPageHandler(BaseHandler):
                 processed_device = {
                     "id": device["id"],
                     "alias": device["alias"],
+                    "grouping": device["grouping"],  # 添加分组字段
                     "hostname": device["hostname"],
                     "services_count": len(device["services"]),
                     "processes_count": len(device["processes"]),

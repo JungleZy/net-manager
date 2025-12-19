@@ -25,6 +25,7 @@ class DeviceInfo:
         networks: Optional[str] = None,
         timestamp: Optional[str] = None,
         alias: Optional[str] = None,
+        grouping: Optional[str] = None,
         **kwargs
     ):
         """
@@ -48,6 +49,7 @@ class DeviceInfo:
                 - disk_info: 磁盘信息（JSON字符串）
                 - type: 设备类型（计算机、交换机、服务器等）
                 - alias: 设备别名（可选）
+                - grouping: 设备分组（可选）
                 - created_at: 创建时间
         """
         # 必需参数
@@ -65,6 +67,7 @@ class DeviceInfo:
         self.networks = networks if networks is not None else ""
         self.timestamp = timestamp if timestamp is not None else ""
         self.alias = alias if alias is not None else ""
+        self.grouping = grouping if grouping is not None else ""
 
         # 通过 kwargs 传入的其他可选参数
         self.cpu_info = kwargs.get("cpu_info", "")
@@ -98,6 +101,7 @@ class DeviceInfo:
             "disk_info": self.disk_info,
             "type": self.type,
             "alias": self.alias,
+            "grouping": self.grouping,
             "created_at": self.created_at,
         }
 
@@ -129,5 +133,6 @@ class DeviceInfo:
             disk_info=data.get("disk_info", ""),
             type=data.get("type", ""),
             alias=data.get("alias", ""),
+            grouping=data.get("grouping", ""),
             created_at=data.get("created_at", ""),
         )

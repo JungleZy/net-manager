@@ -52,7 +52,7 @@ class AsyncTCPServer:
         self.tcp_port = TCP_PORT  # TCP服务监听端口
         self.clients = set()  # 存储当前连接的客户端（reader, writer, address）元组集合
         self.client_id_map = {}  # 映射client_id到客户端地址
-        self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias和type字段）
+        self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias、grouping和type字段）
         self._client_last_active = {}  # 客户端最后活跃时间
         
         # 细粒度锁，替代原来的单个clients_lock，减少锁竞争
@@ -167,6 +167,7 @@ class AsyncTCPServer:
                             self.client_device_map[client_id] = {
                                 'id': device.get('id'),
                                 'alias': device.get('alias', ''),
+                                'grouping': device.get('grouping', ''),
                                 'type': device.get('type', '')
                             }
                 logger.info(f"设备缓存加载完成，共 {len(devices)} 个设备")
@@ -384,6 +385,7 @@ class AsyncTCPServer:
                             self.client_device_map[client_id] = {
                                 'id': existing_device["id"],
                                 'alias': existing_device.get('alias', ''),
+                                'grouping': existing_device.get('grouping', ''),
                                 'type': existing_device.get('type', '')
                             }
                     else:
@@ -395,6 +397,7 @@ class AsyncTCPServer:
                             self.client_device_map[client_id] = {
                                 'id': info["id"],
                                 'alias': '',
+                                'grouping': '',
                                 'type': info["type"]
                             }
             else:
@@ -423,6 +426,7 @@ class AsyncTCPServer:
                         self.client_device_map[client_id] = {
                             'id': device_info.id,
                             'alias': '',
+                            'grouping': '',
                             'type': ''
                         }
             except Exception:
@@ -432,6 +436,7 @@ class AsyncTCPServer:
             try:
                 with self.device_map_lock:
                     device_info.alias = self.client_device_map[client_id]['alias']
+                    device_info.grouping = self.client_device_map[client_id]['grouping']
                     device_info.type = self.client_device_map[client_id]['type']
                 state_manager.broadcast_message(
                     {"type": "deviceInfo", "data": device_info.to_dict()}
@@ -493,6 +498,7 @@ class AsyncTCPServer:
             disk_info=info.get("disk_info", ""),  # 磁盘信息
             type="",  # 显式设置type为空，避免通过TCP更新设备类型
             alias="",  # 设备别名
+            grouping="",  # 设备分组
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 创建时间
         )
 

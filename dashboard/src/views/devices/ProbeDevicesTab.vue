@@ -253,7 +253,6 @@
     />
 
     <!-- 网口详情 Popover 气泡卡片：已在列渲染中实现 -->
-
     <ProcessModal v-model:open="processVisible" />
   </div>
 </template>
@@ -486,6 +485,18 @@ const columns = [
         dataIndex: 'alias',
         align: 'center',
         key: 'alias',
+        customRender: ({ text }) => {
+          if (!text || text.length === 0) {
+            return '无'
+          }
+          return text
+        }
+      },
+      {
+        title: '设备分组',
+        dataIndex: 'grouping',
+        align: 'center',
+        key: 'grouping',
         customRender: ({ text }) => {
           if (!text || text.length === 0) {
             return '无'

@@ -30,6 +30,12 @@
           placeholder="请输入设备别名"
         />
       </a-form-item>
+      <a-form-item label="设备分组">
+        <a-input
+          v-model:value="form.grouping"
+          placeholder="请输入设备分组"
+        />
+      </a-form-item>
     </a-form>
   </a-modal>
 </template>
@@ -59,6 +65,7 @@ const emit = defineEmits(['update:visible', 'ok', 'cancel'])
 const form = reactive({
   id: '',
   alias: '',
+  grouping: '',
   type: '',
 })
 
@@ -107,7 +114,8 @@ const handleCancel = () => {
 const resetForm = () => {
   Object.assign(form, {
     id: '',
-    alias: '',
+    alias: '',  
+    grouping: '',
     type: '',
   })
 }
