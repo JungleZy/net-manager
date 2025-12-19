@@ -528,7 +528,6 @@ class DeviceManager(BaseDatabaseManager):
                 
                 # 添加分页参数
                 params.extend([int(limit), int(offset)])
-                logger.info(f"执行查询: {query} with params {params}")
                 cursor.execute(query, params)
 
                 rows = cursor.fetchall()
