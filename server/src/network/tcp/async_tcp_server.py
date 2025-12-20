@@ -308,10 +308,8 @@ class AsyncTCPServer:
                 with self.active_time_lock:
                     self._client_last_active[(reader, writer)] = time.time()
 
-                # 3. 异步处理客户端数据，避免阻塞事件循环
-                asyncio.create_task(
-                    self._process_client_data(data, address, client_id, last_uptime)
-                )
+                # 3. 异步处理客户端数据，并等待完成（实现背压）
+                await self._process_client_data(data, address, client_id, last_uptime)
 
         except ConnectionResetError:
             logger.info(f"客户端 {address} 断开连接")
@@ -336,6 +334,17 @@ class AsyncTCPServer:
             # 清理客户端连接资源
             await self._cleanup_client_connection(reader, writer, address, client_id)
 
+    def _decode_and_parse_json(self, data):
+        """在线程池中运行的同步方法：解码并解析JSON"""
+        try:
+            json_str = data.decode("utf-8").strip()
+            if not json_str:
+                return None, None
+            return json.loads(json_str), json_str
+        except Exception as e:
+            # 捕获所有异常，确保线程不会崩溃
+            return e, json_str if 'json_str' in locals() else None
+
     async def _process_client_data(self, data, address, client_id=None, last_uptime=None):
         """异步处理来自客户端的设备数据"""
         if not data:
@@ -346,17 +355,25 @@ class AsyncTCPServer:
 
         json_str = None
         try:
-            # 1. 解码并清理数据
-            json_str = data.decode("utf-8").strip()
+            # 1. 在线程池中执行解码和JSON解析（CPU密集型操作）
+            loop = asyncio.get_running_loop()
+            result, json_str_or_error = await loop.run_in_executor(
+                self.executor, self._decode_and_parse_json, data
+            )
 
-            if not json_str:
+            # 检查解析结果
+            if isinstance(result, Exception):
+                # 如果是异常，抛出以便后续错误处理捕获
+                json_str = json_str_or_error
+                raise result
+            
+            info = result
+            if info is None:
+                # 空数据
                 logger.warning(f"收到来自 {address} 的空JSON字符串，忽略")
                 return
 
-            # 2. 解析JSON数据
-            info = json.loads(json_str)
-
-            # 3. 处理设备ID
+            # 2. 处理设备ID
             client_id = info.get("client_id")
             if client_id:
                 # 尝试从缓存获取设备信息
