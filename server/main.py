@@ -187,7 +187,7 @@ def main():
         db_manager = DatabaseManager(max_connections=TCP_THREADPOOL_WORKERS + 20)
 
         # 2. 创建TCP服务器实例 - 使用异步TCP服务器
-        tcp_server = AsyncTCPServer(db_manager)
+        tcp_server = AsyncTCPServer(db_manager, max_workers=TCP_THREADPOOL_WORKERS)
 
         # 3. 创建API服务器实例
         api_server = APIServer(db_manager)

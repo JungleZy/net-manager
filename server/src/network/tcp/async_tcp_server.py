@@ -21,6 +21,7 @@ from src.core.config import (
     TCP_HEARTBEAT_TIMEOUT,
     TCP_MAX_MESSAGE_SIZE,
     TCP_MAX_CLIENTS,
+    TCP_THREADPOOL_WORKERS,
     DEVICE_PERSIST_QUEUE_MAXSIZE,
     DEVICE_PERSIST_FLUSH_INTERVAL_MS,
     DEVICE_PERSIST_BATCH_SIZE,
@@ -43,12 +44,12 @@ class AsyncTCPServer:
     - 管理客户端连接生命周期
     """
 
-    def __init__(self, db_manager=None, max_workers=10):
+    def __init__(self, db_manager=None, max_workers=None):
         """初始化异步TCP服务器
 
         Args:
             db_manager: 数据库管理器实例，用于数据存储
-            max_workers: 线程池最大工作线程数（用于CPU密集型任务）
+            max_workers: 线程池最大工作线程数（用于CPU密集型任务），默认为配置值
         """
         self.tcp_port = TCP_PORT  # TCP服务监听端口
         self.clients = set()  # 存储当前连接的客户端（reader, writer, address）元组集合
@@ -70,7 +71,8 @@ class AsyncTCPServer:
         self.db_manager = db_manager if db_manager else DatabaseManager()
 
         # 使用线程池处理CPU密集型任务
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        workers = max_workers if max_workers is not None else TCP_THREADPOOL_WORKERS
+        self.executor = ThreadPoolExecutor(max_workers=workers)
         self.persist_queue = DevicePersistQueue(
             db_manager=self.db_manager,
             maxsize=DEVICE_PERSIST_QUEUE_MAXSIZE,
