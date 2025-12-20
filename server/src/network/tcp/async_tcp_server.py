@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.core.config import (
     TCP_PORT,
     TCP_RECV_TIMEOUT,
+    TCP_HEARTBEAT_TIMEOUT,
     TCP_MAX_MESSAGE_SIZE,
     TCP_MAX_CLIENTS,
     DEVICE_PERSIST_QUEUE_MAXSIZE,
@@ -267,6 +268,7 @@ class AsyncTCPServer:
                 return
 
             # 2. 持续接收客户端数据
+            last_data_time = time.time()
             while self.running:
                 # 接收消息长度前缀
                 try:
@@ -275,13 +277,21 @@ class AsyncTCPServer:
                         timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
-                    # 接收超时，更新活跃时间后继续
+                    # 接收超时，检查心跳是否超时
+                    if time.time() - last_data_time > TCP_HEARTBEAT_TIMEOUT:
+                        logger.warning(f"客户端 {address} 心跳超时({TCP_HEARTBEAT_TIMEOUT}s)，断开连接")
+                        break
+
+                    # 接收超时但未超过心跳阈值，更新活跃时间后继续
                     with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
                     continue
 
                 if not raw_length:
                     break  # 连接关闭
+                
+                # 更新最后收到数据时间
+                last_data_time = time.time()
 
                 # 解析消息长度
                 message_length = struct.unpack("!I", raw_length)[0]
@@ -296,6 +306,11 @@ class AsyncTCPServer:
                         timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
+                    # 接收数据体超时
+                    if time.time() - last_data_time > TCP_HEARTBEAT_TIMEOUT:
+                        logger.warning(f"客户端 {address} 接收数据体超时，断开连接")
+                        break
+
                     # 接收超时，更新活跃时间后继续
                     with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
@@ -303,6 +318,9 @@ class AsyncTCPServer:
 
                 if not data:
                     break  # 连接关闭
+                
+                # 更新最后收到数据时间
+                last_data_time = time.time()
 
                 # 更新客户端最后活跃时间
                 with self.active_time_lock:
