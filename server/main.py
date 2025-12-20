@@ -242,14 +242,6 @@ def main():
         server_monitor = get_server_monitor()  # 使用配置文件中的间隔
         server_monitor.start()
 
-        # 11. 启动内存守护
-        try:
-            from src.monitor.memory_guard import get_memory_guard
-
-            logger.info("启动内存守护...")
-            get_memory_guard().start()
-        except Exception:
-            pass
 
         logger.info("所有服务已启动完成")
 
