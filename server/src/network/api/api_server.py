@@ -350,6 +350,12 @@ class APIServer:
         # 创建应用配置
         settings: Dict[str, Any] = {
             "debug": False,  # 生产环境关闭调试模式
+            # 静态文件服务优化配置
+            "static_hash_cache": True,  # 启用静态文件哈希缓存，提高文件访问效率
+            "static_handler_args": {
+                "max_age": 31536000,  # 静态文件缓存时间，单位秒（31536000 = 1年）
+            },
+            "compress_response": True,  # 启用Gzip压缩，减少传输大小
         }
 
         # 过滤掉可能的None路由项（如禁用的指标端点）
@@ -366,7 +372,7 @@ class APIServer:
         self.server = tornado.httpserver.HTTPServer(
             self.app,
             xheaders=True,  # 启用X-Real-IP等代理头
-            max_buffer_size=10485760,  # 10MB缓冲区大小
+            max_buffer_size=52428800,  # 50MB缓冲区大小，优化大文件传输
         )
 
         try:
