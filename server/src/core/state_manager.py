@@ -18,6 +18,7 @@ import json
 # 标准库导入
 import threading
 import time
+import asyncio
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
@@ -124,8 +125,8 @@ class StateManager:
             return len(self.connected_clients)
     
     # -------- 消息广播功能 --------
-    def _send_message_in_main_thread(self, message: Any) -> None:
-        """在主线程中向所有客户端发送消息的内部方法
+    async def _send_message_in_main_thread(self, message: Any) -> None:
+        """在主线程中向所有客户端发送消息的内部方法 (异步版，支持分片)
         
         Args:
             message: 要发送的消息内容（字典或已序列化的JSON字符串）
@@ -140,6 +141,9 @@ class StateManager:
         client_count = len(clients)
         disconnected_clients = []  # 存储发送失败的客户端
         success_count = 0  # 发送成功计数器
+        
+        # 批处理大小，每发送多少个客户端后让出控制权
+        BATCH_SIZE = 50 
 
         try:
             # 准备消息字符串
@@ -152,14 +156,21 @@ class StateManager:
             self._message_count += 1  # 更新消息计数器
 
             # 遍历所有客户端发送消息
-            for client in clients:
+            for i, client in enumerate(clients):
                 try:
+                    # write_message 返回 Future，但我们不需要等待它完成写入
+                    # 只要调用了，数据就进入了 Tornado 的缓冲区
                     client.write_message(message_str)
                     success_count += 1
                 except Exception as e:
                     # 发送失败，记录并添加到断开连接列表
                     logger.warning(f"向客户端发送消息时出错: {str(e)}")
                     disconnected_clients.append(client)
+                
+                # 每处理 BATCH_SIZE 个客户端，让出控制权
+                # 这样可以避免在大规模广播时阻塞 IOLoop 太久
+                if (i + 1) % BATCH_SIZE == 0:
+                    await asyncio.sleep(0)
 
             # 移除已断开的客户端
             for client in disconnected_clients:
@@ -211,8 +222,8 @@ class StateManager:
             current_ioloop = tornado.ioloop.IOLoop.current(instance=False)
 
             if current_ioloop is not None:
-                # 在主线程中，直接发送消息
-                self._send_message_in_main_thread(message_str)
+                # 在主线程中，通过 spawn_callback 启动异步任务
+                current_ioloop.spawn_callback(self._send_message_in_main_thread, message_str)
             else:
                 # 不在主线程中，需要通过IOLoop的add_callback方法在主线程中执行
                 
