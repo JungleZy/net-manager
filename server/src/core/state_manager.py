@@ -19,7 +19,7 @@ import json
 import threading
 import time
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 # 内部模块导入
 from src.core.logger import logger
@@ -124,17 +124,17 @@ class StateManager:
             return len(self.connected_clients)
     
     # -------- 消息广播功能 --------
-    def _send_message_in_main_thread(self, message: Dict[str, Any]) -> None:
+    def _send_message_in_main_thread(self, message: Any) -> None:
         """在主线程中向所有客户端发送消息的内部方法
         
         Args:
-            message: 要发送的消息内容
+            message: 要发送的消息内容（字典或已序列化的JSON字符串）
         """
         start_time = time.time()
         clients = self.get_clients()
 
         if not clients:
-            logger.debug("没有连接的客户端，跳过消息发送")
+            # logger.debug("没有连接的客户端，跳过消息发送")
             return
 
         client_count = len(clients)
@@ -142,8 +142,13 @@ class StateManager:
         success_count = 0  # 发送成功计数器
 
         try:
-            # 将消息序列化为JSON字符串
-            message_str = json.dumps(message, ensure_ascii=False)
+            # 准备消息字符串
+            if isinstance(message, str):
+                message_str = message
+            else:
+                # 将消息序列化为JSON字符串
+                message_str = json.dumps(message, ensure_ascii=False)
+            
             self._message_count += 1  # 更新消息计数器
 
             # 遍历所有客户端发送消息
@@ -162,9 +167,10 @@ class StateManager:
 
             # 计算并记录广播性能
             execution_time = time.time() - start_time
-            logger.debug(
-                f"消息广播完成: 成功发送给{success_count}/{client_count}个客户端，耗时: {execution_time:.3f}秒"
-            )
+            if execution_time > 0.1:  # 只记录耗时较长的广播
+                logger.debug(
+                    f"消息广播完成: 成功发送给{success_count}/{client_count}个客户端，耗时: {execution_time:.3f}秒"
+                )
 
             # 异常情况检测
             if len(disconnected_clients) > client_count * 0.5:
@@ -194,12 +200,19 @@ class StateManager:
                 "sequence": self._message_count,  # 添加消息序列号
             }
 
+            # 预先序列化，减少主线程负担（在调用线程中执行）
+            try:
+                message_str = json.dumps(enriched_message, ensure_ascii=False)
+            except Exception as e:
+                logger.error(f"无法序列化广播消息: {e}")
+                return
+
             # 检查当前是否在主线程中
             current_ioloop = tornado.ioloop.IOLoop.current(instance=False)
 
             if current_ioloop is not None:
                 # 在主线程中，直接发送消息
-                self._send_message_in_main_thread(enriched_message)
+                self._send_message_in_main_thread(message_str)
             else:
                 # 不在主线程中，需要通过IOLoop的add_callback方法在主线程中执行
                 
@@ -207,16 +220,16 @@ class StateManager:
                     if self._main_ioloop is not None:
                         # 使用保存的主线程IOLoop引用
                         self._main_ioloop.add_callback(
-                            self._send_message_in_main_thread, enriched_message
+                            self._send_message_in_main_thread, message_str
                         )
-                        logger.debug("已将消息发送任务添加到主线程事件循环")
+                        # logger.debug("已将消息发送任务添加到主线程事件循环")
                     else:
                         # 尝试获取正在运行的IOLoop实例
                         main_ioloop = tornado.ioloop.IOLoop.instance()
                         main_ioloop.add_callback(
-                            self._send_message_in_main_thread, enriched_message
+                            self._send_message_in_main_thread, message_str
                         )
-                        logger.debug("已将消息发送任务添加到主线程事件循环")
+                        # logger.debug("已将消息发送任务添加到主线程事件循环")
 
                 except Exception as e:
                     logger.exception(f"无法获取主IOLoop实例: {str(e)}")

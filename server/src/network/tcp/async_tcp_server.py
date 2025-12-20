@@ -54,11 +54,13 @@ class AsyncTCPServer:
         self.client_id_map = {}  # 映射client_id到客户端地址
         self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias、grouping和type字段）
         self._client_last_active = {}  # 客户端最后活跃时间
+        self._client_last_broadcast = {}  # 客户端最后广播时间
         
         # 细粒度锁，替代原来的单个clients_lock，减少锁竞争
         self.clients_lock = threading.RLock()  # 保护clients集合和client_id_map的锁
         self.device_map_lock = threading.RLock()  # 保护client_device_map的锁
         self.active_time_lock = threading.RLock()  # 保护_client_last_active的锁
+        self.broadcast_lock = threading.RLock()  # 保护_client_last_broadcast的锁
         
         self.running = False  # 服务器运行状态标志
         self.server = None  # 异步服务器实例
@@ -435,14 +437,25 @@ class AsyncTCPServer:
 
             # 7. 广播设备信息
             try:
-                with self.device_map_lock:
-                    device_info.alias = self.client_device_map[client_id]['alias']
-                    device_info.grouping = self.client_device_map[client_id]['grouping']
-                    device_info.type = self.client_device_map[client_id]['type']
-                    device_info.uptime = last_uptime
-                state_manager.broadcast_message(
-                    {"type": "deviceInfo", "data": device_info.to_dict()}
-                )
+                # 检查是否需要广播（简单的节流机制，避免频繁广播阻塞API服务）
+                should_broadcast = False
+                current_time = time.time()
+                with self.broadcast_lock:
+                    last_broadcast = self._client_last_broadcast.get(client_id, 0)
+                    # 限制每秒最多广播一次
+                    if current_time - last_broadcast >= 1.0:
+                        should_broadcast = True
+                        self._client_last_broadcast[client_id] = current_time
+
+                if should_broadcast:
+                    with self.device_map_lock:
+                        device_info.alias = self.client_device_map[client_id]['alias']
+                        device_info.grouping = self.client_device_map[client_id]['grouping']
+                        device_info.type = self.client_device_map[client_id]['type']
+                        device_info.uptime = last_uptime
+                    state_manager.broadcast_message(
+                        {"type": "deviceInfo", "data": device_info.to_dict()}
+                    )
             except Exception:
                 logger.debug(f"无法广播设备信息: {client_id}")
 
@@ -471,6 +484,11 @@ class AsyncTCPServer:
         # 移除客户端活跃时间记录
         with self.active_time_lock:
             self._client_last_active.pop((reader, writer), None)
+            
+        # 移除广播时间记录
+        with self.broadcast_lock:
+            if client_id:
+                self._client_last_broadcast.pop(client_id, None)
 
         # 关闭连接
         try:
