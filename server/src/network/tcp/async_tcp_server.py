@@ -8,12 +8,14 @@
 
 import asyncio
 import json
+import socket
 import struct
 import time
 import uuid
 import threading
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 from src.core.config import (
     TCP_PORT,
@@ -189,6 +191,22 @@ class AsyncTCPServer:
         address = writer.get_extra_info("peername")
         logger.debug(f"客户端 {address} 已连接")
 
+        # 启用TCP KeepAlive，防止中间网络设备断开空闲连接
+        sock = writer.get_extra_info("socket")
+        if sock:
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                # 设置 KeepAlive 参数：空闲60秒后开始探测，探测间隔10秒，探测3次失败则断开
+                # 注意：这些选项在不同OS上可能不同，Windows上通常只支持部分或需要特定设置
+                if hasattr(socket, "TCP_KEEPIDLE"):
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+                if hasattr(socket, "TCP_KEEPINTVL"):
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+                if hasattr(socket, "TCP_KEEPCNT"):
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+            except Exception as e:
+                logger.warning(f"无法设置TCP KeepAlive选项: {e}")
+
         # 将客户端添加到连接集合
         with self.clients_lock:
             self.clients.add((reader, writer, address))
@@ -199,11 +217,12 @@ class AsyncTCPServer:
         try:
             # 1. 接收客户端握手消息（带4字节长度前缀）
             # 接收4字节长度前缀
-            raw_length = await asyncio.wait_for(
-                reader.read(4), timeout=TCP_RECV_TIMEOUT
-            )
-            if not raw_length:
-                logger.warning(f"客户端 {address} 握手超时")
+            try:
+                raw_length = await asyncio.wait_for(
+                    reader.readexactly(4), timeout=TCP_RECV_TIMEOUT
+                )
+            except asyncio.IncompleteReadError:
+                logger.warning(f"客户端 {address} 握手连接关闭")
                 return
 
             # 解析消息长度（大端序）
@@ -215,11 +234,12 @@ class AsyncTCPServer:
                 return
 
             # 接收完整的握手数据
-            handshake_data = await asyncio.wait_for(
-                reader.read(message_length), timeout=TCP_RECV_TIMEOUT
-            )
-            if not handshake_data:
-                logger.warning(f"客户端 {address} 握手数据接收超时")
+            try:
+                handshake_data = await asyncio.wait_for(
+                    reader.readexactly(message_length), timeout=TCP_RECV_TIMEOUT
+                )
+            except asyncio.IncompleteReadError:
+                logger.warning(f"客户端 {address} 握手数据接收不完整")
                 return
 
             # 解析握手JSON数据
@@ -260,7 +280,7 @@ class AsyncTCPServer:
                 # 接收消息长度前缀
                 try:
                     raw_length = await asyncio.wait_for(
-                        reader.read(4), timeout=TCP_RECV_TIMEOUT
+                        reader.readexactly(4), timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
                     # 接收超时，检查心跳是否超时
@@ -274,8 +294,7 @@ class AsyncTCPServer:
                     with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
                     continue
-
-                if not raw_length:
+                except asyncio.IncompleteReadError:
                     break  # 连接关闭
 
                 # 更新最后收到数据时间
@@ -290,7 +309,7 @@ class AsyncTCPServer:
                 # 接收完整消息数据
                 try:
                     data = await asyncio.wait_for(
-                        reader.read(message_length), timeout=TCP_RECV_TIMEOUT
+                        reader.readexactly(message_length), timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
                     # 接收数据体超时
@@ -302,9 +321,9 @@ class AsyncTCPServer:
                     with self.active_time_lock:
                         self._client_last_active[(reader, writer)] = time.time()
                     continue
-
-                if not data:
-                    break  # 连接关闭
+                except asyncio.IncompleteReadError:
+                    logger.warning(f"客户端 {address} 数据接收不完整，断开连接")
+                    break
 
                 # 更新最后收到数据时间
                 last_data_time = time.time()
@@ -393,16 +412,27 @@ class AsyncTCPServer:
                     # 使用缓存的设备ID
                     info["id"] = cached_device["id"]
                 else:
-                    # 尝试从数据库获取现有设备
+                    # 尝试从数据库获取现有设备，增加超时保护
                     existing_device = None
                     try:
-                        existing_device = await asyncio.get_event_loop().run_in_executor(
-                            self.executor,
-                            self.db_manager.device_manager.get_device_info_by_client_id,
-                            client_id,
+                        # 数据库查询超时设为5秒，防止阻塞太久
+                        existing_device = await asyncio.wait_for(
+                            asyncio.get_event_loop().run_in_executor(
+                                self.executor,
+                                self.db_manager.device_manager.get_device_info_by_client_id,
+                                client_id,
+                            ),
+                            timeout=5.0,
                         )
-                    except Exception:
-                        logger.exception(f"无法从数据库获取设备信息: {client_id}")
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            f"从数据库获取设备信息超时: {client_id}，将使用临时ID处理"
+                        )
+                        existing_device = None
+                    except Exception as e:
+                        logger.exception(
+                            f"无法从数据库获取设备信息: {client_id}, 错误: {e}"
+                        )
                         existing_device = None
 
                     if existing_device:
@@ -469,8 +499,8 @@ class AsyncTCPServer:
                 current_time = time.time()
                 with self.broadcast_lock:
                     last_broadcast = self._client_last_broadcast.get(client_id, 0)
-                    # 限制每秒最多广播一次
-                    if current_time - last_broadcast >= 1.0:
+                    # 限制每3秒最多广播一次，减轻低配机器压力
+                    if current_time - last_broadcast >= 3.0:
                         should_broadcast = True
                         self._client_last_broadcast[client_id] = current_time
 
