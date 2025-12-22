@@ -257,19 +257,19 @@ class AsyncTCPServer:
                     self._client_last_active[(reader, writer)] = time.time()
 
                 last_uptime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # # 广播设备在线状态
-                # try:
-                #     state_manager.broadcast_message(
-                #         {
-                #             "type": "deviceStatus",
-                #             "data": {
-                #                 "client_id": client_id,
-                #                 "status": "online",
-                #             },
-                #         }
-                #     )
-                # except Exception:
-                #     logger.debug(f"无法广播客户端 {client_id} 在线状态")
+                # 广播设备在线状态
+                try:
+                    state_manager.broadcast_message(
+                        {
+                            "type": "deviceStatus",
+                            "data": {
+                                "client_id": client_id,
+                                "status": "online",
+                            },
+                        }
+                    )
+                except Exception:
+                    logger.debug(f"无法广播客户端 {client_id} 在线状态")
             else:
                 logger.warning(f"客户端 {address} 发送的不是握手消息")
                 return
