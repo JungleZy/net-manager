@@ -28,17 +28,19 @@ from src.core.logger import logger
 # 第三方库导入
 import tornado.ioloop
 
+
 class StateManager:
     """统一状态管理器，实现单例模式
-    
+
     负责管理系统全局状态，包括WebSocket客户端连接、事件发布订阅和消息广播。
     """
+
     _instance = None  # 单例实例
     _lock = threading.Lock()  # 单例创建锁
-    
+
     def __new__(cls):
         """实现线程安全的单例模式
-        
+
         Returns:
             StateManager: 唯一的StateManager实例
         """
@@ -47,10 +49,10 @@ class StateManager:
                 if cls._instance is None:
                     cls._instance = super(StateManager, cls).__new__(cls)
         return cls._instance
-      
+
     def __init__(self):
         """初始化状态管理器，确保只初始化一次
-        
+
         避免重复初始化，使用initialized属性标记初始化状态。
         """
         # 确保只初始化一次
@@ -60,7 +62,7 @@ class StateManager:
             # 基础状态数据结构
             self.connected_clients: Set = set()  # 存储所有连接的WebSocket客户端
             self.scan_task_id: Optional[str] = None  # 当前扫描任务ID
-            
+
             # 事件监听器存储，使用defaultdict避免键不存在的问题
             self._event_listeners: Dict[str, List[Callable]] = defaultdict(list)
 
@@ -74,11 +76,17 @@ class StateManager:
             # 细粒度线程锁，提高并发性能
             self._clients_lock = threading.RLock()  # 客户端管理锁
             self._event_lock = threading.RLock()  # 事件管理锁
+            self.device_map_lock = threading.RLock()  # 保护client_device_map的锁
+
+            # 设备状态映射
+            self.client_device_map = (
+                {}
+            )  # 映射client_id到设备信息（包含id、alias、grouping、type和uptime字段）
 
     # -------- WebSocket客户端管理 --------
     def set_main_ioloop(self, ioloop) -> None:
         """设置主线程IOLoop引用，用于跨线程消息发送
-        
+
         Args:
             ioloop: Tornado IOLoop实例
         """
@@ -86,7 +94,7 @@ class StateManager:
 
     def add_client(self, client) -> None:
         """线程安全地添加WebSocket客户端连接
-        
+
         Args:
             client: WebSocket客户端连接对象
         """
@@ -95,7 +103,7 @@ class StateManager:
 
     def remove_client(self, client) -> None:
         """线程安全地移除WebSocket客户端连接
-        
+
         Args:
             client: 要移除的WebSocket客户端连接对象
         """
@@ -108,7 +116,7 @@ class StateManager:
 
     def get_clients(self) -> Set:
         """获取所有连接的客户端的线程安全副本
-        
+
         Returns:
             Set: 客户端连接对象的副本集合
         """
@@ -117,17 +125,17 @@ class StateManager:
 
     def get_client_count(self) -> int:
         """获取当前连接的客户端数量
-        
+
         Returns:
             int: 客户端数量
         """
         with self._clients_lock:
             return len(self.connected_clients)
-    
+
     # -------- 消息广播功能 --------
     async def _send_message_in_main_thread(self, message: Any) -> None:
         """在主线程中向所有客户端发送消息的内部方法 (异步版，支持分片)
-        
+
         Args:
             message: 要发送的消息内容（字典或已序列化的JSON字符串）
         """
@@ -141,9 +149,9 @@ class StateManager:
         client_count = len(clients)
         disconnected_clients = []  # 存储发送失败的客户端
         success_count = 0  # 发送成功计数器
-        
+
         # 批处理大小，每发送多少个客户端后让出控制权
-        BATCH_SIZE = 50 
+        BATCH_SIZE = 50
 
         try:
             # 准备消息字符串
@@ -152,7 +160,7 @@ class StateManager:
             else:
                 # 将消息序列化为JSON字符串
                 message_str = json.dumps(message, ensure_ascii=False)
-            
+
             self._message_count += 1  # 更新消息计数器
 
             # 遍历所有客户端发送消息
@@ -166,7 +174,7 @@ class StateManager:
                     # 发送失败，记录并添加到断开连接列表
                     logger.warning(f"向客户端发送消息时出错: {str(e)}")
                     disconnected_clients.append(client)
-                
+
                 # 每处理 BATCH_SIZE 个客户端，让出控制权
                 # 这样可以避免在大规模广播时阻塞 IOLoop 太久
                 if (i + 1) % BATCH_SIZE == 0:
@@ -202,7 +210,7 @@ class StateManager:
             message_type: 消息类型，用于客户端识别消息用途
         """
         try:
-            
+
             # 丰富消息，添加元数据
             enriched_message = {
                 **message,
@@ -223,10 +231,12 @@ class StateManager:
 
             if current_ioloop is not None:
                 # 在主线程中，通过 spawn_callback 启动异步任务
-                current_ioloop.spawn_callback(self._send_message_in_main_thread, message_str)
+                current_ioloop.spawn_callback(
+                    self._send_message_in_main_thread, message_str
+                )
             else:
                 # 不在主线程中，需要通过IOLoop的add_callback方法在主线程中执行
-                
+
                 try:
                     if self._main_ioloop is not None:
                         # 使用保存的主线程IOLoop引用
@@ -249,7 +259,6 @@ class StateManager:
             self._broadcast_errors += 1
             logger.exception(f"广播消息时发生错误: {str(e)}")
 
-
     # -------- 事件发布订阅系统 --------
     def subscribe_event(self, event_name: str, callback: Callable) -> None:
         """订阅特定事件
@@ -257,7 +266,7 @@ class StateManager:
         Args:
             event_name: 事件名称，用于标识不同类型的事件
             callback: 事件触发时的回调函数，接收event_data参数
-            
+
         Raises:
             TypeError: 如果callback不是可调用对象
         """
@@ -286,7 +295,7 @@ class StateManager:
                 except ValueError:
                     # 回调不在列表中，忽略
                     pass
-    
+
     def _notify_event(self, event_name: str, event_data: Dict[str, Any]) -> None:
         """通知所有订阅者事件已发生
 
@@ -308,6 +317,7 @@ class StateManager:
             except Exception as e:
                 # 记录回调执行失败，但不影响其他回调
                 logger.exception(f"事件回调执行失败: {event_name}: {e}")
-              
+
+
 # 创建全局状态管理器实例，供其他模块直接使用
 state_manager = StateManager()

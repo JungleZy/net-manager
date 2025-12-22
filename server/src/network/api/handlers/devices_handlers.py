@@ -11,6 +11,9 @@ import sqlite3
 from src.network.api.handlers.base_handler import BaseHandler
 
 
+from src.core.state_manager import state_manager
+
+
 class DeviceCreateHandler(BaseHandler):
     """设备创建处理器 - 新增设备"""
 
@@ -39,16 +42,14 @@ class DeviceCreateHandler(BaseHandler):
             if success:
                 # 更新设备缓存
                 client_id = data.get("client_id")
-                if client_id and self.get_tcp_server_func:
-                    tcp_server = self.get_tcp_server_func()
-                    if tcp_server:
-                        with tcp_server.clients_lock:
-                            tcp_server.client_device_map[client_id] = {
-                                "id": data["id"],
-                                "alias": data.get("alias", ""),
-                                "grouping": data.get("grouping", ""),
-                                "type": data.get("type", "")
-                            }
+                if client_id:
+                    with state_manager.device_map_lock:
+                        state_manager.client_device_map[client_id] = {
+                            "id": data["id"],
+                            "alias": data.get("alias", ""),
+                            "grouping": data.get("grouping", ""),
+                            "type": data.get("type", ""),
+                        }
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)
@@ -92,21 +93,20 @@ class DeviceUpdateHandler(BaseHandler):
 
             if success:
                 # 更新设备缓存
-                if self.get_tcp_server_func:
-                    # 获取设备信息，包括client_id
-                    device = self.db_manager.device_manager.get_device_info_by_id(data["id"])
-                    if device:
-                        client_id = device.get("client_id")
-                        if client_id:
-                            tcp_server = self.get_tcp_server_func()
-                            if tcp_server:
-                                with tcp_server.clients_lock:
-                                    tcp_server.client_device_map[client_id] = {
-                                        "id": device["id"],
-                                        "alias": device.get("alias", ""),
-                                        "grouping": device.get("grouping", ""),
-                                        "type": device.get("type", "")
-                                    }
+                # 获取设备信息，包括client_id
+                device = self.db_manager.device_manager.get_device_info_by_id(
+                    data["id"]
+                )
+                if device:
+                    client_id = device.get("client_id")
+                    if client_id:
+                        with state_manager.device_map_lock:
+                            state_manager.client_device_map[client_id] = {
+                                "id": device["id"],
+                                "alias": device.get("alias", ""),
+                                "grouping": device.get("grouping", ""),
+                                "type": device.get("type", ""),
+                            }
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)
@@ -149,12 +149,10 @@ class DeviceDeleteHandler(BaseHandler):
 
             if success:
                 # 更新设备缓存
-                if client_id and self.get_tcp_server_func:
-                    tcp_server = self.get_tcp_server_func()
-                    if tcp_server:
-                        with tcp_server.clients_lock:
-                            if client_id in tcp_server.client_device_map:
-                                del tcp_server.client_device_map[client_id]
+                if client_id:
+                    with state_manager.device_map_lock:
+                        if client_id in state_manager.client_device_map:
+                            del state_manager.client_device_map[client_id]
                 self.write({"status": "success", "message": message})
             else:
                 self.set_status(400)
@@ -336,14 +334,22 @@ class DevicesPageHandler(BaseHandler):
         self.db_manager = db_manager
         self.get_tcp_server_func = get_tcp_server_func
 
-    def get_online_status(self, client_id):
+    def get_online_status_and_uptime(self, client_id):
         if not self.get_tcp_server_func:
-            return False
+            return False, None
         tcp_server = self.get_tcp_server_func()
         if not tcp_server:
-            return False
+            return False, None
         with tcp_server.clients_lock:
-            return client_id in tcp_server.client_id_map
+            if client_id in tcp_server.client_id_map:
+                # 获取缓存的uptime
+                uptime = None
+                with state_manager.device_map_lock:
+                    cached_info = state_manager.client_device_map.get(client_id)
+                    if cached_info and "uptime" in cached_info:
+                        uptime = cached_info["uptime"]
+                return True, uptime
+            return False, None
 
     def get(self):
         try:
@@ -361,31 +367,39 @@ class DevicesPageHandler(BaseHandler):
                 limit = 200
             if offset < 0:
                 offset = 0
-            
+
             # 获取筛选参数
             ip_filter = self.get_query_argument("ip", None)
             device_type = self.get_query_argument("type", None)
             os_name = self.get_query_argument("os_name", None)
-            status = self.get_query_argument("status", None)  # 在线状态筛选（online/offline）
+            status = self.get_query_argument(
+                "status", None
+            )  # 在线状态筛选（online/offline）
             grouping = self.get_query_argument("grouping", None)
-            
+
             # 获取排序参数
             sort_by = self.get_query_argument("sort_by", None)
             sort_order = self.get_query_argument("sort_order", None)
-            
-            # 获取带筛选条件的设备总数
-            total = self.db_manager.device_manager.get_device_count(
-                ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping
-            )
-            
-            # 获取带筛选条件的设备列表
-            devices = self.db_manager.device_manager.get_device_info_paginated(
-                limit, offset, ip_filter=ip_filter, device_type=device_type, os_name=os_name, grouping=grouping,
-                sort_by=sort_by, sort_order=sort_order
+
+            # 如果需要根据在线状态筛选，或者数据量不大，我们可以先获取所有符合基本条件的设备
+            # 然后在内存中进行状态筛选、排序和分页
+
+            # 1. 获取所有符合基本筛选条件（IP、类型、系统、分组）的设备
+            # 注意：这里我们传入 limit=-1 来获取所有匹配记录
+            all_devices = self.db_manager.device_manager.get_device_info_paginated(
+                limit=-1,
+                offset=0,
+                ip_filter=ip_filter,
+                device_type=device_type,
+                os_name=os_name,
+                grouping=grouping,
+                sort_by=sort_by,
+                sort_order=sort_order,
             )
 
+            # 2. 处理设备信息并进行状态筛选
             processed_devices = []
-            for device in devices:
+            for device in all_devices:
                 networks = device["networks"] if device["networks"] else []
                 ips = []
                 for network in networks:
@@ -393,17 +407,22 @@ class DevicesPageHandler(BaseHandler):
                         ip = network["ip_address"]
                         if ip:
                             ips.append(f"{network['name']}: {ip}")
-                
-                # 获取在线状态
-                online = self.get_online_status(device["client_id"])
-                
+
+                # 获取在线状态和uptime
+                online, cached_uptime = self.get_online_status_and_uptime(
+                    device["client_id"]
+                )
+
                 # 应用在线状态筛选
                 if status:
                     if status == "online" and not online:
                         continue
                     if status == "offline" and online:
                         continue
-                
+
+                # 如果在线且缓存中有uptime，则使用缓存的uptime，否则使用数据库中的uptime
+                uptime = cached_uptime if online and cached_uptime else device["uptime"]
+
                 processed_device = {
                     "id": device["id"],
                     "alias": device["alias"],
@@ -427,17 +446,26 @@ class DevicesPageHandler(BaseHandler):
                     "type": device["type"],
                     "client_id": device["client_id"],
                     "timestamp": device["timestamp"],
-                    "uptime": device["uptime"],
+                    "uptime": uptime,
                     "created_at": device["created_at"],
                 }
                 processed_devices.append(processed_device)
 
-            has_more = offset + len(processed_devices) < total
+            # 3. 计算总数
+            total = len(processed_devices)
+
+            # 4. 进行分页
+            start = offset
+            end = offset + limit
+            paged_devices = processed_devices[start:end]
+
+            has_more = end < total
+
             self.write(
                 {
                     "status": "success",
-                    "data": processed_devices,
-                    "count": len(processed_devices),
+                    "data": paged_devices,
+                    "count": len(paged_devices),
                     "total": total,
                     "limit": limit,
                     "offset": offset,
@@ -451,22 +479,20 @@ class DevicesPageHandler(BaseHandler):
 
 class DevicesGroupingsHandler(BaseHandler):
     """设备分组列表处理器 - 获取所有唯一的设备分组"""
-    
+
     def initialize(self, db_manager, get_tcp_server_func=None):
         self.db_manager = db_manager
         self.get_tcp_server_func = get_tcp_server_func
-    
+
     def get(self):
         try:
             # 调用DeviceManager的get_all_groupings方法获取所有分组
             groupings = self.db_manager.device_manager.get_all_groupings()
-            
+
             # 返回分组列表
-            self.write({
-                "status": "success",
-                "data": groupings,
-                "count": len(groupings)
-            })
+            self.write(
+                {"status": "success", "data": groupings, "count": len(groupings)}
+            )
         except Exception as e:
             self.set_status(500)
             self.write({"status": "error", "message": f"内部服务器错误: {str(e)}"})

@@ -56,15 +56,11 @@ class AsyncTCPServer:
         self.tcp_port = TCP_PORT  # TCP服务监听端口
         self.clients = set()  # 存储当前连接的客户端（reader, writer, address）元组集合
         self.client_id_map = {}  # 映射client_id到客户端地址
-        self.client_device_map = (
-            {}
-        )  # 映射client_id到设备信息（包含id、alias、grouping和type字段）
         self._client_last_active = {}  # 客户端最后活跃时间
         self._client_last_broadcast = {}  # 客户端最后广播时间
 
         # 细粒度锁，替代原来的单个clients_lock，减少锁竞争
         self.clients_lock = threading.RLock()  # 保护clients集合和client_id_map的锁
-        self.device_map_lock = threading.RLock()  # 保护client_device_map的锁
         self.active_time_lock = threading.RLock()  # 保护_client_last_active的锁
         self.broadcast_lock = threading.RLock()  # 保护_client_last_broadcast的锁
 
@@ -143,8 +139,8 @@ class AsyncTCPServer:
             self._client_last_active.clear()
 
         # 清理设备映射缓存
-        with self.device_map_lock:
-            self.client_device_map.clear()
+        with state_manager.device_map_lock:
+            state_manager.client_device_map.clear()
 
         # 关闭线程池
         self.executor.shutdown(wait=True)
@@ -165,15 +161,17 @@ class AsyncTCPServer:
                 self.executor, self.db_manager.device_manager.get_all_device_info
             )
             if devices:
-                with self.device_map_lock:
+                with state_manager.device_map_lock:
                     for device in devices:
                         client_id = device.get("client_id")
                         if client_id:
-                            self.client_device_map[client_id] = {
+                            state_manager.client_device_map[client_id] = {
                                 "id": device.get("id"),
                                 "alias": device.get("alias", ""),
                                 "grouping": device.get("grouping", ""),
                                 "type": device.get("type", ""),
+                                "uptime": device.get("uptime", ""),
+                                "created_at": device.get("created_at", ""),
                             }
                 logger.info(f"设备缓存加载完成，共 {len(devices)} 个设备")
         except Exception as e:
@@ -405,8 +403,8 @@ class AsyncTCPServer:
             if client_id:
                 # 尝试从缓存获取设备信息
                 cached_device = None
-                with self.device_map_lock:
-                    cached_device = self.client_device_map.get(client_id)
+                with state_manager.device_map_lock:
+                    cached_device = state_manager.client_device_map.get(client_id)
 
                 if cached_device:
                     # 使用缓存的设备ID
@@ -439,12 +437,14 @@ class AsyncTCPServer:
                         # 使用现有设备ID
                         info["id"] = existing_device["id"]
                         # 更新缓存
-                        with self.device_map_lock:
-                            self.client_device_map[client_id] = {
+                        with state_manager.device_map_lock:
+                            state_manager.client_device_map[client_id] = {
                                 "id": existing_device["id"],
                                 "alias": existing_device.get("alias", ""),
                                 "grouping": existing_device.get("grouping", ""),
                                 "type": existing_device.get("type", ""),
+                                "uptime": last_uptime,
+                                "created_at": existing_device.get("created_at", ""),
                             }
                     else:
                         # 创建新设备ID和默认类型
@@ -452,12 +452,14 @@ class AsyncTCPServer:
                         info["id"] = str(uuid.uuid4())
                         info["type"] = ""  # 默认设备类型
                         # 更新缓存
-                        with self.device_map_lock:
-                            self.client_device_map[client_id] = {
+                        with state_manager.device_map_lock:
+                            state_manager.client_device_map[client_id] = {
                                 "id": info["id"],
                                 "alias": "",
                                 "grouping": "",
                                 "type": info["type"],
+                                "uptime": last_uptime,
+                                "created_at": last_uptime,
                             }
             else:
                 # 缺少client_id，忽略数据
@@ -470,6 +472,7 @@ class AsyncTCPServer:
             device_info = self._create_device_info_with_id(info, last_uptime)
 
             if isSave:
+                print(device_info.to_dict())
                 # 5. 将设备信息放入持久化队列
                 try:
                     self.persist_queue.enqueue(device_info)
@@ -478,16 +481,23 @@ class AsyncTCPServer:
 
             # 6. 确保设备ID映射正确
             try:
-                with self.device_map_lock:
+                with state_manager.device_map_lock:
                     # 更新缓存的设备ID
-                    if client_id in self.client_device_map:
-                        self.client_device_map[client_id]["id"] = device_info.id
+                    if client_id in state_manager.client_device_map:
+                        state_manager.client_device_map[client_id][
+                            "id"
+                        ] = device_info.id
+                        state_manager.client_device_map[client_id][
+                            "uptime"
+                        ] = last_uptime
                     else:
-                        self.client_device_map[client_id] = {
+                        state_manager.client_device_map[client_id] = {
                             "id": device_info.id,
                             "alias": "",
                             "grouping": "",
                             "type": "",
+                            "uptime": last_uptime,
+                            "created_at": last_uptime,
                         }
             except Exception:
                 logger.exception(f"无法更新设备缓存: {client_id}")
@@ -505,13 +515,15 @@ class AsyncTCPServer:
                         self._client_last_broadcast[client_id] = current_time
 
                 if should_broadcast:
-                    with self.device_map_lock:
-                        device_info.alias = self.client_device_map[client_id]["alias"]
-                        device_info.grouping = self.client_device_map[client_id][
-                            "grouping"
-                        ]
-                        device_info.type = self.client_device_map[client_id]["type"]
-                        device_info.uptime = last_uptime
+                    with state_manager.device_map_lock:
+                        # 优化：只查找一次字典，避免重复查找开销
+                        cached_info = state_manager.client_device_map.get(client_id)
+                        if cached_info:
+                            device_info.alias = cached_info.get("alias", "")
+                            device_info.grouping = cached_info.get("grouping", "")
+                            device_info.type = cached_info.get("type", "")
+                            device_info.uptime = last_uptime
+                            device_info.created_at = cached_info.get("created_at", "")
                     state_manager.broadcast_message(
                         {"type": "deviceInfo", "data": device_info.to_dict()}
                     )
