@@ -7,6 +7,7 @@
 
 import json
 import sqlite3
+import ipaddress
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
 import uuid
@@ -30,6 +31,24 @@ class DeviceManager(BaseDatabaseManager):
 
     提供设备信息的增删改查操作。
     """
+
+    @staticmethod
+    def _ip_to_int(ip_str: Optional[str]) -> int:
+        """
+        将IPv4字符串转换为整数，用于排序
+
+        Args:
+            ip_str: IPv4地址字符串
+
+        Returns:
+            整数表示的IP地址，如果转换失败返回0
+        """
+        try:
+            if not ip_str:
+                return 0
+            return int(ipaddress.IPv4Address(ip_str))
+        except Exception:
+            return 0
 
     def __init__(
         self,
@@ -152,12 +171,13 @@ class DeviceManager(BaseDatabaseManager):
                         uptime DATETIME DEFAULT (datetime('now', 'localtime')),  -- 设备运行时间字段
                         created_at DATETIME DEFAULT (datetime('now', 'localtime'))
                     )
-                """)
+                """
+                )
 
                 # 检获取当前表结构，查并添加新字段（如果不存在）
                 cursor.execute("PRAGMA table_info(device_info)")
                 existing_columns = {row[1] for row in cursor.fetchall()}
-                
+
                 # 定义表的完整字段结构
                 table_columns = [
                     ("id", "TEXT PRIMARY KEY"),
@@ -178,9 +198,9 @@ class DeviceManager(BaseDatabaseManager):
                     ("grouping", "TEXT DEFAULT ''"),
                     ("timestamp", "DATETIME DEFAULT (datetime('now', 'localtime'))"),
                     ("uptime", "DATETIME DEFAULT (datetime('now', 'localtime'))"),
-                    ("created_at", "DATETIME DEFAULT (datetime('now', 'localtime'))")
+                    ("created_at", "DATETIME DEFAULT (datetime('now', 'localtime'))"),
                 ]
-                
+
                 # 添加缺失的字段
                 for column_name, column_def in table_columns:
                     if column_name not in existing_columns:
@@ -188,22 +208,32 @@ class DeviceManager(BaseDatabaseManager):
                         column_type = column_def.split()[0]
                         try:
                             # 尝试添加字段
-                            cursor.execute(f"ALTER TABLE device_info ADD COLUMN {column_name} {column_type}")
+                            cursor.execute(
+                                f"ALTER TABLE device_info ADD COLUMN {column_name} {column_type}"
+                            )
                             # 设置默认值（如果需要）
                             if "DEFAULT" in column_def:
                                 default_value = column_def.split("DEFAULT")[1].strip()
                                 # 处理字符串默认值
-                                if default_value.startswith("'") and default_value.endswith("'"):
-                                    cursor.execute(f"UPDATE device_info SET {column_name} = {default_value} WHERE {column_name} IS NULL")
-                                elif default_value.startswith('"') and default_value.endswith('"'):
-                                    cursor.execute(f"UPDATE device_info SET {column_name} = {default_value} WHERE {column_name} IS NULL")
+                                if default_value.startswith(
+                                    "'"
+                                ) and default_value.endswith("'"):
+                                    cursor.execute(
+                                        f"UPDATE device_info SET {column_name} = {default_value} WHERE {column_name} IS NULL"
+                                    )
+                                elif default_value.startswith(
+                                    '"'
+                                ) and default_value.endswith('"'):
+                                    cursor.execute(
+                                        f"UPDATE device_info SET {column_name} = {default_value} WHERE {column_name} IS NULL"
+                                    )
                             conn.commit()
                             logger.info(f"已添加字段 {column_name} 到 device_info 表")
                         except sqlite3.OperationalError as oe:
                             # 如果字段已存在（可能是因为并发操作），忽略错误
                             if "duplicate column name" not in str(oe).lower():
                                 logger.warning(f"添加字段 {column_name} 失败: {oe}")
-                
+
                 conn.commit()
 
                 # 为常用查询字段创建索引
@@ -211,13 +241,15 @@ class DeviceManager(BaseDatabaseManager):
                     """
                     CREATE INDEX IF NOT EXISTS idx_device_info_client_id 
                     ON device_info(client_id)
-                """)
+                """
+                )
 
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_device_info_timestamp 
                     ON device_info(timestamp)
-                """)
+                """
+                )
 
                 conn.commit()
                 # 迁移修复：清理重复client_id，仅保留最新记录
@@ -227,7 +259,8 @@ class DeviceManager(BaseDatabaseManager):
                         SELECT client_id FROM device_info 
                         WHERE client_id IS NOT NULL AND client_id <> ''
                         GROUP BY client_id HAVING COUNT(*) > 1
-                        """)
+                        """
+                    )
                     dup_rows = cursor.fetchall()
                     for (cid,) in dup_rows:
                         # 保留最新created_at的记录
@@ -255,7 +288,8 @@ class DeviceManager(BaseDatabaseManager):
                         """
                         CREATE UNIQUE INDEX IF NOT EXISTS uniq_device_info_client_id
                         ON device_info(client_id)
-                        """)
+                        """
+                    )
                     conn.commit()
                 except Exception as mig_e:
                     # 迁移过程不中断初始化，记录日志
@@ -475,10 +509,20 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"查询所有系统信息失败: {e}")
             raise DatabaseQueryError(f"查询所有系统信息失败: {e}") from e
 
-    def get_device_info_paginated(self, limit: int, offset: int, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None, sort_by: str = None, sort_order: str = None) -> List[Dict[str, Any]]:
+    def get_device_info_paginated(
+        self,
+        limit: int,
+        offset: int,
+        ip_filter: str = None,
+        device_type: str = None,
+        os_name: str = None,
+        grouping: str = None,
+        sort_by: str = None,
+        sort_order: str = None,
+    ) -> List[Dict[str, Any]]:
         """
         分页获取设备信息，支持筛选条件和排序
-        
+
         Args:
             limit: 每页数量
             offset: 偏移量
@@ -488,63 +532,80 @@ class DeviceManager(BaseDatabaseManager):
             grouping: 设备分组精确匹配
             sort_by: 排序字段（支持：alias, grouping, created_at, uptime）
             sort_order: 排序方向（asc 或 desc）
-            
+
         Returns:
             设备信息列表
         """
         try:
             with self.get_db_connection() as conn:
+                # 注册IP转换函数用于排序
+                conn.create_function("ip_to_int", 1, self._ip_to_int)
                 cursor = conn.cursor()
-                
+
                 # 构建查询条件
                 conditions = []
                 params = []
-                
+
                 # IP模糊查询（networks字段是JSON数组，包含ip_address字段）
                 if ip_filter:
                     conditions.append("networks LIKE ?")
                     params.append(f"%{ip_filter}%")
-                
+
                 # 设备类型精确匹配
                 if device_type:
                     conditions.append("type = ?")
                     params.append(device_type)
-                
+
                 # 操作系统名称精确匹配
                 if os_name:
                     conditions.append("os_name = ?")
                     params.append(os_name)
-                
+
                 # 设备分组精确匹配
                 if grouping:
                     conditions.append("grouping = ?")
                     params.append(grouping)
-                
+
                 # 构建排序子句
-                allowed_sort_fields = ['alias', 'grouping', 'created_at', 'uptime', 'networks']
-                sort_field = sort_by if sort_by in allowed_sort_fields else 'created_at'
-                sort_direction = 'ASC' if sort_order and sort_order.lower() == 'asc' else 'DESC'
-                
-                # 特殊处理networks字段排序，提取第一个IP地址进行排序
-                if sort_field == 'networks':
-                    # 使用SQLite JSON函数提取第一个元素的ip_address
-                    order_clause = f"ORDER BY json_extract(networks, '$[0].ip_address') {sort_direction}"
+                allowed_sort_fields = [
+                    "alias",
+                    "grouping",
+                    "created_at",
+                    "uptime",
+                    "networks",
+                ]
+                sort_field = sort_by if sort_by in allowed_sort_fields else "created_at"
+                sort_direction = (
+                    "ASC" if sort_order and sort_order.lower() == "asc" else "DESC"
+                )
+
+                # 特殊处理networks字段排序，提取第一个非空IP地址进行排序
+                if sort_field == "networks":
+                    # 使用SQLite JSON函数提取第一个非空IP地址，并转换为整数进行排序
+                    order_clause = (
+                        f"ORDER BY ip_to_int((SELECT json_extract(value, '$.ip_address') "
+                        f"FROM json_each(device_info.networks) "
+                        f"WHERE json_extract(value, '$.ip_address') IS NOT NULL "
+                        f"AND json_extract(value, '$.ip_address') != '' LIMIT 1)) {sort_direction}"
+                    )
                 else:
                     order_clause = f"ORDER BY {sort_field} {sort_direction}"
-                
+
                 # 构建完整SQL查询
                 base_query = """
                     SELECT id, client_id, hostname, os_name, os_version, os_architecture, machine_type,
                            services, processes, networks, cpu_info, memory_info, disk_info, type, alias, grouping, uptime, timestamp, created_at
                     FROM device_info
                 """
-                
+
                 if conditions:
                     where_clause = "WHERE " + " AND ".join(conditions)
-                    query = f"{base_query} {where_clause} {order_clause} LIMIT ? OFFSET ?"
+                    query = (
+                        f"{base_query} {where_clause} {order_clause} LIMIT ? OFFSET ?"
+                    )
                 else:
                     query = f"{base_query} {order_clause} LIMIT ? OFFSET ?"
-                
+
                 # 添加分页参数
                 params.extend([int(limit), int(offset)])
                 cursor.execute(query, params)
@@ -1017,10 +1078,16 @@ class DeviceManager(BaseDatabaseManager):
             logger.error(f"删除设备失败: {e}")
             raise DatabaseQueryError(f"删除设备失败: {e}") from e
 
-    def get_device_count(self, ip_filter: str = None, device_type: str = None, os_name: str = None, grouping: str = None) -> int:
+    def get_device_count(
+        self,
+        ip_filter: str = None,
+        device_type: str = None,
+        os_name: str = None,
+        grouping: str = None,
+    ) -> int:
         """
         获取设备总数，支持筛选条件
-        
+
         Args:
             ip_filter: IP地址模糊查询
             device_type: 设备类型精确匹配
@@ -1036,40 +1103,40 @@ class DeviceManager(BaseDatabaseManager):
         try:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # 构建查询条件
                 conditions = []
                 params = []
-                
+
                 # IP模糊查询
                 if ip_filter:
                     conditions.append("networks LIKE ?")
                     params.append(f"%{ip_filter}%")
-                
+
                 # 设备类型精确匹配
                 if device_type:
                     conditions.append("type = ?")
                     params.append(device_type)
-                
+
                 # 操作系统名称精确匹配
                 if os_name:
                     conditions.append("os_name = ?")
                     params.append(os_name)
-                
+
                 # 设备分组精确匹配
                 if grouping:
                     conditions.append("grouping = ?")
                     params.append(grouping)
-                
+
                 # 构建完整SQL查询
                 base_query = "SELECT COUNT(*) FROM device_info"
-                
+
                 if conditions:
                     where_clause = "WHERE " + " AND ".join(conditions)
                     query = f"{base_query} {where_clause}"
                 else:
                     query = base_query
-                
+
                 cursor.execute(query, params)
                 count = cursor.fetchone()[0]
                 return count
@@ -1080,17 +1147,17 @@ class DeviceManager(BaseDatabaseManager):
     def get_all_groupings(self) -> List[str]:
         """
         获取所有唯一的设备分组列表
-        
+
         Returns:
             List[str]: 唯一分组名称列表
-            
+
         Raises:
             DatabaseQueryError: 查询失败时抛出
         """
         try:
             with self.get_db_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # 查询所有唯一的分组名称，排除空字符串
                 cursor.execute(
                     """
@@ -1100,9 +1167,9 @@ class DeviceManager(BaseDatabaseManager):
                     ORDER BY grouping
                     """
                 )
-                
+
                 rows = cursor.fetchall()
-                
+
                 # 转换结果为字符串列表
                 groupings = [row[0] for row in rows]
                 return groupings
