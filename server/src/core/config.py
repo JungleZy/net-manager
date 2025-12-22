@@ -30,8 +30,8 @@ SERVER_MONITOR_FD_BACKOFF_SEC = int(os.getenv("SERVER_MONITOR_FD_BACKOFF_SEC", 6
 
 # TCP 接收控制
 TCP_MAX_MESSAGE_SIZE = 16 * 1024 * 1024  # 单消息最大长度（字节）
-TCP_RECV_TIMEOUT = 5  # 接收超时（秒）
-TCP_HEARTBEAT_TIMEOUT = 60  # 心跳超时（秒），超过此时间未收到数据则断开连接
+TCP_RECV_TIMEOUT = 30  # 接收超时（秒）
+TCP_HEARTBEAT_TIMEOUT = 120  # 心跳超时（秒），超过此时间未收到数据则断开连接
 
 # SNMP 轮询队列控制
 SNMP_QUEUE_MAXSIZE = 200  # 队列最大长度

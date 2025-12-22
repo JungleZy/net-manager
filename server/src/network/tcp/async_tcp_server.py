@@ -54,16 +54,18 @@ class AsyncTCPServer:
         self.tcp_port = TCP_PORT  # TCP服务监听端口
         self.clients = set()  # 存储当前连接的客户端（reader, writer, address）元组集合
         self.client_id_map = {}  # 映射client_id到客户端地址
-        self.client_device_map = {}  # 映射client_id到设备信息（包含id、alias、grouping和type字段）
+        self.client_device_map = (
+            {}
+        )  # 映射client_id到设备信息（包含id、alias、grouping和type字段）
         self._client_last_active = {}  # 客户端最后活跃时间
         self._client_last_broadcast = {}  # 客户端最后广播时间
-        
+
         # 细粒度锁，替代原来的单个clients_lock，减少锁竞争
         self.clients_lock = threading.RLock()  # 保护clients集合和client_id_map的锁
         self.device_map_lock = threading.RLock()  # 保护client_device_map的锁
         self.active_time_lock = threading.RLock()  # 保护_client_last_active的锁
         self.broadcast_lock = threading.RLock()  # 保护_client_last_broadcast的锁
-        
+
         self.running = False  # 服务器运行状态标志
         self.server = None  # 异步服务器实例
 
@@ -97,10 +99,7 @@ class AsyncTCPServer:
         try:
             # 创建异步服务器
             self.server = await asyncio.start_server(
-                self.handle_client,
-                '0.0.0.0',
-                self.tcp_port,
-                backlog=1024
+                self.handle_client, "0.0.0.0", self.tcp_port, backlog=1024
             )
 
             # 启动服务器
@@ -136,11 +135,11 @@ class AsyncTCPServer:
                     logger.warning(f"关闭客户端 {address} 连接时出错: {e}")
             self.clients.clear()
             self.client_id_map.clear()
-        
+
         # 清理客户端活跃时间记录
         with self.active_time_lock:
             self._client_last_active.clear()
-        
+
         # 清理设备映射缓存
         with self.device_map_lock:
             self.client_device_map.clear()
@@ -161,42 +160,34 @@ class AsyncTCPServer:
         try:
             # 使用线程池执行阻塞的数据库操作
             devices = await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                self.db_manager.device_manager.get_all_device_info
+                self.executor, self.db_manager.device_manager.get_all_device_info
             )
             if devices:
                 with self.device_map_lock:
                     for device in devices:
-                        client_id = device.get('client_id')
+                        client_id = device.get("client_id")
                         if client_id:
                             self.client_device_map[client_id] = {
-                                'id': device.get('id'),
-                                'alias': device.get('alias', ''),
-                                'grouping': device.get('grouping', ''),
-                                'type': device.get('type', '')
+                                "id": device.get("id"),
+                                "alias": device.get("alias", ""),
+                                "grouping": device.get("grouping", ""),
+                                "type": device.get("type", ""),
                             }
                 logger.info(f"设备缓存加载完成，共 {len(devices)} 个设备")
         except Exception as e:
             logger.exception(f"加载设备缓存时出错: {e}")
 
-    async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def handle_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
         """处理单个客户端连接的完整生命周期
 
         Args:
             reader: 异步流读取器
             writer: 异步流写入器
         """
-        address = writer.get_extra_info('peername')
+        address = writer.get_extra_info("peername")
         logger.debug(f"客户端 {address} 已连接")
-
-        # 检查最大客户端连接数
-        with self.clients_lock:
-            current_clients = len(self.clients)
-        if current_clients >= TCP_MAX_CLIENTS:
-            logger.warning(f"客户端连接数已达上限 {TCP_MAX_CLIENTS}，拒绝连接: {address}")
-            writer.close()
-            await writer.wait_closed()
-            return
 
         # 将客户端添加到连接集合
         with self.clients_lock:
@@ -209,8 +200,7 @@ class AsyncTCPServer:
             # 1. 接收客户端握手消息（带4字节长度前缀）
             # 接收4字节长度前缀
             raw_length = await asyncio.wait_for(
-                reader.read(4),
-                timeout=TCP_RECV_TIMEOUT
+                reader.read(4), timeout=TCP_RECV_TIMEOUT
             )
             if not raw_length:
                 logger.warning(f"客户端 {address} 握手超时")
@@ -221,15 +211,12 @@ class AsyncTCPServer:
 
             # 检查消息长度是否超限
             if message_length > TCP_MAX_MESSAGE_SIZE:
-                logger.warning(
-                    f"客户端 {address} 握手消息长度超限: {message_length}"
-                )
+                logger.warning(f"客户端 {address} 握手消息长度超限: {message_length}")
                 return
 
             # 接收完整的握手数据
             handshake_data = await asyncio.wait_for(
-                reader.read(message_length),
-                timeout=TCP_RECV_TIMEOUT
+                reader.read(message_length), timeout=TCP_RECV_TIMEOUT
             )
             if not handshake_data:
                 logger.warning(f"客户端 {address} 握手数据接收超时")
@@ -241,30 +228,28 @@ class AsyncTCPServer:
             if handshake_info.get("type") == "handshake":
                 # 握手成功，获取client_id
                 client_id = handshake_info.get("client_id", "unknown")
-                logger.info(
-                    f"客户端 {address} 握手成功，client_id: {client_id}"
-                )
+                logger.info(f"客户端 {address} 握手成功，client_id: {client_id}")
 
                 # 存储client_id与客户端地址的映射
                 with self.clients_lock:
                     self.client_id_map[client_id] = address
                 with self.active_time_lock:
                     self._client_last_active[(reader, writer)] = time.time()
-                
+
                 last_uptime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # 广播设备在线状态
-                try:
-                    state_manager.broadcast_message(
-                        {
-                            "type": "deviceStatus",
-                            "data": {
-                                "client_id": client_id,
-                                "status": "online",
-                            },
-                        }
-                    )
-                except Exception:
-                    logger.debug(f"无法广播客户端 {client_id} 在线状态")
+                # # 广播设备在线状态
+                # try:
+                #     state_manager.broadcast_message(
+                #         {
+                #             "type": "deviceStatus",
+                #             "data": {
+                #                 "client_id": client_id,
+                #                 "status": "online",
+                #             },
+                #         }
+                #     )
+                # except Exception:
+                #     logger.debug(f"无法广播客户端 {client_id} 在线状态")
             else:
                 logger.warning(f"客户端 {address} 发送的不是握手消息")
                 return
@@ -275,13 +260,14 @@ class AsyncTCPServer:
                 # 接收消息长度前缀
                 try:
                     raw_length = await asyncio.wait_for(
-                        reader.read(4),
-                        timeout=TCP_RECV_TIMEOUT
+                        reader.read(4), timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
                     # 接收超时，检查心跳是否超时
                     if time.time() - last_data_time > TCP_HEARTBEAT_TIMEOUT:
-                        logger.warning(f"客户端 {address} 心跳超时({TCP_HEARTBEAT_TIMEOUT}s)，断开连接")
+                        logger.warning(
+                            f"客户端 {address} 心跳超时({TCP_HEARTBEAT_TIMEOUT}s)，断开连接"
+                        )
                         break
 
                     # 接收超时但未超过心跳阈值，更新活跃时间后继续
@@ -291,7 +277,7 @@ class AsyncTCPServer:
 
                 if not raw_length:
                     break  # 连接关闭
-                
+
                 # 更新最后收到数据时间
                 last_data_time = time.time()
 
@@ -299,13 +285,12 @@ class AsyncTCPServer:
                 message_length = struct.unpack("!I", raw_length)[0]
                 if message_length > TCP_MAX_MESSAGE_SIZE:
                     logger.warning(f"客户端 {address} 消息长度超限: {message_length}")
-                    break
+                    continue
 
                 # 接收完整消息数据
                 try:
                     data = await asyncio.wait_for(
-                        reader.read(message_length),
-                        timeout=TCP_RECV_TIMEOUT
+                        reader.read(message_length), timeout=TCP_RECV_TIMEOUT
                     )
                 except asyncio.TimeoutError:
                     # 接收数据体超时
@@ -320,7 +305,7 @@ class AsyncTCPServer:
 
                 if not data:
                     break  # 连接关闭
-                
+
                 # 更新最后收到数据时间
                 last_data_time = time.time()
 
@@ -363,9 +348,11 @@ class AsyncTCPServer:
             return json.loads(json_str), json_str
         except Exception as e:
             # 捕获所有异常，确保线程不会崩溃
-            return e, json_str if 'json_str' in locals() else None
+            return e, json_str if "json_str" in locals() else None
 
-    async def _process_client_data(self, data, address, client_id=None, last_uptime=None):
+    async def _process_client_data(
+        self, data, address, client_id=None, last_uptime=None
+    ):
         """异步处理来自客户端的设备数据"""
         if not data:
             logger.debug(f"收到来自 {address} 的空数据包，忽略")
@@ -386,7 +373,7 @@ class AsyncTCPServer:
                 # 如果是异常，抛出以便后续错误处理捕获
                 json_str = json_str_or_error
                 raise result
-            
+
             info = result
             if info is None:
                 # 空数据
@@ -395,6 +382,7 @@ class AsyncTCPServer:
 
             # 2. 处理设备ID
             client_id = info.get("client_id")
+            isSave = False
             if client_id:
                 # 尝试从缓存获取设备信息
                 cached_device = None
@@ -403,7 +391,7 @@ class AsyncTCPServer:
 
                 if cached_device:
                     # 使用缓存的设备ID
-                    info["id"] = cached_device['id']
+                    info["id"] = cached_device["id"]
                 else:
                     # 尝试从数据库获取现有设备
                     existing_device = None
@@ -411,7 +399,7 @@ class AsyncTCPServer:
                         existing_device = await asyncio.get_event_loop().run_in_executor(
                             self.executor,
                             self.db_manager.device_manager.get_device_info_by_client_id,
-                            client_id
+                            client_id,
                         )
                     except Exception:
                         logger.exception(f"无法从数据库获取设备信息: {client_id}")
@@ -423,22 +411,23 @@ class AsyncTCPServer:
                         # 更新缓存
                         with self.device_map_lock:
                             self.client_device_map[client_id] = {
-                                'id': existing_device["id"],
-                                'alias': existing_device.get('alias', ''),
-                                'grouping': existing_device.get('grouping', ''),
-                                'type': existing_device.get('type', '')
+                                "id": existing_device["id"],
+                                "alias": existing_device.get("alias", ""),
+                                "grouping": existing_device.get("grouping", ""),
+                                "type": existing_device.get("type", ""),
                             }
                     else:
                         # 创建新设备ID和默认类型
+                        isSave = True
                         info["id"] = str(uuid.uuid4())
-                        info["type"] = "台式机"  # 默认设备类型
+                        info["type"] = ""  # 默认设备类型
                         # 更新缓存
                         with self.device_map_lock:
                             self.client_device_map[client_id] = {
-                                'id': info["id"],
-                                'alias': '',
-                                'grouping': '',
-                                'type': info["type"]
+                                "id": info["id"],
+                                "alias": "",
+                                "grouping": "",
+                                "type": info["type"],
                             }
             else:
                 # 缺少client_id，忽略数据
@@ -449,25 +438,26 @@ class AsyncTCPServer:
 
             # 4. 创建设备信息对象
             device_info = self._create_device_info_with_id(info, last_uptime)
-            
-            # 5. 将设备信息放入持久化队列
-            try:
-                self.persist_queue.enqueue(device_info)
-            except Exception:
-                logger.exception(f"无法将设备信息放入持久化队列: {client_id}")
+
+            if isSave:
+                # 5. 将设备信息放入持久化队列
+                try:
+                    self.persist_queue.enqueue(device_info)
+                except Exception:
+                    logger.exception(f"无法将设备信息放入持久化队列: {client_id}")
 
             # 6. 确保设备ID映射正确
             try:
                 with self.device_map_lock:
                     # 更新缓存的设备ID
                     if client_id in self.client_device_map:
-                        self.client_device_map[client_id]['id'] = device_info.id
+                        self.client_device_map[client_id]["id"] = device_info.id
                     else:
                         self.client_device_map[client_id] = {
-                            'id': device_info.id,
-                            'alias': '',
-                            'grouping': '',
-                            'type': ''
+                            "id": device_info.id,
+                            "alias": "",
+                            "grouping": "",
+                            "type": "",
                         }
             except Exception:
                 logger.exception(f"无法更新设备缓存: {client_id}")
@@ -486,9 +476,11 @@ class AsyncTCPServer:
 
                 if should_broadcast:
                     with self.device_map_lock:
-                        device_info.alias = self.client_device_map[client_id]['alias']
-                        device_info.grouping = self.client_device_map[client_id]['grouping']
-                        device_info.type = self.client_device_map[client_id]['type']
+                        device_info.alias = self.client_device_map[client_id]["alias"]
+                        device_info.grouping = self.client_device_map[client_id][
+                            "grouping"
+                        ]
+                        device_info.type = self.client_device_map[client_id]["type"]
                         device_info.uptime = last_uptime
                     state_manager.broadcast_message(
                         {"type": "deviceInfo", "data": device_info.to_dict()}
@@ -521,7 +513,7 @@ class AsyncTCPServer:
         # 移除客户端活跃时间记录
         with self.active_time_lock:
             self._client_last_active.pop((reader, writer), None)
-            
+
         # 移除广播时间记录
         with self.broadcast_lock:
             if client_id:
@@ -533,7 +525,7 @@ class AsyncTCPServer:
             await writer.wait_closed()
         except Exception as e:
             logger.warning(f"关闭客户端 {address} 套接字时出错: {e}")
-        
+
         logger.info(f"客户端 {address} 连接已关闭")
 
     def _create_device_info_with_id(self, info, last_uptime=None):
