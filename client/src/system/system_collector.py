@@ -86,19 +86,19 @@ class SystemCollector:
             SystemInfoCollectionError: 获取IP地址失败
         """
         try:
-            # 方法1: 尝试通过连接外部地址来获取本地IP（原方法）
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    # 连接到一个外部地址（不会真正发送数据）
-                    s.connect(("8.8.8.8", 80))
-                    ip_address = s.getsockname()[0]
+            # # 方法1: 尝试通过连接外部地址来获取本地IP（原方法）
+            # try:
+            #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            #         # 连接到一个外部地址（不会真正发送数据）
+            #         s.connect(("8.8.8.8", 80))
+            #         ip_address = s.getsockname()[0]
 
-                # 验证IP地址有效性
-                if self._is_valid_ip(ip_address):
-                    self.logger.debug(f"方法1获取到IP地址: {ip_address}")
-                    return ip_address
-            except Exception as e:
-                self.logger.debug(f"方法1获取IP地址失败: {e}")
+            #     # 验证IP地址有效性
+            #     if self._is_valid_ip(ip_address):
+            #         self.logger.debug(f"方法1获取到IP地址: {ip_address}")
+            #         return ip_address
+            # except Exception as e:
+            #     self.logger.debug(f"方法1获取IP地址失败: {e}")
 
             # 方法2: 使用psutil获取网络接口信息（适用于Linux系统）
             try:
