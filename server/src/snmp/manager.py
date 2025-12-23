@@ -605,12 +605,10 @@ class SNMPManager:
         return snmp_devices
 
     def scan_snmp_devices(self, network="192.168.1.0/24") -> List[str]:
-        print(network)
         nm = nmap.PortScanner()
         nm.scan(hosts=network, arguments="-sU -p 161 --open --script snmp-brute")
         snmp_hosts = []
         for host in nm.all_hosts():
-            print(host)
             if "udp" in nm[host]:
                 # state = nm[host]['udp']['161']['state']
                 # if state == 'open':

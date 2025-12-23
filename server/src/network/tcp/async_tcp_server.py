@@ -472,7 +472,6 @@ class AsyncTCPServer:
             device_info = self._create_device_info_with_id(info, last_uptime)
 
             if isSave:
-                print(device_info.to_dict())
                 # 5. 将设备信息放入持久化队列
                 try:
                     self.persist_queue.enqueue(device_info)

@@ -1,0 +1,16 @@
+[Unit]
+Description=Net Manager Server Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/net-manager-server-1.1.61
+ExecStart=/home/net-manager-server-1.1.61/net-manager-server-linux-aarch64
+Restart=always
+RestartSec=1s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
